@@ -18,3 +18,9 @@ class BlockEditableComponent extends HTMLElement {
 }
 
 customElements.define("block-editable", BlockEditableComponent);
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'block-editable': BlockEditableComponent;
+	}
+}

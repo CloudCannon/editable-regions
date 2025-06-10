@@ -18,3 +18,9 @@ class ArrayEditableComponent extends HTMLElement {
 }
 
 customElements.define("array-editable", ArrayEditableComponent);
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'array-editable': ArrayEditableComponent;
+	}
+}

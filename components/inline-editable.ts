@@ -18,3 +18,9 @@ class InlineEditableComponent extends HTMLElement {
 }
 
 customElements.define("inline-editable", InlineEditableComponent);
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'inline-editable': InlineEditableComponent;
+	}
+}

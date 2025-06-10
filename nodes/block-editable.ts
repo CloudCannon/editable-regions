@@ -6,6 +6,9 @@ import { addListNodes } from "prosemirror-schema-list";
 import { exampleSetup } from "prosemirror-example-setup";
 import "prosemirror-menu/style/menu.css";
 import Editable, { EditableListener } from "./editable.js";
+import { WindowType } from "../types/window.js";
+
+declare const window: WindowType;
 
 const mySchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, "paragraph block*", "block"),

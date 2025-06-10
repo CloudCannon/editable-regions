@@ -1,4 +1,7 @@
 import Editable from "./editable.js";
+import { WindowType } from "../types/window.js";
+
+declare const window: WindowType;
 
 export default class InlineEditable extends Editable {
   update(): void {

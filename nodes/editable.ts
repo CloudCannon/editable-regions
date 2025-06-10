@@ -135,7 +135,25 @@ export default class Editable {
       // TODO: Parse the propPath
       // TODO: If the propPath is absolute listen to the API
       if (!parentEditable) {
-        //TODO: Listen to the API
+        const loadCloudCannonValue = async (CloudCannon: any) => {
+          console.log("Loading value...");
+          const value = await CloudCannon.value();
+          console.log("Loaded", value);
+          this.pushValue(value, {
+            editable: this,
+            // key: propName.substring(5),
+            path: propPath,
+          });
+        };
+
+        document.addEventListener("cloudcannon:load", function (e) {
+          (e as any).detail.CloudCannon.enableEvents();
+          return loadCloudCannonValue((e as any).detail.CloudCannon);
+        });
+
+        document.addEventListener("cloudcannon:update", async (e) => {
+          return loadCloudCannonValue((e as any).detail.CloudCannon);
+        });
         return;
       }
 

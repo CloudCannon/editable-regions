@@ -6,16 +6,11 @@
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch"
   },
-  "exports": {
-    "./nodes/*": "./nodes/*.ts",
-    "./components/*": "./components/*.ts",
-    "./integrations": "./integrations/index.ts",
-    "./integrations/*": "./integrations/*.ts"
-  },
   "files": [
     "components",
     "integrations",
-    "nodes"
+    "nodes",
+    "types"
   ],
   "dependencies": {
     "prosemirror-example-setup": "^1.2.2",

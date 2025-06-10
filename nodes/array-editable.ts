@@ -1,5 +1,8 @@
 import Editable, { EditableListener } from "./editable.js";
 import ArrayItem from "./array-item.js";
+import { WindowType } from "../types/window.js";
+
+declare const window: WindowType;
 
 export default class ArrayEditable extends Editable {
   dragEl: ArrayItem | undefined = undefined;
@@ -149,7 +152,11 @@ export default class ArrayEditable extends Editable {
       if (this.hoverEl) {
         this.hoverEl.noSwapBack = false;
       }
-      this.hoverEl = (e.target as any).editable;
+      const hoverEl = (e.target as any).editable;
+      if (!hoverEl || !(hoverEl instanceof ArrayItem)) {
+        throw new Error("Invalid Hover Element: Hover element is not an ArrayItem");
+      }
+      this.hoverEl = hoverEl;
       if (this.hoverEl.noSwapBack) {
         return;
       }

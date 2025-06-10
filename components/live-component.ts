@@ -18,3 +18,9 @@ class LiveComponentComponent extends HTMLElement {
 }
 
 customElements.define("live-component", LiveComponentComponent);
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'live-component': LiveComponentComponent;
+	}
+}

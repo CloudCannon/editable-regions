@@ -18,3 +18,9 @@ class ArrayItemComponent extends HTMLElement {
 }
 
 customElements.define("array-item", ArrayItemComponent);
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'array-item': ArrayItemComponent;
+	}
+}
