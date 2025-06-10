@@ -14,6 +14,7 @@ export default class LiveComponent extends Editable {
 			throw new Error(`Invalid Component: Component '${key}' not found`);
 		}
 		component(this.element, this.value);
+		window.hydrateDataEditables?.(this.element);
 	}
 
 	mount(): void {

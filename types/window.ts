@@ -8,6 +8,8 @@ export interface WindowType extends Window {
 	};
 
 	cc_components?: Record<string, ComponentRenderer>;
+
+	hydrateDataEditables?: (root: HTMLElement) => void;
 }
 
 export type ComponentRenderer = (

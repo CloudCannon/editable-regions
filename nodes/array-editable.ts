@@ -106,6 +106,7 @@ export default class ArrayEditable extends Editable {
 		});
 
 		children.forEach((child) => child.remove());
+		window.hydrateDataEditables?.(this.element);
 	}
 
 	mount(): void {
