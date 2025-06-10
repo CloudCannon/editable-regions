@@ -1,0 +1,35 @@
+---
+
+---
+
+<script>
+    const loadCloudCannonValue = async (CloudCannon) => {
+        console.log("Loading value...");
+        const value = await CloudCannon.value();
+        console.log("Loaded", value);
+        window.cc_root_listeners.forEach(({ element, source }) => {
+            element.pushValue(source ? value[source] : value);
+        });
+    };
+
+    document.addEventListener("cloudcannon:load", function (e) {
+        e.detail.CloudCannon.enableEvents();
+        return loadCloudCannonValue(e.detail.CloudCannon);
+    });
+
+    document.addEventListener("cloudcannon:update", async (e) => {
+        return loadCloudCannonValue(e.detail.CloudCannon);
+    });
+
+    Promise.all([
+        customElements.whenDefined("array-item"),
+        customElements.whenDefined("array-editable"),
+        customElements.whenDefined("inline-editable"),
+        customElements.whenDefined("block-editable"),
+        customElements.whenDefined("live-component"),
+    ]).then(() => {
+        if (window.CloudCannon) {
+            loadCloudCannonValue(window.CloudCannon);
+        }
+    });
+</script>
