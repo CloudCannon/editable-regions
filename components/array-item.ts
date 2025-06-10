@@ -1,26 +1,26 @@
 import ArrayItem from "../nodes/array-item.js";
 
 class ArrayItemComponent extends HTMLElement {
-  editable: ArrayItem;
+	editable: ArrayItem;
 
-  constructor() {
-    super();
-    this.editable = new ArrayItem(this);
-  }
+	constructor() {
+		super();
+		this.editable = new ArrayItem(this);
+	}
 
-  connectedCallback(): void {
-    this.editable.connect();
-  }
+	connectedCallback(): void {
+		this.editable.connect();
+	}
 
-  disconnectedCallback(): void {
-    this.editable.disconnect();
-  }
+	disconnectedCallback(): void {
+		this.editable.disconnect();
+	}
 }
 
 customElements.define("array-item", ArrayItemComponent);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'array-item': ArrayItemComponent;
+		"array-item": ArrayItemComponent;
 	}
 }

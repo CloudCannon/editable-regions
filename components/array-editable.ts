@@ -1,26 +1,26 @@
 import ArrayEditable from "../nodes/array-editable.js";
 
 class ArrayEditableComponent extends HTMLElement {
-  editable: ArrayEditable;
+	editable: ArrayEditable;
 
-  constructor() {
-    super();
-    this.editable = new ArrayEditable(this);
-  }
+	constructor() {
+		super();
+		this.editable = new ArrayEditable(this);
+	}
 
-  connectedCallback(): void {
-    this.editable.connect();
-  }
+	connectedCallback(): void {
+		this.editable.connect();
+	}
 
-  disconnectedCallback(): void {
-    this.editable.disconnect();
-  }
+	disconnectedCallback(): void {
+		this.editable.disconnect();
+	}
 }
 
 customElements.define("array-editable", ArrayEditableComponent);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		'array-editable': ArrayEditableComponent;
+		"array-editable": ArrayEditableComponent;
 	}
 }
