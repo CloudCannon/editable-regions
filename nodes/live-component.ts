@@ -1,9 +1,23 @@
 import type { WindowType } from "../types/window.js";
-import Editable from "./editable.js";
+import Editable, { type EditableListener } from "./editable.js";
 
 declare const window: WindowType;
 
 export default class LiveComponent extends Editable {
+	registerListener(listener: EditableListener): void {
+		if (
+			this.listeners.find(
+				({ editable: other }) => listener.editable.element === other.element,
+			)
+		) {
+			return;
+		}
+
+		listener.editable.pushValue(this.value, listener, true);
+
+		this.listeners.push(listener);
+	}
+
 	async update(): Promise<void> {
 		const key = this.element.dataset.component;
 		if (!key) {
@@ -24,7 +38,7 @@ export default class LiveComponent extends Editable {
 			child.editable instanceof LiveComponent &&
 			child.dataset.component === key
 		) {
-			(child as any).value = this.value;
+			child.editable.value = this.value;
 			this.element.replaceWith(child);
 		} else {
 			let targetChild: ChildNode | null | undefined =

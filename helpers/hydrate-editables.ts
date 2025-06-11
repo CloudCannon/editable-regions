@@ -33,7 +33,6 @@ const hydrateDataEditables = (root: Element) => {
 			return;
 		}
 
-		console.log("Hydrating", element);
 		const editable = new Editable(element);
 
 		editable.connect();

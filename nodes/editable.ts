@@ -15,25 +15,33 @@ export default class Editable {
 
 	constructor(element: HTMLElement) {
 		this.element = element;
+		(element as any).editable = this;
 	}
 
 	getNewValue(value: unknown, listener?: EditableListener): unknown {
 		const { key, path } = listener ?? {};
 		if (!key) {
-			this.propsBase = path ? (value as any)[path] : value;
+			this.propsBase = path ? (value as any)?.[path] : value;
 		} else {
-			this.props[key] = path ? (value as any)[path] : value;
+			this.props[key] = path ? (value as any)?.[path] : value;
 		}
 
-		const newValue = Object.entries(this.props).reduce((acc, [key, val]) => {
-			(acc as any)[key] = structuredClone(val);
-			return acc;
-		}, structuredClone(this.propsBase));
+		const newValue = Object.entries(this.props).reduce(
+			(acc, [key, val]) => {
+				(acc as any)[key] = structuredClone(val);
+				return acc;
+			},
+			structuredClone(this.propsBase ?? {}),
+		);
 
 		return this.validateValue(newValue);
 	}
 
-	pushValue(value: unknown, listener?: EditableListener): void {
+	pushValue(
+		value: unknown,
+		listener?: EditableListener,
+		silent?: boolean,
+	): void {
 		const newValue = this.getNewValue(value, listener);
 
 		if (typeof newValue === "undefined") {
@@ -41,7 +49,9 @@ export default class Editable {
 		}
 
 		this.value = newValue;
-		this.update();
+		if (!silent) {
+			this.update();
+		}
 	}
 
 	update(): void {
@@ -80,22 +90,29 @@ export default class Editable {
 	}
 
 	resolveSource(source?: string): string | undefined {
-		const propKey = source?.split(".")[0];
-		const newSource =
-			this.element.dataset[`prop-${propKey}`] ?? this.element.dataset.prop;
-
-		if (typeof newSource === "string" && typeof source === "string") {
-			source = `${newSource}.${source}`;
-		} else if (typeof newSource === "string") {
-			source = newSource;
+		if (typeof source !== "string") {
+			return this.parent
+				? this.parent.resolveSource(this.element.dataset.prop)
+				: this.element.dataset.prop;
 		}
 
 		// TODO: If source is absolute, return it as is
 
-		if (this.parent) {
-			return this.parent.resolveSource(source);
+		const [part, ...rest] = source.split(".");
+		const propKey = part.charAt(0).toUpperCase() + part.slice(1);
+		const propPath =
+			this.element.dataset[`prop${propKey}`] ?? this.element.dataset.prop;
+
+		if (typeof propPath !== "string") {
+			throw new Error(`Failed to resolve source "${source}"`);
 		}
-		return source;
+
+		if (propPath) {
+			rest.unshift(propPath);
+			source = rest.join(".");
+		}
+
+		return this.parent ? this.parent.resolveSource(source) : source;
 	}
 
 	connect(): void {
@@ -136,16 +153,18 @@ export default class Editable {
 
 			// TODO: Parse the propPath
 			// TODO: If the propPath is absolute listen to the API
+
+			const listener = {
+				editable: this,
+				key:
+					propName === "prop" ? undefined : propName.substring(4).toLowerCase(),
+				path: propPath,
+			};
+
 			if (!parentEditable) {
 				const loadCloudCannonValue = async (CloudCannon: any) => {
-					console.log("Loading value...");
 					const value = await CloudCannon.value();
-					console.log("Loaded", value);
-					this.pushValue(value, {
-						editable: this,
-						// key: propName.substring(5),
-						path: propPath,
-					});
+					this.pushValue(value, listener);
 				};
 
 				document.addEventListener("cloudcannon:load", (e) => {
@@ -159,18 +178,7 @@ export default class Editable {
 				return;
 			}
 
-			if (propName.startsWith("prop-")) {
-				parentEditable.registerListener({
-					editable: this,
-					key: propName.substring(5),
-					path: propPath,
-				});
-			} else {
-				parentEditable.registerListener({
-					editable: this,
-					path: propPath,
-				});
-			}
+			parentEditable.registerListener(listener);
 		});
 	}
 
