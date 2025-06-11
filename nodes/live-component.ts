@@ -4,7 +4,7 @@ import Editable from "./editable.js";
 declare const window: WindowType;
 
 export default class LiveComponent extends Editable {
-	update(): void {
+	async update(): Promise<void> {
 		const key = this.element.dataset.component;
 		if (!key) {
 			throw new Error("Invalid Component: Component key not provided");
@@ -13,8 +13,42 @@ export default class LiveComponent extends Editable {
 		if (!component) {
 			throw new Error(`Invalid Component: Component '${key}' not found`);
 		}
-		component(this.element, this.value);
-		window.hydrateDataEditables?.(this.element);
+
+		const rootEl = await component(this.value);
+		window.hydrateDataEditables?.(rootEl);
+
+		const child = rootEl.firstElementChild;
+		if (
+			child instanceof HTMLElement &&
+			"editable" in child &&
+			child.editable instanceof LiveComponent &&
+			child.dataset.component === key
+		) {
+			(child as any).value = this.value;
+			this.element.replaceWith(child);
+		} else {
+			let targetChild: ChildNode | null | undefined =
+				this.element.firstChild ?? undefined;
+			let renderChild: ChildNode | null | undefined =
+				rootEl.firstChild ?? undefined;
+			while (renderChild || targetChild) {
+				const nextTargetChild: ChildNode | null | undefined =
+					targetChild?.nextSibling ?? undefined;
+				const nextRenderChild: ChildNode | null | undefined =
+					renderChild?.nextSibling ?? undefined;
+
+				if (renderChild && targetChild) {
+					targetChild.replaceWith(renderChild);
+				} else if (renderChild) {
+					this.element.appendChild(renderChild);
+				} else if (targetChild) {
+					this.element.removeChild(targetChild);
+				}
+
+				targetChild = nextTargetChild;
+				renderChild = nextRenderChild;
+			}
+		}
 	}
 
 	mount(): void {

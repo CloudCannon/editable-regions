@@ -159,10 +159,7 @@ export const registerAstroComponent = (
 	 * @param target - The DOM element to render the component into
 	 * @param props - Props to pass to the Astro component
 	 */
-	const wrappedComponent = async (
-		target: HTMLElement,
-		props: any,
-	): Promise<void> => {
+	const wrappedComponent = async (props: any): Promise<HTMLElement> => {
 		/**
 		 * Encryption key for Astro server islands
 		 */
@@ -255,10 +252,9 @@ export const registerAstroComponent = (
 		const result = await renderToString(SSRResult, component, props, null);
 		const doc = document.implementation.createHTMLDocument();
 		doc.body.innerHTML = result;
-		target.innerHTML = doc.body.innerHTML;
 
 		// Hydrate any queued React components that failed SSR
-		target.querySelectorAll("[data-react-root]").forEach((node) => {
+		doc.querySelectorAll("[data-react-root]").forEach((node) => {
 			const reactRootId = Number(node.getAttribute("data-react-root"));
 			const { Component, props } = reactRoots[reactRootId];
 			const reactNode = createElement(Component, props, null);
@@ -269,10 +265,18 @@ export const registerAstroComponent = (
 		// Clear the React roots queue
 		reactRoots.length = 0;
 
-		// Clean up Astro-specific elements that shouldn't be in the final DOM
-		target.querySelectorAll("link, [data-island-id]").forEach((node) => {
+		doc.querySelectorAll("link, [data-island-id]").forEach((node) => {
 			node.remove();
 		});
+
+		doc.querySelectorAll("astro-island").forEach((node) => {
+			for (const child of node.children) {
+				node.before(child);
+			}
+			node.remove();
+		});
+
+		return doc.body;
 	};
 
 	// Register the wrapped component in the global registry

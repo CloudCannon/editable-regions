@@ -13,6 +13,5 @@ export interface WindowType extends Window {
 }
 
 export type ComponentRenderer = (
-	target: HTMLElement,
 	props: any,
-) => void | Promise<void>;
+) => HTMLElement | Promise<HTMLElement>;
