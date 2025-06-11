@@ -100,16 +100,21 @@ export default class Editable {
 
 		const [part, ...rest] = source.split(".");
 		const propKey = part.charAt(0).toUpperCase() + part.slice(1);
-		const propPath =
-			this.element.dataset[`prop${propKey}`] ?? this.element.dataset.prop;
-
-		if (typeof propPath !== "string") {
-			throw new Error(`Failed to resolve source "${source}"`);
-		}
+		const propPath = this.element.dataset[`prop${propKey}`];
 
 		if (propPath) {
 			rest.unshift(propPath);
-			source = rest.join(".");
+			return this.parent
+				? this.parent.resolveSource(rest.join("."))
+				: rest.join(".");
+		}
+
+		if (typeof this.element.dataset.prop !== "string") {
+			throw new Error(`Failed to resolve source "${source}"`);
+		}
+
+		if (this.element.dataset.prop) {
+			source = `${this.element.dataset.prop}.${source}`;
 		}
 
 		return this.parent ? this.parent.resolveSource(source) : source;
