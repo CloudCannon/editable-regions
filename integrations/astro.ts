@@ -201,7 +201,12 @@ export const registerAstroComponent = (
 				hasRenderedHead: true,
 				hasDirectives: new Set(),
 			},
-			clientDirectives: new Map([["load", "cloudcannon"]]),
+			clientDirectives: new Map([
+				["load", "cloudcannon-placeholder"],
+				["idle", "cloudcannon-placeholder"],
+				["visible", "cloudcannon-placeholder"],
+				["media", "cloudcannon-placeholder"],
+			]),
 			slots: null,
 			props,
 			/**
