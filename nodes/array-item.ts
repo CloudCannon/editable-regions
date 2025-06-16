@@ -4,6 +4,7 @@ export default class ArrayItem extends Editable {
 	dragging = false;
 	editButton: HTMLElement | undefined = undefined;
 	dragHandle: HTMLElement | undefined = undefined;
+	controlsElement: HTMLElement | undefined = undefined;
 	noSwapBack = false;
 
 	pushValue(value: unknown, listener?: EditableListener): void {
@@ -34,51 +35,43 @@ export default class ArrayItem extends Editable {
 			? "position: relative; display: block; outline: 1px dashed #034ad8; opacity: 0.5"
 			: "position: relative; display: block; outline: 1px solid #034ad8";
 
-		if (!this.editButton) {
-			this.editButton = document.createElement("div");
-			this.editButton.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 60px;
-        width: 40px;
-        height: 40px;
-        background-color: #cfcfcf;
-        z-index: 99999999999;
-        cursor: pointer;
-        border-radius: 5px;
-        display: grid;
-        place-items: center;
-      `;
-			this.editButton.innerHTML = "<cc-icon name='mdi:edit'></cc-icon>";
-
-			this.element.append(this.editButton);
-		}
-
-		if (!this.dragHandle) {
-			this.dragHandle = document.createElement("div");
-			this.dragHandle.className = "drag-handle";
-			this.dragHandle.style.cssText = `
+		if (!this.controlsElement) {
+			this.controlsElement = document.createElement("div");
+			this.controlsElement.classList.add(
+				"c-cloudcannon-editor-overlay--focused",
+			);
+			this.controlsElement.innerHTML = `<div class="c-cloudcannon-editor-overlay-menu c-cloudcannon-reset"></div>`;
+			this.controlsElement.style.cssText = `
         position: absolute;
         top: 10px;
         right: 10px;
-        width: 40px;
-        height: 40px;
-        background-color: #cfcfcf;
         z-index: 99999999999;
-        cursor: grab;
-        border-radius: 5px;
-        display: grid;
-        place-items: center;
       `;
-			this.dragHandle.draggable = true;
-			this.dragHandle.innerHTML =
-				"<cc-icon name='mdi:drag_indicator'></cc-icon>";
+			this.element.append(this.controlsElement);
+		}
 
-			/**
-			 * Handles the start of drag operation for this array item.
-			 *
-			 * @param e - The drag start event
-			 */
+		if (!this.editButton) {
+			this.editButton = document.createElement("button");
+			this.editButton.className =
+				"c-cloudcannon-reset c-cloudcannon-editor-overlay-menu-control c-cloudcannon-editor-overlay-menu-control-edit";
+			this.editButton.innerHTML =
+				'<span class="c-cloudcannon-reset cc-control-button-span">Edit</span>';
+
+			this.editButton.onclick = (e: MouseEvent) => {
+				window.CloudCannon.edit(this.resolveSource(), undefined, e);
+			};
+
+			this.controlsElement.firstElementChild?.append(this.editButton);
+		}
+
+		if (!this.dragHandle) {
+			this.dragHandle = document.createElement("button");
+			this.dragHandle.className =
+				"c-cloudcannon-reset c-cloudcannon-editor-overlay-menu-control c-cloudcannon-editor-overlay-menu-control-drag";
+			this.dragHandle.innerHTML =
+				'<span class="c-cloudcannon-reset cc-control-button-span">Drag</span>';
+			this.dragHandle.draggable = true;
+
 			this.dragHandle.ondragstart = (e: DragEvent): void => {
 				e.stopPropagation();
 				if (e.dataTransfer) {
@@ -93,18 +86,13 @@ export default class ArrayItem extends Editable {
 				);
 			};
 
-			/**
-			 * Handles the end of drag operation for this array item.
-			 *
-			 * @param e - The drag end event
-			 */
 			this.dragHandle.ondragend = (e: DragEvent): void => {
 				this.dragging = false;
 				this.element.style.cssText =
 					"position: relative; display: block; outline: 1px solid #034ad8";
 			};
 
-			this.element.append(this.dragHandle);
+			this.controlsElement.firstElementChild?.append(this.dragHandle);
 		}
 
 		this.element.ondragenter = (e: DragEvent): void => {
