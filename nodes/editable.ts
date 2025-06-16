@@ -124,8 +124,7 @@ export default class Editable {
 		Promise.all([
 			customElements.whenDefined("array-item"),
 			customElements.whenDefined("array-editable"),
-			customElements.whenDefined("inline-editable"),
-			customElements.whenDefined("block-editable"),
+			customElements.whenDefined("text-editable"),
 			customElements.whenDefined("live-component"),
 		]).then(() => {
 			if (this.validateConfiguration()) {

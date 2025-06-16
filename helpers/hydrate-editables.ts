@@ -1,18 +1,16 @@
 import {
 	ArrayEditable,
 	ArrayItem,
-	BlockEditable,
 	type Editable,
-	InlineEditable,
 	LiveComponent,
+	TextEditable,
 } from "../nodes";
 import type { WindowType } from "../types/window.js";
 
 declare const window: WindowType;
 
 const editableMap: Record<string, typeof Editable | undefined> = {
-	inline: InlineEditable,
-	block: BlockEditable,
+	text: TextEditable,
 	component: LiveComponent,
 	array: ArrayEditable,
 	"array-item": ArrayItem,
