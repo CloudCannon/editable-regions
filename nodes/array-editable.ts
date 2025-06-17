@@ -79,9 +79,10 @@ export default class ArrayEditable extends Editable {
 
 		const equal = dataKeys?.every((key, i) => key === childKeys[i]);
 		if (equal && children.length === dataKeys?.length) {
-			children.forEach((child, index) =>
-				(child as any).editable.pushValue(value[index]),
-			);
+			children.forEach((child, index) => {
+				child.dataset.prop = `${index}`;
+				(child as any).editable.pushValue(value[index]);
+			});
 			return;
 		}
 
@@ -110,15 +111,15 @@ export default class ArrayEditable extends Editable {
 	}
 
 	mount(): void {
-		this.element.addEventListener("started-drag", (e) => {
-			if (!((e.target as any).editable instanceof ArrayItem)) {
+		this.element.addEventListener("moveStart", (e) => {
+			e.stopPropagation();
+			if (!((e.detail as any) instanceof ArrayItem)) {
 				throw new Error("Invalid Drag: Drag started from an invalid element");
 			}
-			e.stopPropagation();
-			this.dragEl = (e.target as any).editable;
+			this.dragEl = e.detail as any;
 		});
 
-		this.element.addEventListener("ended-drag", (e) => {
+		this.element.addEventListener("moveEnd", (e) => {
 			e.stopPropagation();
 			if (!this.dragEl || !this.hoverEl) {
 				throw new Error("Invalid Drag: Drag or hover element not found");
@@ -139,12 +140,12 @@ export default class ArrayEditable extends Editable {
 			}
 		});
 
-		this.element.addEventListener("hovered", (e) => {
+		this.element.addEventListener("moveHover", (e) => {
 			e.stopPropagation();
 
 			if (
 				!this.dragEl ||
-				!((e.target as any).editable instanceof ArrayItem) ||
+				!((e.detail as any) instanceof ArrayItem) ||
 				this.hoverEl?.element === e.target ||
 				this.dragEl.element === e.target
 			) {
@@ -154,7 +155,7 @@ export default class ArrayEditable extends Editable {
 			if (this.hoverEl) {
 				this.hoverEl.noSwapBack = false;
 			}
-			const hoverEl = (e.target as any).editable;
+			const hoverEl = e.detail as any;
 			if (!hoverEl || !(hoverEl instanceof ArrayItem)) {
 				throw new Error(
 					"Invalid Hover Element: Hover element is not an ArrayItem",

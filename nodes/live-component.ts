@@ -4,6 +4,8 @@ import Editable, { type EditableListener } from "./editable.js";
 declare const window: WindowType;
 
 export default class LiveComponent extends Editable {
+	private controlsElement?: HTMLElement;
+
 	registerListener(listener: EditableListener): void {
 		if (
 			this.listeners.find(
@@ -63,10 +65,23 @@ export default class LiveComponent extends Editable {
 				renderChild = nextRenderChild;
 			}
 		}
+
+		this.controlsElement = document.createElement("editable-controls");
+		this.controlsElement.addEventListener("edit", (e: any) => {
+			console.log(this.resolveSource());
+			window.CloudCannon.edit(this.resolveSource(), undefined, e);
+		});
+		this.element.append(this.controlsElement);
 	}
 
 	mount(): void {
-		this.element.style.cssText =
-			"display: inline-block; outline: 1px solid #034AD8;";
+		if (!this.controlsElement) {
+			this.controlsElement = document.createElement("editable-controls");
+			this.controlsElement.addEventListener("edit", (e: any) => {
+				console.log(this.resolveSource());
+				window.CloudCannon.edit(this.resolveSource(), undefined, e);
+			});
+			this.element.append(this.controlsElement);
+		}
 	}
 }

@@ -1,0 +1,41 @@
+@import "./array-item.css";
+@import "./text-editable.css";
+@import "./live-component.css";
+
+text-editable {
+    display: inline-block;
+}
+
+array-item,
+text-editable,
+live-component,
+[data-editable='array-item'],
+[data-editable='text'],
+[data-editable='component'] {
+
+    &>array-controls,
+    &>editable-controls {
+        display: none;
+    }
+}
+
+.cms-region-highlighted {
+
+    array-item,
+    text-editable,
+    live-component,
+    [data-editable='array-item'],
+    [data-editable='text'],
+    [data-editable='component'] {
+        outline: 1px solid var(--ccve-color-sol);
+
+        &:hover {
+            outline: var(--ccve-editable-outline-width) solid var(--ccve-color-emerald);
+
+            &>array-controls,
+            &>editable-controls {
+                display: block;
+            }
+        }
+    }
+}

@@ -16,9 +16,6 @@ export default class TextEditable extends Editable {
 	}
 
 	mount(): void {
-		this.element.style.cssText =
-			"display: inline-block; outline: 1px solid #034AD8;";
-
 		this.element.onblur = () => {
 			this.focused = false;
 		};
@@ -32,10 +29,10 @@ export default class TextEditable extends Editable {
 			this.element.onclick = () => {
 				this.focused = true;
 				if (!this.editor) {
-					window.CloudCannon.createTextEditableRegion(this.element).then(
-						(editor) => (this.editor = editor),
+					window.CloudCannon.createTextEditableRegion(
+						this.element,
 						editableOptions,
-					);
+					).then((editor) => (this.editor = editor));
 				}
 			};
 			return;

@@ -1,0 +1,5 @@
+live-component,
+[data-editable='component'] {
+    display: block;
+    position: relative;
+}
