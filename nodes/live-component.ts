@@ -8,6 +8,7 @@ import {
 } from "../helpers/checks.js";
 import type { WindowType } from "../types/window.js";
 import Editable, { type EditableListener } from "./editable.js";
+import "../components/ui/error-card.js";
 
 declare const window: WindowType;
 
@@ -29,6 +30,8 @@ export default class LiveComponent extends Editable {
 	}
 
 	async update(): Promise<void> {
+		this.element.classList.remove("errored");
+
 		const key = this.element.dataset.component;
 		if (!key) {
 			throw new Error("Invalid Component: Component key not provided");
@@ -42,11 +45,11 @@ export default class LiveComponent extends Editable {
 		try {
 			rootEl = await component(this.value);
 		} catch (err: unknown) {
-			this.element.innerHTML = `
-			<div class="error"><p>Failed to render component: ${key}</p>
-			<p>${err instanceof Error ? err.message : "Unknown error"}</p>
-			<p>${err instanceof Error ? err.stack : ""}</p>
-			</div>`;
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", `Failed to render component: ${key}`);
+			error.error = err;
+			this.element.replaceChildren(error);
 			return;
 		}
 		window.hydrateDataEditables?.(rootEl);

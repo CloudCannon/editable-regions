@@ -17,6 +17,10 @@ live-component,
     &>editable-controls {
         display: none;
     }
+
+    &.errored {
+        outline: none !important;
+    }
 }
 
 .cms-region-highlighted {
