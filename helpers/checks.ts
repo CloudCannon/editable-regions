@@ -7,15 +7,17 @@ const TAG_NAMES = [
 	"LIVE-COMPONENT",
 	"ARRAY-ITEM",
 	"ARRAY-EDITABLE",
+	"IMAGE-EDITABLE",
 ];
 
-const EDITABLE_TYPES = ["text", "component", "array", "array-item"];
+const EDITABLE_TYPES = ["text", "component", "array", "array-item", "image"];
 
 const CORRESPONDING_NAME: Record<string, string> = {
-	TEXT_EDITABLE: "text",
-	LIVE_COMPONENT: "component",
-	ARRAY_ITEM: "array-item",
-	ARRAY_EDITABLE: "array",
+	"TEXT-EDITABLE": "text",
+	"LIVE-COMPONENT": "component",
+	"ARRAY-ITEM": "array-item",
+	"ARRAY-EDITABLE": "array",
+	"IMAGE-EDITABLE": "image",
 };
 
 export const hasEditable = <T extends object>(

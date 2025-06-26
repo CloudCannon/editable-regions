@@ -66,7 +66,8 @@ export default class Editable {
 	registerListener(listener: EditableListener): void {
 		if (
 			this.listeners.find(
-				({ editable: other }) => listener.editable.element === other.element,
+				({ editable: other, key }) =>
+					listener.editable.element === other.element && listener.key === key,
 			)
 		) {
 			return;
@@ -125,6 +126,7 @@ export default class Editable {
 			customElements.whenDefined("array-editable"),
 			customElements.whenDefined("text-editable"),
 			customElements.whenDefined("live-component"),
+			customElements.whenDefined("image-editable"),
 		]).then(() => {
 			if (this.validateConfiguration()) {
 				this.setupListeners();

@@ -1,5 +1,8 @@
 import Editable, { type EditableListener } from "./editable.js";
 import "../components/ui/array-controls.js";
+import type { WindowType } from "../types/window.js";
+
+declare const window: WindowType;
 
 export default class ArrayItem extends Editable {
 	dragging = false;
@@ -18,7 +21,8 @@ export default class ArrayItem extends Editable {
 	registerListener(listener: EditableListener): void {
 		if (
 			this.listeners.find(
-				({ editable: other }) => listener.editable.element === other.element,
+				({ editable: other, key }) =>
+					listener.editable.element === other.element && listener.key === key,
 			)
 		) {
 			return;
@@ -36,7 +40,11 @@ export default class ArrayItem extends Editable {
 			const clientRect = this.element.getBoundingClientRect();
 			this.controlsElement = document.createElement("array-controls");
 			this.controlsElement.addEventListener("edit", (e: any) => {
-				window.CloudCannon.edit(this.resolveSource(), undefined, e);
+				const source = this.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+				window.CloudCannon?.edit(source, undefined, e);
 			});
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
 				e.stopPropagation();

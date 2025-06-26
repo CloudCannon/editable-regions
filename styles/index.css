@@ -1,17 +1,16 @@
 @import "./array-item.css";
 @import "./text-editable.css";
 @import "./live-component.css";
-
-text-editable {
-    display: inline-block;
-}
+@import "./image-editable.css";
 
 array-item,
 text-editable,
 live-component,
+image-editable,
 [data-editable='array-item'],
 [data-editable='text'],
-[data-editable='component'] {
+[data-editable='component'],
+[data-editable='image'] {
 
     &>array-controls,
     &>editable-controls {
@@ -28,9 +27,11 @@ live-component,
     array-item,
     text-editable,
     live-component,
+    image-editable,
     [data-editable='array-item'],
     [data-editable='text'],
-    [data-editable='component'] {
+    [data-editable='component'],
+    [data-editable='image'] {
         outline: 1px solid var(--ccve-color-sol);
 
         &:hover {

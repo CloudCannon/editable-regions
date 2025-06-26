@@ -2,6 +2,7 @@ import {
 	ArrayEditable,
 	ArrayItem,
 	type Editable,
+	ImageEditable,
 	LiveComponent,
 	TextEditable,
 } from "../nodes";
@@ -14,6 +15,7 @@ const editableMap: Record<string, typeof Editable | undefined> = {
 	component: LiveComponent,
 	array: ArrayEditable,
 	"array-item": ArrayItem,
+	image: ImageEditable,
 };
 
 const hydrateDataEditables = (root: Element) => {

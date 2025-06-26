@@ -12,6 +12,7 @@ export interface WindowType extends Window {
 			setContent: (content: string) => void;
 		}>;
 		edit(slug: string, options?: unknown, e?: Event): void;
+		uploadFile(file: File, inputConfig?: unknown): Promise<string | undefined>;
 	};
 
 	cc_components?: Record<string, ComponentRenderer>;

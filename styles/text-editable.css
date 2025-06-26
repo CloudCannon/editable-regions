@@ -1,0 +1,4 @@
+text-editable,
+[data-editable="text"] {
+    display: inline-block;
+}

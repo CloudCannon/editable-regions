@@ -6,6 +6,7 @@ import "./array-editable.js";
 import "./array-item.js";
 import "./text-editable.js";
 import "./live-component.js";
+import "./image-editable.js";
 
 declare const window: WindowType;
 
@@ -14,6 +15,7 @@ await Promise.all([
 	customElements.whenDefined("array-editable"),
 	customElements.whenDefined("text-editable"),
 	customElements.whenDefined("live-component"),
+	customElements.whenDefined("image-editable"),
 ]);
 
 window.hydrateDataEditables?.(document.body);
