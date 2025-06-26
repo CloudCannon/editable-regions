@@ -1,3 +1,11 @@
+import {
+	areEqualEditables,
+	hasEditable,
+	hasTextEditable,
+	isEditableElement,
+	isLiveComponent,
+	isTextEditable,
+} from "../helpers/checks.js";
 import type { WindowType } from "../types/window.js";
 import Editable, { type EditableListener } from "./editable.js";
 
@@ -15,7 +23,7 @@ export default class LiveComponent extends Editable {
 			return;
 		}
 
-		listener.editable.pushValue(this.value, listener, true);
+		listener.editable.pushValue(this.value, listener);
 
 		this.listeners.push(listener);
 	}
@@ -30,7 +38,17 @@ export default class LiveComponent extends Editable {
 			throw new Error(`Invalid Component: Component '${key}' not found`);
 		}
 
-		const rootEl = await component(this.value);
+		let rootEl: HTMLElement;
+		try {
+			rootEl = await component(this.value);
+		} catch (err: unknown) {
+			this.element.innerHTML = `
+			<div class="error"><p>Failed to render component: ${key}</p>
+			<p>${err instanceof Error ? err.message : "Unknown error"}</p>
+			<p>${err instanceof Error ? err.stack : ""}</p>
+			</div>`;
+			return;
+		}
 		window.hydrateDataEditables?.(rootEl);
 
 		const child = rootEl.firstElementChild;
@@ -40,46 +58,75 @@ export default class LiveComponent extends Editable {
 			child.editable instanceof LiveComponent &&
 			child.dataset.component === key
 		) {
-			child.editable.value = this.value;
-			this.element.replaceWith(child);
-		} else {
-			let targetChild: ChildNode | null | undefined =
-				this.element.firstChild ?? undefined;
-			let renderChild: ChildNode | null | undefined =
-				rootEl.firstChild ?? undefined;
-			while (renderChild || targetChild) {
-				const nextTargetChild: ChildNode | null | undefined =
-					targetChild?.nextSibling ?? undefined;
-				const nextRenderChild: ChildNode | null | undefined =
-					renderChild?.nextSibling ?? undefined;
-
-				if (renderChild && targetChild) {
-					targetChild.replaceWith(renderChild);
-				} else if (renderChild) {
-					this.element.appendChild(renderChild);
-				} else if (targetChild) {
-					this.element.removeChild(targetChild);
-				}
-
-				targetChild = nextTargetChild;
-				renderChild = nextRenderChild;
-			}
+			rootEl = child;
 		}
 
-		this.controlsElement = document.createElement("editable-controls");
-		this.controlsElement.addEventListener("edit", (e: any) => {
-			console.log(this.resolveSource());
-			window.CloudCannon.edit(this.resolveSource(), undefined, e);
-		});
-		this.element.append(this.controlsElement);
+		this.updateTree(this.element, rootEl);
+	}
+
+	updateTree(
+		targetNode?: ChildNode | null,
+		renderNode?: ChildNode | null,
+	): void {
+		let targetChild: ChildNode | null | undefined =
+			targetNode?.firstChild ?? undefined;
+		let renderChild: ChildNode | null | undefined =
+			renderNode?.firstChild ?? undefined;
+		while (renderChild || targetChild) {
+			const nextTargetChild: ChildNode | null | undefined =
+				targetChild?.nextSibling ?? undefined;
+			const nextRenderChild: ChildNode | null | undefined =
+				renderChild?.nextSibling ?? undefined;
+
+			if (isEditableElement(renderChild) && isEditableElement(targetChild)) {
+				if (!areEqualEditables(renderChild, targetChild)) {
+					targetChild.replaceWith(renderChild);
+				} else if (isTextEditable(renderChild) && isTextEditable(targetChild)) {
+					if (
+						hasTextEditable(targetChild) &&
+						!targetChild.editable.focused &&
+						!targetChild?.isEqualNode(renderChild)
+					) {
+						targetChild.replaceWith(renderChild);
+					}
+				} else if (
+					isLiveComponent(targetChild) &&
+					isLiveComponent(renderChild)
+				) {
+					if (hasEditable(targetChild)) {
+						targetChild.editable.pushValue(this.value);
+					}
+				}
+			} else if (renderChild && targetChild) {
+				if (
+					!targetChild.isEqualNode(renderChild) ||
+					isEditableElement(renderChild) ||
+					isEditableElement(targetChild)
+				) {
+					targetChild.replaceWith(renderChild);
+				} else {
+					this.updateTree(targetChild, renderChild);
+				}
+			} else if (renderChild) {
+				targetNode?.appendChild(renderChild);
+			} else if (targetChild) {
+				targetNode?.removeChild(targetChild);
+			}
+
+			targetChild = nextTargetChild;
+			renderChild = nextRenderChild;
+		}
 	}
 
 	mount(): void {
 		if (!this.controlsElement) {
 			this.controlsElement = document.createElement("editable-controls");
 			this.controlsElement.addEventListener("edit", (e: any) => {
-				console.log(this.resolveSource());
-				window.CloudCannon.edit(this.resolveSource(), undefined, e);
+				const source = this.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+				window.CloudCannon?.edit(source, undefined, e);
 			});
 			this.element.append(this.controlsElement);
 		}

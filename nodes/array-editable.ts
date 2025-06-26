@@ -1,6 +1,7 @@
+import { hasArrayItemEditable } from "../helpers/checks.js";
 import type { WindowType } from "../types/window.js";
 import ArrayItem from "./array-item.js";
-import Editable, { type EditableListener } from "./editable.js";
+import Editable from "./editable.js";
 
 declare const window: WindowType;
 
@@ -9,47 +10,9 @@ export default class ArrayEditable extends Editable {
 	hoverEl: ArrayItem | undefined = undefined;
 	value: unknown[] | undefined = undefined;
 
-	registerListener(listener: EditableListener): void {
-		this.listeners = this.listeners.filter(
-			(other) => listener.editable.element !== other.editable.element,
-		);
+	registerListener(): void {}
 
-		const index = this.listeners.findIndex(
-			(other) =>
-				listener.editable.element.compareDocumentPosition(
-					other.editable.element,
-				) & Node.DOCUMENT_POSITION_FOLLOWING,
-		);
-
-		if (index !== -1) {
-			this.listeners.splice(index, 0, listener);
-		} else {
-			this.listeners.push(listener);
-		}
-
-		if (!this.dragEl) {
-			this.listeners.forEach(({ editable }, index) => {
-				editable.element.dataset.prop = `${index}`;
-				if (this.value) {
-					editable.pushValue(this.value[index]);
-				}
-			});
-		}
-	}
-
-	deregisterListener(target: Editable): void {
-		this.listeners = this.listeners.filter(
-			({ editable }) => editable.element !== target.element,
-		);
-		if (!this.dragEl) {
-			this.listeners.forEach(({ editable }, index) => {
-				editable.element.dataset.prop = `${index}`;
-				if (this.value) {
-					editable.pushValue(this.value[index]);
-				}
-			});
-		}
-	}
+	deregisterListener(): void {}
 
 	validateValue(value: unknown): unknown[] | undefined {
 		if (!Array.isArray(value)) {
@@ -69,7 +32,24 @@ export default class ArrayEditable extends Editable {
 			return key ? (item as any)[key] : item;
 		});
 
-		const children = this.listeners.map(({ editable }) => editable.element);
+		const children: (HTMLElement & { editable: ArrayItem })[] = [];
+		for (const child of this.element.querySelectorAll(
+			"array-item,[data-editable='array-item']",
+		)) {
+			if (!hasArrayItemEditable(child)) {
+				continue;
+			}
+
+			let parent = child.editable.parent?.element ?? child.parentElement;
+			while (parent && !("editable" in parent)) {
+				parent = parent.parentElement;
+			}
+			if (!parent || parent.editable !== this) {
+				continue;
+			}
+
+			children.push(child as any);
+		}
 
 		const childKeys = children.map((element) => {
 			return element.dataset.key;
@@ -81,32 +61,56 @@ export default class ArrayEditable extends Editable {
 		if (equal && children.length === dataKeys?.length) {
 			children.forEach((child, index) => {
 				child.dataset.prop = `${index}`;
-				(child as any).editable.pushValue(value[index]);
+				child.editable.pushValue(value[index]);
 			});
 			return;
 		}
 
-		dataKeys?.forEach((key, i) => {
-			const existingElement = children[i];
-			const matchingChild = children.find((child) => child.dataset.key === key);
-			// TODO rearrange nodes to avoid extra dom manipulation
-			const newEl =
-				(matchingChild?.cloneNode(true) as HTMLElement) ||
-				document.createElement("array-item");
-
-			newEl.dataset.key = String(key);
-			newEl.dataset.prop = `${i}`;
-
-			if (existingElement) {
-				existingElement.replaceWith(newEl);
-			} else {
-				this.element.appendChild(newEl);
-			}
-
-			(newEl as any).editable.pushValue(value[i]);
+		const placeholders = children.map((child) => {
+			const placeholder = document.createElement("array-placeholder");
+			child.after(placeholder);
+			return placeholder;
 		});
 
-		children.forEach((child) => child.remove());
+		const moved: Record<number, boolean> = {};
+
+		dataKeys?.forEach((key, i) => {
+			const placeholder = placeholders[i];
+			const existingElement = children[i];
+			const matchingChildIndex = children.findIndex(
+				(child, i) => child.dataset.key === key && !moved[i],
+			);
+
+			let matchingChild = children[matchingChildIndex];
+			if (!matchingChild) {
+				const clone = children.find((child) => child.dataset.key === key);
+				matchingChild = clone
+					? (clone.cloneNode(true) as any)
+					: document.createElement("array-item");
+			} else {
+				moved[matchingChildIndex] = true;
+			}
+
+			matchingChild.dataset.key = String(key);
+			matchingChild.dataset.prop = `${i}`;
+
+			if (existingElement === matchingChild) {
+				placeholder.remove();
+			} else if (placeholder) {
+				placeholder.replaceWith(matchingChild);
+			} else {
+				this.element.appendChild(matchingChild);
+			}
+
+			matchingChild.editable.parent = this;
+			matchingChild.editable.pushValue(value[i]);
+		});
+
+		children.forEach((child, i) => {
+			if (!moved[i]) {
+				child.remove();
+			}
+		});
 		window.hydrateDataEditables?.(this.element);
 	}
 

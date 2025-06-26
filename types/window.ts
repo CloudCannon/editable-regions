@@ -5,6 +5,13 @@ export interface WindowType extends Window {
 		set(path: string, value: any): void;
 		/** Move an array item from one index to another */
 		moveArrayItem(path: string, fromIndex: number, toIndex: number): void;
+		createTextEditableRegion(
+			element: HTMLElement,
+			options?: { slug?: string; elementType?: string },
+		): Promise<{
+			setContent: (content: string) => void;
+		}>;
+		edit(slug: string, options?: unknown, e?: Event): void;
 	};
 
 	cc_components?: Record<string, ComponentRenderer>;

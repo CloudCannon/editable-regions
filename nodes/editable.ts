@@ -9,6 +9,7 @@ export default class Editable {
 	value: unknown = undefined;
 	parent: Editable | null = null;
 	element: HTMLElement;
+	mounted = false;
 
 	propsBase: unknown;
 	props: Record<string, unknown> = {};
@@ -37,11 +38,7 @@ export default class Editable {
 		return this.validateValue(newValue);
 	}
 
-	pushValue(
-		value: unknown,
-		listener?: EditableListener,
-		silent?: boolean,
-	): void {
+	pushValue(value: unknown, listener?: EditableListener): void {
 		const newValue = this.getNewValue(value, listener);
 
 		if (typeof newValue === "undefined") {
@@ -49,9 +46,11 @@ export default class Editable {
 		}
 
 		this.value = newValue;
-		if (!silent) {
-			this.update();
+		if (!this.mounted) {
+			this.mounted = true;
+			this.mount();
 		}
+		this.update();
 	}
 
 	update(): void {
@@ -129,7 +128,6 @@ export default class Editable {
 		]).then(() => {
 			if (this.validateConfiguration()) {
 				this.setupListeners();
-				this.mount();
 			}
 		});
 	}

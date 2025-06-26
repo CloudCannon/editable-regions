@@ -18,6 +18,7 @@ export default class TextEditable extends Editable {
 	mount(): void {
 		this.element.onblur = () => {
 			this.focused = false;
+			this.parent?.update();
 		};
 
 		const editableOptions = {
@@ -29,10 +30,12 @@ export default class TextEditable extends Editable {
 			this.element.onclick = () => {
 				this.focused = true;
 				if (!this.editor) {
-					window.CloudCannon.createTextEditableRegion(
+					window.CloudCannon?.createTextEditableRegion(
 						this.element,
 						editableOptions,
-					).then((editor) => (this.editor = editor));
+					).then((editor) => {
+						this.editor = editor;
+					});
 				}
 			};
 			return;
@@ -52,10 +55,12 @@ export default class TextEditable extends Editable {
 				);
 			});
 		} else if (!this.editor) {
-			window.CloudCannon.createTextEditableRegion(
+			window.CloudCannon?.createTextEditableRegion(
 				this.element,
 				editableOptions,
-			).then((editor) => (this.editor = editor));
+			).then((editor) => {
+				this.editor = editor;
+			});
 		}
 	}
 }
