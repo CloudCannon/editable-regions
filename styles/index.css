@@ -3,6 +3,11 @@
 @import "./live-component.css";
 @import "./image-editable.css";
 
+array-controls,
+editable-controls {
+    transition: opacity var(--ccve-transition-duration) ease;
+}
+
 array-item,
 text-editable,
 live-component,
@@ -11,10 +16,14 @@ image-editable,
 [data-editable='text'],
 [data-editable='component'],
 [data-editable='image'] {
+    transition: outline var(--ccve-transition-duration) ease;
+
+    outline-offset: calc(var(--ccve-editable-outline-width) * -1);
+    outline: var(--ccve-editable-outline-width) solid transparent;
 
     &>array-controls,
     &>editable-controls {
-        display: none;
+        opacity: 0;
     }
 
     &.errored {
@@ -32,14 +41,14 @@ image-editable,
     [data-editable='text'],
     [data-editable='component'],
     [data-editable='image'] {
-        outline: 1px solid var(--ccve-color-sol);
+        outline: var(--ccve-editable-outline-width) solid var(--ccve-color-sol);
 
         &:hover {
             outline: var(--ccve-editable-outline-width) solid var(--ccve-color-emerald);
 
             &>array-controls,
             &>editable-controls {
-                display: block;
+                opacity: 1;
             }
         }
     }
