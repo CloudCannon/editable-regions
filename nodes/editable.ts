@@ -46,11 +46,14 @@ export default class Editable {
 		}
 
 		this.value = newValue;
-		if (!this.mounted) {
+		if (!this.mounted && this.validateConfiguration()) {
 			this.mounted = true;
 			this.mount();
 		}
-		this.update();
+
+		if (this.mounted) {
+			this.update();
+		}
 	}
 
 	update(): void {
@@ -73,7 +76,9 @@ export default class Editable {
 			return;
 		}
 
-		listener.editable.pushValue(this.value, listener);
+		if (this.mounted) {
+			listener.editable.pushValue(this.value, listener);
+		}
 
 		this.listeners.push(listener);
 	}
@@ -125,12 +130,10 @@ export default class Editable {
 			customElements.whenDefined("array-item"),
 			customElements.whenDefined("array-editable"),
 			customElements.whenDefined("text-editable"),
-			customElements.whenDefined("live-component"),
+			customElements.whenDefined("component-editable"),
 			customElements.whenDefined("image-editable"),
 		]).then(() => {
-			if (this.validateConfiguration()) {
-				this.setupListeners();
-			}
+			this.setupListeners();
 		});
 	}
 

@@ -16,9 +16,7 @@ export default class ErrorCard extends HTMLElement {
 
 		this.shadow = this.attachShadow({ mode: "open" });
 
-		if (this._error) {
-			this.render(this.shadow, this._error);
-		}
+		this.render(this.shadow, this._error);
 	}
 
 	render(shadow: ShadowRoot, error: unknown) {
@@ -62,7 +60,12 @@ export default class ErrorCard extends HTMLElement {
 
 		body.appendChild(heading);
 
-		if (error instanceof Error) {
+		if (this.hasAttribute("message")) {
+			const message = document.createElement("p");
+			message.innerHTML = this.getAttribute("message") ?? "";
+
+			body.appendChild(message);
+		} else if (error instanceof Error) {
 			const message = document.createElement("p");
 			message.innerHTML = error.message;
 
@@ -78,11 +81,6 @@ export default class ErrorCard extends HTMLElement {
 
 				body.appendChild(stack);
 			}
-		} else {
-			const message = document.createElement("p");
-			message.innerHTML = "Unknown error";
-
-			body.appendChild(message);
 		}
 	}
 }

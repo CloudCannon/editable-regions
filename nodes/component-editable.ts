@@ -1,32 +1,46 @@
 import {
 	areEqualEditables,
+	areEqualNodes,
 	hasEditable,
 	hasTextEditable,
+	isComponentEditable,
 	isEditableElement,
-	isLiveComponent,
 	isTextEditable,
 } from "../helpers/checks.js";
 import type { WindowType } from "../types/window.js";
-import Editable, { type EditableListener } from "./editable.js";
+import Editable from "./editable.js";
 import "../components/ui/error-card.js";
 
 declare const window: WindowType;
 
-export default class LiveComponent extends Editable {
-	private controlsElement?: HTMLElement;
+export default class ComponentEditable extends Editable {
+	protected controlsElement?: HTMLElement;
 
-	registerListener(listener: EditableListener): void {
-		if (
-			this.listeners.find(
-				({ editable: other }) => listener.editable.element === other.element,
-			)
-		) {
-			return;
+	validateConfiguration(): boolean {
+		const key = this.element.dataset.component;
+		if (!key) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render component");
+			error.setAttribute(
+				"message",
+				"Component key(data-component) not provided",
+			);
+			this.element.replaceChildren(error);
+			return false;
 		}
 
-		listener.editable.pushValue(this.value, listener);
+		const component = window.cc_components?.[key];
+		if (!component) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render component");
+			error.setAttribute("message", `Couldn't find component '${key}'`);
+			this.element.replaceChildren(error);
+			return false;
+		}
 
-		this.listeners.push(listener);
+		return true;
 	}
 
 	async update(): Promise<void> {
@@ -34,11 +48,11 @@ export default class LiveComponent extends Editable {
 
 		const key = this.element.dataset.component;
 		if (!key) {
-			throw new Error("Invalid Component: Component key not provided");
+			return super.update();
 		}
 		const component = window.cc_components?.[key];
 		if (!component) {
-			throw new Error(`Invalid Component: Component '${key}' not found`);
+			return super.update();
 		}
 
 		let rootEl: HTMLElement;
@@ -58,13 +72,19 @@ export default class LiveComponent extends Editable {
 		if (
 			child instanceof HTMLElement &&
 			"editable" in child &&
-			child.editable instanceof LiveComponent &&
+			child.editable instanceof ComponentEditable &&
 			child.dataset.component === key
 		) {
 			rootEl = child;
 		}
 
+		if (!this.controlsElement) {
+			throw new Error("Controls element not found");
+		}
+
+		this.element.removeChild(this.controlsElement);
 		this.updateTree(this.element, rootEl);
+		this.element.appendChild(this.controlsElement);
 	}
 
 	updateTree(
@@ -93,8 +113,8 @@ export default class LiveComponent extends Editable {
 						targetChild.replaceWith(renderChild);
 					}
 				} else if (
-					isLiveComponent(targetChild) &&
-					isLiveComponent(renderChild)
+					isComponentEditable(targetChild) &&
+					isComponentEditable(renderChild)
 				) {
 					if (hasEditable(targetChild)) {
 						targetChild.editable.pushValue(this.value);
@@ -102,7 +122,7 @@ export default class LiveComponent extends Editable {
 				}
 			} else if (renderChild && targetChild) {
 				if (
-					!targetChild.isEqualNode(renderChild) ||
+					!areEqualNodes(targetChild, renderChild) ||
 					isEditableElement(renderChild) ||
 					isEditableElement(targetChild)
 				) {

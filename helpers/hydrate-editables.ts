@@ -1,9 +1,9 @@
 import {
 	ArrayEditable,
 	ArrayItem,
+	ComponentEditable,
 	type Editable,
 	ImageEditable,
-	LiveComponent,
 	TextEditable,
 } from "../nodes";
 import type { WindowType } from "../types/window.js";
@@ -12,7 +12,7 @@ declare const window: WindowType;
 
 const editableMap: Record<string, typeof Editable | undefined> = {
 	text: TextEditable,
-	component: LiveComponent,
+	component: ComponentEditable,
 	array: ArrayEditable,
 	"array-item": ArrayItem,
 	image: ImageEditable,

@@ -84,9 +84,24 @@ export default class ArrayEditable extends Editable {
 			let matchingChild = children[matchingChildIndex];
 			if (!matchingChild) {
 				const clone = children.find((child) => child.dataset.key === key);
-				matchingChild = clone
-					? (clone.cloneNode(true) as any)
-					: document.createElement("array-item");
+				if (clone) {
+					matchingChild = clone.cloneNode(true) as any;
+				} else {
+					matchingChild = document.createElement("array-item");
+					matchingChild.dataset.key = key;
+
+					const componentKey = this.element.dataset.componentKey;
+					if (
+						componentKey &&
+						typeof this.value?.[i] === "object" &&
+						this.value[i] &&
+						(this.value[i] as any)[componentKey]
+					) {
+						matchingChild.dataset.component = (this.value[i] as any)[
+							componentKey
+						];
+					}
+				}
 			} else {
 				moved[matchingChildIndex] = true;
 			}

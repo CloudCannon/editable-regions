@@ -1,6 +1,6 @@
 @import "./array-item.css";
 @import "./text-editable.css";
-@import "./live-component.css";
+@import "./component-editable.css";
 @import "./image-editable.css";
 
 array-controls,
@@ -10,7 +10,7 @@ editable-controls {
 
 array-item,
 text-editable,
-live-component,
+component-editable,
 image-editable,
 [data-editable='array-item'],
 [data-editable='text'],
@@ -35,7 +35,7 @@ image-editable,
 
     array-item,
     text-editable,
-    live-component,
+    component-editable,
     image-editable,
     [data-editable='array-item'],
     [data-editable='text'],

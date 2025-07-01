@@ -1,38 +1,28 @@
-import Editable, { type EditableListener } from "./editable.js";
 import "../components/ui/array-controls.js";
 import type { WindowType } from "../types/window.js";
+import ComponentEditable from "./component-editable.js";
 
 declare const window: WindowType;
 
-export default class ArrayItem extends Editable {
+export default class ArrayItem extends ComponentEditable {
 	dragging = false;
-	editButton: HTMLElement | undefined = undefined;
-	dragHandle: HTMLElement | undefined = undefined;
-	controlsElement: HTMLElement | undefined = undefined;
 	noSwapBack = false;
 
-	pushValue(value: unknown, listener?: EditableListener): void {
-		if (this.dragging) {
-			return;
-		}
-		super.pushValue(value, listener);
-	}
-
-	registerListener(listener: EditableListener): void {
-		if (
-			this.listeners.find(
-				({ editable: other, key }) =>
-					listener.editable.element === other.element && listener.key === key,
-			)
-		) {
-			return;
+	validateConfiguration(): boolean {
+		const key = this.element.dataset.component;
+		if (key) {
+			const component = window.cc_components?.[key];
+			if (!component) {
+				this.element.classList.add("errored");
+				const error = document.createElement("error-card");
+				error.setAttribute("heading", "Failed to render component");
+				error.setAttribute("message", `Couldn't find component '${key}'`);
+				this.element.replaceChildren(error);
+				return false;
+			}
 		}
 
-		if (this.value && !this.dragging) {
-			listener.editable.pushValue(this.value, listener);
-		}
-
-		this.listeners.push(listener);
+		return true;
 	}
 
 	mount(): void {
