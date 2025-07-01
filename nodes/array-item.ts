@@ -5,9 +5,6 @@ import ComponentEditable from "./component-editable.js";
 declare const window: WindowType;
 
 export default class ArrayItem extends ComponentEditable {
-	dragging = false;
-	noSwapBack = false;
-
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
@@ -25,9 +22,19 @@ export default class ArrayItem extends ComponentEditable {
 		return true;
 	}
 
+	onHover(e: DragEvent): void {
+		const source = this.parent?.resolveSource();
+		if (!source || !e.dataTransfer || !e.dataTransfer?.types.includes(source)) {
+			return;
+		}
+		e.preventDefault();
+
+		this.element.classList.add("dragover");
+		this.element.style.outline = "3px solid var(--ccve-color-sol)";
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
-			const clientRect = this.element.getBoundingClientRect();
 			this.controlsElement = document.createElement("array-controls");
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				const source = this.resolveSource();
@@ -36,50 +43,66 @@ export default class ArrayItem extends ComponentEditable {
 				}
 				window.CloudCannon?.edit(source, undefined, e);
 			});
+
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
-				e.stopPropagation();
-				if (e.dataTransfer) {
-					e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
-					e.dataTransfer.effectAllowed = "move";
+				const source = this.parent?.resolveSource();
+				if (!source || !e.dataTransfer || !this.element.dataset.prop) {
+					return;
 				}
-				this.dragging = true;
-				this.element.dispatchEvent(
-					new CustomEvent("moveStart", { detail: this, bubbles: true }),
-				);
-			});
-			this.controlsElement.addEventListener("dragend", (e: DragEvent) => {
+
+				const clientRect = this.element.getBoundingClientRect();
+
 				e.stopPropagation();
-				this.dragging = false;
+				this.element.classList.add("dragging");
+				this.element.style.outline = "none";
+
+				e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
+				e.dataTransfer.effectAllowed = "move";
+				e.dataTransfer?.setData(source, this.element.dataset.prop);
 			});
 
 			this.element.append(this.controlsElement);
 		}
 
-		this.element.ondragenter = (e: DragEvent): void => {
-			if (this.noSwapBack) {
-				e.stopPropagation();
-			} else {
-				e.preventDefault();
-			}
+		this.element.ondragend = () => {
+			this.element.classList.remove("dragging");
+			this.element.style.outline = "";
 		};
 
-		this.element.ondragover = (e: DragEvent): void => {
-			e.preventDefault();
+		this.element.ondragenter = this.onHover.bind(this);
+		this.element.ondragover = this.onHover.bind(this);
+
+		this.element.ondragleave = (e: DragEvent): void => {
 			e.stopPropagation();
-			this.element.dispatchEvent(
-				new CustomEvent("moveHover", { detail: this, bubbles: true }),
-			);
+
+			this.element.classList.remove("dragover");
+			this.element.style.outline = "";
 		};
 
 		this.element.ondrop = (e: DragEvent): void => {
+			this.element.classList.remove("dragover");
+			this.element.style.outline = "";
+
+			if (!e.dataTransfer) {
+				return;
+			}
+
+			const source = this.parent?.resolveSource();
+			if (!source) {
+				throw new Error("Source not found");
+			}
+
+			const data = e.dataTransfer.getData(source);
+			const fromIndex = Number(data);
+			const newIndex = Number(this.element.dataset.prop);
+
 			e.preventDefault();
 			e.stopPropagation();
-			if (e.dataTransfer) {
-				e.dataTransfer.dropEffect = "move";
+			e.dataTransfer.dropEffect = "move";
+
+			if (window.CloudCannon && fromIndex !== newIndex) {
+				window.CloudCannon.moveArrayItem(source, fromIndex, newIndex);
 			}
-			this.element.dispatchEvent(
-				new CustomEvent("moveEnd", { detail: this, bubbles: true }),
-			);
 		};
 	}
 

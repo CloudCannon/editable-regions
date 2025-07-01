@@ -74,7 +74,7 @@ export default class ErrorCard extends HTMLElement {
 			if (error.stack) {
 				const stack = document.createElement("pre");
 				stack.innerHTML = error.stack
-					.replaceAll(window.location.origin, "")
+					.replace(new RegExp(window.location.origin, "g"), "")
 					.split("\n")
 					.slice(0, 5)
 					.join("\n");

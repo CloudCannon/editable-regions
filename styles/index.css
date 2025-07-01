@@ -29,6 +29,10 @@ image-editable,
     &.errored {
         outline: none !important;
     }
+
+    &.dragover * {
+        opacity: 0.8;
+    }
 }
 
 .cms-region-highlighted {
@@ -50,6 +54,26 @@ image-editable,
             &>editable-controls {
                 opacity: 1;
             }
+        }
+    }
+}
+
+.dragging {
+
+    & array-item,
+    & text-editable,
+    & component-editable,
+    & image-editable,
+    & [data-editable='array-item'],
+    & [data-editable='text'],
+    & [data-editable='component'],
+    & [data-editable='image'] {
+        transition: none;
+        outline: none;
+
+        &:hover {
+            transition: none;
+            outline: none;
         }
     }
 }

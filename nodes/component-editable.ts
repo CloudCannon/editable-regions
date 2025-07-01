@@ -3,7 +3,6 @@ import {
 	areEqualNodes,
 	hasEditable,
 	hasTextEditable,
-	isComponentEditable,
 	isEditableElement,
 	isTextEditable,
 } from "../helpers/checks.js";
@@ -112,12 +111,12 @@ export default class ComponentEditable extends Editable {
 					) {
 						targetChild.replaceWith(renderChild);
 					}
-				} else if (
-					isComponentEditable(targetChild) &&
-					isComponentEditable(renderChild)
-				) {
-					if (hasEditable(targetChild)) {
-						targetChild.editable.pushValue(this.value);
+				} else if (hasEditable(targetChild)) {
+					for (let i = 0; i < this.listeners.length; i++) {
+						const listener = this.listeners[i];
+						if (listener.editable.element === targetChild) {
+							targetChild.editable.pushValue(this.value, listener);
+						}
 					}
 				}
 			} else if (renderChild && targetChild) {
