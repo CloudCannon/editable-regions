@@ -4,6 +4,7 @@ import {
 	ComponentEditable,
 	type Editable,
 	ImageEditable,
+	SourceEditable,
 	TextEditable,
 } from "../nodes";
 import type { WindowType } from "../types/window.js";
@@ -16,6 +17,7 @@ const editableMap: Record<string, typeof Editable | undefined> = {
 	array: ArrayEditable,
 	"array-item": ArrayItem,
 	image: ImageEditable,
+	source: SourceEditable,
 };
 
 const hydrateDataEditables = (root: Element) => {

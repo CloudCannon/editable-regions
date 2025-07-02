@@ -11,6 +11,12 @@ export interface WindowType extends Window {
 		): Promise<{
 			setContent: (content: string) => void;
 		}>;
+		createSourceEditableRegion(
+			element: HTMLElement,
+			options?: { file?: string; key?: string; elementType?: string },
+		): Promise<{
+			setContent: (content: string) => void;
+		}>;
 		edit(slug: string, options?: unknown, e?: Event): void;
 		uploadFile(file: File, inputConfig?: unknown): Promise<string | undefined>;
 	};

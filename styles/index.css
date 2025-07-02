@@ -12,10 +12,12 @@ array-item,
 text-editable,
 component-editable,
 image-editable,
+source-editable,
 [data-editable='array-item'],
 [data-editable='text'],
 [data-editable='component'],
-[data-editable='image'] {
+[data-editable='image'],
+[data-editable='source'] {
     transition: outline var(--ccve-transition-duration) ease;
 
     outline-offset: calc(var(--ccve-editable-outline-width) * -1);
@@ -41,10 +43,12 @@ image-editable,
     text-editable,
     component-editable,
     image-editable,
+    source-editable,
     [data-editable='array-item'],
     [data-editable='text'],
     [data-editable='component'],
-    [data-editable='image'] {
+    [data-editable='image'],
+    [data-editable='source'] {
         outline: var(--ccve-editable-outline-width) solid var(--ccve-color-sol);
 
         &:hover {
@@ -64,10 +68,12 @@ image-editable,
     & text-editable,
     & component-editable,
     & image-editable,
+    & source-editable,
     & [data-editable='array-item'],
     & [data-editable='text'],
     & [data-editable='component'],
-    & [data-editable='image'] {
+    & [data-editable='image'],
+    & [data-editable='source'] {
         transition: none;
         outline: none;
 

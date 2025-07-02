@@ -132,6 +132,7 @@ export default class Editable {
 			customElements.whenDefined("text-editable"),
 			customElements.whenDefined("component-editable"),
 			customElements.whenDefined("image-editable"),
+			customElements.whenDefined("source-editable"),
 		]).then(() => {
 			this.setupListeners();
 		});
