@@ -8,8 +8,10 @@
   },
   "files": [
     "components",
+    "helpers",
     "integrations",
     "nodes",
+    "styles",
     "types"
   ],
   "dependencies": {},
