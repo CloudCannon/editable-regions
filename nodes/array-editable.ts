@@ -40,24 +40,41 @@ export default class ArrayEditable extends Editable {
 			children.push(child as any);
 		}
 
-		if (!this.element.dataset.key) {
-			children.forEach((child, index) => {
-				child.dataset.prop = `${index}`;
-				child.editable.pushValue(value[index]);
+		if (!this.element.dataset.idKey) {
+			if (children.length > value.length) {
+				for (let i = value.length; i < children.length; i++) {
+					children[i].remove();
+				}
+			}
+
+			for (let i = 0; i < value.length; i++) {
+				let child = children[i];
+				if (!child) {
+					child = children[0].cloneNode(true) as HTMLElement & {
+						editable: ArrayItem;
+					};
+					this.element.appendChild(child);
+					children.push(child);
+				}
+			}
+
+			window.hydrateDataEditables?.(this.element);
+
+			children.forEach((child, i) => {
+				child.dataset.prop = `${i}`;
+				child.editable.pushValue(value[i]);
 			});
 			return;
 		}
 
 		const dataKeys = this.value?.map((item) => {
-			const key = this.element.dataset.key;
+			const key = this.element.dataset.idKey;
 			return key ? (item as any)[key] : item;
 		});
 
 		const childKeys = children.map((element) => {
-			return element.dataset.key;
+			return element.dataset.id;
 		});
-
-		console.log({ dataKeys, childKeys });
 
 		const equal = dataKeys?.every((key, i) => key === childKeys[i]);
 		if (equal && children.length === dataKeys?.length) {
@@ -80,17 +97,17 @@ export default class ArrayEditable extends Editable {
 			const placeholder = placeholders[i];
 			const existingElement = children[i];
 			const matchingChildIndex = children.findIndex(
-				(child, i) => child.dataset.key === key && !moved[i],
+				(child, i) => child.dataset.id === key && !moved[i],
 			);
 
 			let matchingChild = children[matchingChildIndex];
 			if (!matchingChild) {
-				const clone = children.find((child) => child.dataset.key === key);
+				const clone = children.find((child) => child.dataset.id === key);
 				if (clone) {
 					matchingChild = clone.cloneNode(true) as any;
 				} else {
 					matchingChild = document.createElement("array-item");
-					matchingChild.dataset.key = key;
+					matchingChild.dataset.id = key;
 
 					const componentKey = this.element.dataset.componentKey;
 					if (
@@ -108,7 +125,7 @@ export default class ArrayEditable extends Editable {
 				moved[matchingChildIndex] = true;
 			}
 
-			matchingChild.dataset.key = String(key);
+			matchingChild.dataset.id = String(key);
 			matchingChild.dataset.prop = `${i}`;
 
 			if (existingElement === matchingChild) {

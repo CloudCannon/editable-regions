@@ -107,9 +107,13 @@ export default class ComponentEditable extends Editable {
 					if (
 						hasTextEditable(targetChild) &&
 						!targetChild.editable.focused &&
-						!targetChild?.isEqualNode(renderChild)
+						!targetChild?.isEqualNode(renderChild) &&
+						hasEditable(renderChild)
 					) {
 						targetChild.replaceWith(renderChild);
+						renderChild.editable.pushValue(this.value);
+					} else if (hasEditable(targetChild)) {
+						targetChild.editable.pushValue(this.value);
 					}
 				} else if (hasEditable(targetChild)) {
 					for (let i = 0; i < this.listeners.length; i++) {

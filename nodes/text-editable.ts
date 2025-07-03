@@ -12,7 +12,10 @@ export default class TextEditable extends Editable {
 		if (this.focused || typeof this.value !== "string") {
 			return;
 		}
-		this.editor?.setContent({ content: this.value });
+		if (this.editor) {
+			this.editor.setSlug(this.resolveSource());
+			this.editor.setContent(this.value);
+		}
 	}
 
 	mount(): void {
@@ -35,6 +38,7 @@ export default class TextEditable extends Editable {
 						editableOptions,
 					).then((editor) => {
 						this.editor = editor;
+						this.element.focus();
 					});
 				}
 			};

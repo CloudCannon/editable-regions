@@ -10,6 +10,7 @@ export interface WindowType extends Window {
 			options?: { slug?: string; elementType?: string },
 		): Promise<{
 			setContent: (content: string) => void;
+			setSlug: (content: string) => void;
 		}>;
 		createSourceEditableRegion(
 			element: HTMLElement,
