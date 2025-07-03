@@ -11,13 +11,13 @@ import "./source-editable.js";
 
 declare const window: WindowType;
 
-await Promise.all([
+Promise.all([
 	customElements.whenDefined("array-item"),
 	customElements.whenDefined("array-editable"),
 	customElements.whenDefined("text-editable"),
 	customElements.whenDefined("component-editable"),
 	customElements.whenDefined("image-editable"),
 	customElements.whenDefined("source-editable"),
-]);
-
-window.hydrateDataEditables?.(document.body);
+]).then(() => {
+	window.hydrateDataEditables?.(document.body);
+});
