@@ -69,7 +69,7 @@ export default class ArrayEditable extends Editable {
 
 		const dataKeys = this.value?.map((item) => {
 			const key = this.element.dataset.idKey;
-			return key ? (item as any)[key] : item;
+			return String(key ? (item as any)[key] : item);
 		});
 
 		const childKeys = children.map((element) => {

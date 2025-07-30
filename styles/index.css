@@ -2,6 +2,7 @@
 @import "./text-editable.css";
 @import "./component-editable.css";
 @import "./image-editable.css";
+@import "./source-editable.css";
 
 array-controls,
 editable-controls {

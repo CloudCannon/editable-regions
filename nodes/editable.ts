@@ -4,6 +4,14 @@ export interface EditableListener {
 	path?: string;
 }
 
+const lookupPath = (path: string, obj: unknown): any => {
+	return path.split(".").reduce((acc, key) => {
+		if (acc && typeof acc === "object" && key in acc) {
+			return (acc as any)[key];
+		}
+	}, obj);
+};
+
 export default class Editable {
 	listeners: EditableListener[] = [];
 	value: unknown = undefined;
@@ -19,12 +27,20 @@ export default class Editable {
 		(element as any).editable = this;
 	}
 
+	shouldUpdate(_value: unknown) {
+		return true;
+	}
+
 	getNewValue(value: unknown, listener?: EditableListener): unknown {
 		const { key, path } = listener ?? {};
 		if (!key) {
-			this.propsBase = path ? (value as any)?.[path] : value;
+			this.propsBase = path ? lookupPath(path, value) : value;
 		} else {
-			this.props[key] = path ? (value as any)?.[path] : value;
+			this.props[key] = path ? lookupPath(path, value) : value;
+		}
+
+		if (Object.entries(this.props).length === 0) {
+			return this.validateValue(this.propsBase);
 		}
 
 		const newValue = Object.entries(this.props).reduce(
@@ -45,13 +61,13 @@ export default class Editable {
 			return;
 		}
 
-		this.value = newValue;
 		if (!this.mounted && this.validateConfiguration()) {
 			this.mounted = true;
 			this.mount();
 		}
 
-		if (this.mounted) {
+		if (this.mounted && this.shouldUpdate(newValue)) {
+			this.value = newValue;
 			this.update();
 		}
 	}
@@ -76,9 +92,9 @@ export default class Editable {
 			return;
 		}
 
-		if (this.mounted) {
-			listener.editable.pushValue(this.value, listener);
-		}
+		// if (this.mounted) {
+		// 	listener.editable.pushValue(this.value, listener);
+		// }
 
 		this.listeners.push(listener);
 	}
@@ -134,6 +150,7 @@ export default class Editable {
 			customElements.whenDefined("image-editable"),
 			customElements.whenDefined("source-editable"),
 		]).then(() => {
+			this.validateConfiguration();
 			this.setupListeners();
 		});
 	}
@@ -171,7 +188,7 @@ export default class Editable {
 
 			if (!parentEditable) {
 				const loadCloudCannonValue = async (CloudCannon: any) => {
-					const value = await CloudCannon.value();
+					const value = await CloudCannon.value({ keepMarkdownAsHTML: false });
 					this.pushValue(value, listener);
 				};
 
