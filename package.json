@@ -14,7 +14,9 @@
     "styles",
     "types"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "js-beautify": "^1.15.4"
+  },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/react": "^18.0.0",
