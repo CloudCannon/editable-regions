@@ -150,8 +150,8 @@ export default class Editable {
 			customElements.whenDefined("image-editable"),
 			customElements.whenDefined("source-editable"),
 		]).then(() => {
-			this.validateConfiguration();
 			this.setupListeners();
+			this.validateConfiguration();
 		});
 	}
 

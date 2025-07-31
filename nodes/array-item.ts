@@ -1,5 +1,6 @@
 import "../components/ui/array-controls.js";
 import type { WindowType } from "../types/window.js";
+import ArrayEditable from "./array-editable.js";
 import ComponentEditable from "./component-editable.js";
 
 declare const window: WindowType;
@@ -17,6 +18,18 @@ export default class ArrayItem extends ComponentEditable {
 				this.element.replaceChildren(error);
 				return false;
 			}
+		}
+
+		if (!this.parent || !(this.parent instanceof ArrayEditable)) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array item");
+			error.setAttribute(
+				"message",
+				"Parent array editable not found. Array items must be a descendant of an array editable.",
+			);
+			this.element.replaceChildren(error);
+			return false;
 		}
 
 		return true;

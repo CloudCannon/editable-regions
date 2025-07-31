@@ -6,11 +6,33 @@ import Editable from "./editable.js";
 declare const window: WindowType;
 
 export default class ArrayEditable extends Editable {
-	value: unknown[] | undefined = undefined;
+	value: unknown[] | null | undefined = undefined;
 
-	validateValue(value: unknown): unknown[] | undefined {
-		if (!Array.isArray(value)) {
-			return undefined;
+	validateConfiguration(): boolean {
+		const prop = this.element.dataset.prop;
+		if (typeof prop !== "string") {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array editable");
+			error.setAttribute("message", "Missing required attribute data-prop");
+			this.element.replaceChildren(error);
+			return false;
+		}
+
+		return true;
+	}
+
+	validateValue(value: unknown): unknown[] | null | undefined {
+		if (!Array.isArray(value) && value !== null) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array editable");
+			error.setAttribute(
+				"message",
+				`Illegal value type: ${typeof value}. Supported types are array.`,
+			);
+			this.element.replaceChildren(error);
+			return;
 		}
 		return value;
 	}
