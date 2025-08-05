@@ -77,13 +77,17 @@ export default class ComponentEditable extends Editable {
 			rootEl = child;
 		}
 
-		if (!this.controlsElement) {
-			throw new Error("Controls element not found");
+		if (this.controlsElement) {
+			this.element.removeChild(this.controlsElement);
 		}
-
-		this.element.removeChild(this.controlsElement);
+		if (this.element.dataset.verbose) {
+			console.log("", { thisEl: this.element, rootEl });
+			debugger;
+		}
 		this.updateTree(this.element, rootEl);
-		this.element.appendChild(this.controlsElement);
+		if (this.controlsElement) {
+			this.element.appendChild(this.controlsElement);
+		}
 	}
 
 	updateTree(
@@ -100,7 +104,37 @@ export default class ComponentEditable extends Editable {
 			const nextRenderChild: ChildNode | null | undefined =
 				renderChild?.nextSibling ?? undefined;
 
-			if (isEditableElement(renderChild) && isEditableElement(targetChild)) {
+			if (
+				targetChild instanceof Element &&
+				renderChild &&
+				!(renderChild instanceof Element)
+			) {
+				targetChild.before(renderChild);
+				renderChild = nextRenderChild;
+				continue;
+			}
+
+			if (
+				renderChild instanceof Element &&
+				targetChild &&
+				!(targetChild instanceof Element)
+			) {
+				targetChild.remove();
+				targetChild = nextTargetChild;
+				continue;
+			}
+
+			if (
+				renderChild &&
+				targetChild &&
+				!(renderChild instanceof Element) &&
+				!(targetChild instanceof Element)
+			) {
+				targetChild.nodeValue = renderChild.nodeValue;
+			} else if (
+				isEditableElement(renderChild) &&
+				isEditableElement(targetChild)
+			) {
 				if (!areEqualEditables(renderChild, targetChild)) {
 					targetChild.replaceWith(renderChild);
 				} else if (isTextEditable(renderChild) && isTextEditable(targetChild)) {
@@ -146,15 +180,34 @@ export default class ComponentEditable extends Editable {
 
 	mount(): void {
 		if (!this.controlsElement) {
-			this.controlsElement = document.createElement("editable-controls");
-			this.controlsElement.addEventListener("edit", (e: any) => {
-				const source = this.resolveSource();
-				if (!source) {
-					throw new Error("Source not found");
+			let editPath: string | undefined;
+			Object.entries(this.element.dataset).forEach(([propName]) => {
+				if (!propName.startsWith("prop")) {
+					return;
 				}
-				window.CloudCannon?.edit(source, undefined, e);
+
+				const propKey =
+					propName === "prop" ? undefined : propName.substring(4).toLowerCase();
+
+				const propPath = this.resolveSource(propKey);
+
+				if (typeof editPath !== "string") {
+					editPath = propPath;
+					return;
+				}
+
+				while (!propPath?.startsWith(editPath)) {
+					editPath = editPath?.replace(/(\.|^)[^.]*$/, "");
+				}
 			});
-			this.element.append(this.controlsElement);
+
+			if (editPath) {
+				this.controlsElement = document.createElement("editable-controls");
+				this.controlsElement.addEventListener("edit", (e: any) => {
+					window.CloudCannon?.edit(editPath ?? "", undefined, e);
+				});
+				this.element.append(this.controlsElement);
+			}
 		}
 	}
 }
