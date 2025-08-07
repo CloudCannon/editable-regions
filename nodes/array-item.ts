@@ -1,4 +1,5 @@
 import "../components/ui/array-controls.js";
+import type ArrayControls from "../components/ui/array-controls.js";
 import type { WindowType } from "../types/window.js";
 import ArrayEditable from "./array-editable.js";
 import ComponentEditable from "./component-editable.js";
@@ -6,6 +7,8 @@ import ComponentEditable from "./component-editable.js";
 declare const window: WindowType;
 
 export default class ArrayItem extends ComponentEditable {
+	protected controlsElement?: ArrayControls;
+
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
@@ -57,6 +60,26 @@ export default class ArrayItem extends ComponentEditable {
 				window.CloudCannon?.edit(source, undefined, e);
 			});
 
+			this.controlsElement.addEventListener("move-up", () => {
+				const source = this.parent?.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+
+				const fromIndex = Number(this.element.dataset.prop);
+				window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+			});
+
+			this.controlsElement.addEventListener("move-down", () => {
+				const source = this.parent?.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+
+				const fromIndex = Number(this.element.dataset.prop);
+				window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+			});
+
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
 				const source = this.parent?.resolveSource();
 				if (!source || !e.dataTransfer || !this.element.dataset.prop) {
@@ -74,7 +97,26 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer?.setData(source, this.element.dataset.prop);
 			});
 
-			this.element.append(this.controlsElement);
+			window.CloudCannon?.getInputConfig(
+				this.parent?.resolveSource() ?? "",
+			).then((inputConfig) => {
+				if (!this.controlsElement || typeof inputConfig !== "object") {
+					return;
+				}
+
+				this.controlsElement.disableMoveUp =
+					Number(this.element.dataset.prop) === 0;
+				this.controlsElement.disableMoveDown =
+					Number(this.element.dataset.prop) ===
+					Number(this.element.dataset.length) - 1;
+
+				this.controlsElement.disableReorder =
+					(inputConfig as any)?.options?.disable_reorder ?? false;
+				this.controlsElement.disableRemove =
+					(inputConfig as any)?.options?.disable_remove ?? false;
+
+				this.element.append(this.controlsElement);
+			});
 		}
 
 		this.element.ondragend = () => {

@@ -38,12 +38,9 @@ export default class ArrayEditable extends Editable {
 	}
 
 	update(): void {
-		const value = this.value;
-		if (!value) {
-			throw new Error("array-editable updated with invalid value");
-		}
-
+		const value = this.value ?? [];
 		const children: (HTMLElement & { editable: ArrayItem })[] = [];
+
 		for (const child of this.element.querySelectorAll(
 			"array-item,[data-editable='array-item']",
 		)) {
@@ -75,16 +72,21 @@ export default class ArrayEditable extends Editable {
 					child = children[0].cloneNode(true) as HTMLElement & {
 						editable: ArrayItem;
 					};
-					this.element.appendChild(child);
 					children.push(child);
 				}
 			}
 
-			window.hydrateDataEditables?.(this.element);
-
 			children.forEach((child, i) => {
 				child.dataset.prop = `${i}`;
+				child.dataset.length = `${children.length}`;
+
+				window.hydrateDataEditables?.(child);
+				child.editable.parent = this;
 				child.editable.pushValue(value[i]);
+
+				if (!child.parentElement && i < value.length) {
+					this.element.appendChild(child);
+				}
 			});
 			return;
 		}
@@ -158,6 +160,8 @@ export default class ArrayEditable extends Editable {
 				this.element.appendChild(matchingChild);
 			}
 
+			window.hydrateDataEditables?.(matchingChild);
+
 			matchingChild.editable.parent = this;
 			matchingChild.editable.pushValue(value[i]);
 		});
@@ -167,6 +171,5 @@ export default class ArrayEditable extends Editable {
 				child.remove();
 			}
 		});
-		window.hydrateDataEditables?.(this.element);
 	}
 }

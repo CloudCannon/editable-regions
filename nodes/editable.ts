@@ -92,9 +92,9 @@ export default class Editable {
 			return;
 		}
 
-		// if (this.mounted) {
-		// 	listener.editable.pushValue(this.value, listener);
-		// }
+		if (this.mounted) {
+			listener.editable.pushValue(this.value, listener);
+		}
 
 		this.listeners.push(listener);
 	}

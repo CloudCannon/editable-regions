@@ -9,11 +9,13 @@ import {
 import type { WindowType } from "../types/window.js";
 import Editable from "./editable.js";
 import "../components/ui/error-card.js";
+import "../components/ui/editable-controls.js";
+import type EditableControls from "../components/ui/editable-controls.js";
 
 declare const window: WindowType;
 
 export default class ComponentEditable extends Editable {
-	protected controlsElement?: HTMLElement;
+	protected controlsElement?: EditableControls;
 
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
@@ -79,10 +81,6 @@ export default class ComponentEditable extends Editable {
 
 		if (this.controlsElement) {
 			this.element.removeChild(this.controlsElement);
-		}
-		if (this.element.dataset.verbose) {
-			console.log("", { thisEl: this.element, rootEl });
-			debugger;
 		}
 		this.updateTree(this.element, rootEl);
 		if (this.controlsElement) {

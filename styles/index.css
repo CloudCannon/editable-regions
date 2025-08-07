@@ -27,6 +27,15 @@ source-editable,
     &>array-controls,
     &>editable-controls {
         opacity: 0;
+        pointer-events: none;
+        display: none;
+
+        &:hover,
+        &[open=true] {
+            opacity: 1;
+            pointer-events: auto;
+            display: flex;
+        }
     }
 
     &.errored {
@@ -58,6 +67,8 @@ source-editable,
             &>array-controls,
             &>editable-controls {
                 opacity: 1;
+                pointer-events: auto;
+                display: flex;
             }
         }
     }
