@@ -47,6 +47,10 @@ export interface WindowType extends Window {
 			value: unknown,
 			options?: { path?: string; keepMarkdownAsHTML?: boolean },
 		): Promise<void>;
+		removeArrayItem(slug: string, index: number): Promise<void>;
+		getInputType(key: string | undefined, value?: unknown): string;
+		addArrayItem(slug: string, index: number | null, value: any): Promise<void>;
+		findStructure(structure: any, value: any): any | undefined;
 	};
 
 	cc_components?: Record<string, ComponentRenderer>;
