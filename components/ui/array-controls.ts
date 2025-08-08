@@ -4,13 +4,34 @@ export default class ArrayControls extends EditableControls {
 	disableMoveUp = false;
 	disableMoveDown = false;
 	disableRemove = false;
+	disableReorder = false;
 
 	private moveUpButton?: HTMLButtonElement;
 	private moveDownButton?: HTMLButtonElement;
 	private deleteButton?: HTMLButtonElement;
+	private dragHandle?: HTMLButtonElement;
 
 	render(shadow: ShadowRoot): void {
 		super.render(shadow);
+
+		this.dragHandle = document.createElement("button");
+		this.dragHandle.draggable = !this.disableReorder;
+		this.dragHandle.innerHTML = `<cc-icon name="${this.dragHandle.draggable ? "drag_indicator" : "more_vert"}"></cc-icon>`;
+		this.dragHandle.onclick = (e) => {
+			e.stopPropagation();
+			if (this.contextMenu?.classList.contains("open")) {
+				this.contextMenu?.classList.remove("open");
+				this.removeAttribute("open");
+			} else if (this.contextMenu && this.contextMenu.childElementCount > 0) {
+				this.contextMenu?.classList.add("open");
+				this.setAttribute("open", "true");
+			}
+		};
+		this.dragHandle.ondragstart = () => {
+			this.contextMenu?.classList.remove("open");
+			this.removeAttribute("open");
+		};
+		this.buttonRow?.append(this.dragHandle);
 
 		this.moveUpButton = document.createElement("button");
 		this.moveUpButton.disabled = this.disableMoveUp;

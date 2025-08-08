@@ -80,7 +80,7 @@ export default class ComponentEditable extends Editable {
 		}
 
 		if (this.controlsElement) {
-			this.element.removeChild(this.controlsElement);
+			this.controlsElement.remove();
 		}
 		this.updateTree(this.element, rootEl);
 		if (this.controlsElement) {

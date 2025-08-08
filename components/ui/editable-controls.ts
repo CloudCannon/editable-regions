@@ -1,12 +1,9 @@
 export default class EditableControls extends HTMLElement {
-	disableReorder = false;
-
 	protected shadow?: ShadowRoot;
 	protected contextMenu?: HTMLUListElement;
 	protected buttonRow?: HTMLDivElement;
 
 	private editButton?: HTMLButtonElement;
-	private dragHandle?: HTMLButtonElement;
 
 	render(shadow: ShadowRoot): void {
 		const style = document.createElement("style");
@@ -133,32 +130,12 @@ export default class EditableControls extends HTMLElement {
 		};
 		this.buttonRow.append(this.editButton);
 
-		this.dragHandle = document.createElement("button");
-		this.dragHandle.draggable = !this.disableReorder;
-		this.dragHandle.innerHTML = `<cc-icon name="${this.dragHandle.draggable ? "drag_indicator" : "more_vert"}"></cc-icon>`;
-		this.dragHandle.onclick = (e) => {
-			e.stopPropagation();
-			if (this.contextMenu?.classList.contains("open")) {
-				this.contextMenu?.classList.remove("open");
-				this.removeAttribute("open");
-			} else if (this.contextMenu && this.contextMenu.childElementCount > 0) {
-				this.contextMenu?.classList.add("open");
-				this.setAttribute("open", "true");
-			}
-		};
-		this.buttonRow?.append(this.dragHandle);
-
 		this.onclick = () => {
 			this.contextMenu?.classList.remove("open");
 			this.removeAttribute("open");
 		};
 
 		this.onblur = () => {
-			this.contextMenu?.classList.remove("open");
-			this.removeAttribute("open");
-		};
-
-		this.dragHandle.ondragstart = () => {
 			this.contextMenu?.classList.remove("open");
 			this.removeAttribute("open");
 		};
