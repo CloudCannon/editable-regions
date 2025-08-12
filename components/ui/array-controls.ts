@@ -1,13 +1,18 @@
+import type { ArrayDirection } from "../../nodes/array-editable";
 import EditableControls from "./editable-controls";
 
 export default class ArrayControls extends EditableControls {
-	disableMoveUp = false;
-	disableMoveDown = false;
+	disableMoveForward = false;
+	disableMoveBackward = false;
 	disableRemove = false;
 	disableReorder = false;
+	arrayDirection: ArrayDirection = "column";
 
-	private moveUpButton?: HTMLButtonElement;
-	private moveDownButton?: HTMLButtonElement;
+	moveBackwardText: "up" | "left" = "up";
+	moveForwardText: "down" | "right" = "down";
+
+	private moveForwardButton?: HTMLButtonElement;
+	private moveBackwardButton?: HTMLButtonElement;
 	private deleteButton?: HTMLButtonElement;
 	private dragHandle?: HTMLButtonElement;
 
@@ -33,27 +38,29 @@ export default class ArrayControls extends EditableControls {
 		};
 		this.buttonRow?.append(this.dragHandle);
 
-		this.moveUpButton = document.createElement("button");
-		this.moveUpButton.disabled = this.disableMoveUp;
-		this.moveUpButton.innerHTML =
-			'<cc-icon name="arrow_upward"></cc-icon> Move up';
-		this.moveUpButton.onclick = () => {
-			this.dispatchEvent(new CustomEvent("move-up", { detail: this }));
+		const backwardIconName = this.moveBackwardText === "up" ? "north" : "west";
+		this.moveBackwardButton = document.createElement("button");
+		this.moveBackwardButton.disabled =
+			this.disableMoveBackward || this.disableReorder;
+		this.moveBackwardButton.innerHTML = `<cc-icon name="${backwardIconName}"></cc-icon> Move ${this.moveBackwardText}`;
+		this.moveBackwardButton.onclick = () => {
+			this.dispatchEvent(new CustomEvent("move-backward", { detail: this }));
 		};
-		const moveUpContainer = document.createElement("li");
-		moveUpContainer.append(this.moveUpButton);
-		this.contextMenu?.append(moveUpContainer);
+		const moveBackwardContainer = document.createElement("li");
+		moveBackwardContainer.append(this.moveBackwardButton);
+		this.contextMenu?.append(moveBackwardContainer);
 
-		this.moveDownButton = document.createElement("button");
-		this.moveDownButton.disabled = this.disableMoveDown;
-		this.moveDownButton.innerHTML =
-			'<cc-icon name="arrow_downward"></cc-icon> Move down';
-		this.moveDownButton.onclick = () => {
-			this.dispatchEvent(new CustomEvent("move-down", { detail: this }));
+		const forwardIconName = this.moveForwardText === "down" ? "south" : "east";
+		this.moveForwardButton = document.createElement("button");
+		this.moveForwardButton.disabled =
+			this.disableMoveForward || this.disableReorder;
+		this.moveForwardButton.innerHTML = `<cc-icon name="${forwardIconName}"></cc-icon> Move ${this.moveForwardText}`;
+		this.moveForwardButton.onclick = (): void => {
+			this.dispatchEvent(new CustomEvent("move-forward", { detail: this }));
 		};
-		const moveDownContainer = document.createElement("li");
-		moveDownContainer.append(this.moveDownButton);
-		this.contextMenu?.append(moveDownContainer);
+		const moveForwardContainer = document.createElement("li");
+		moveForwardContainer.append(this.moveForwardButton);
+		this.contextMenu?.append(moveForwardContainer);
 
 		this.deleteButton = document.createElement("button");
 		this.deleteButton.disabled = this.disableRemove;

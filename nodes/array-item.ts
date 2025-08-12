@@ -7,6 +7,8 @@ import ComponentEditable from "./component-editable.js";
 declare const window: WindowType;
 
 export default class ArrayItem extends ComponentEditable {
+	parent: ArrayEditable | null = null;
+
 	protected controlsElement?: ArrayControls;
 
 	private inputConfig?: any;
@@ -55,7 +57,7 @@ export default class ArrayItem extends ComponentEditable {
 
 		e.preventDefault();
 		this.element.classList.add("dragover");
-		this.element.style.outline = "3px solid var(--ccve-color-sol)";
+		this.element.style.boxShadow = this.getDraggingBoxShadow(e);
 	}
 
 	getDragType(): string {
@@ -75,9 +77,62 @@ export default class ArrayItem extends ComponentEditable {
 		return `cc:${type}`;
 	}
 
+	getDraggingBoxShadow(e: DragEvent): string {
+		const position = this.getDragPosition(e);
+		const arrayDirection = this.parent?.arrayDirection || "column";
+
+		const column = arrayDirection.startsWith("column");
+		const reversed = arrayDirection.endsWith("reverse");
+
+		if (column) {
+			if (reversed) {
+				if (position === "before") {
+					return "0 3px 0 var(--ccve-color-sol)";
+				}
+				return "0 -3px 0 var(--ccve-color-sol)";
+			}
+			if (position === "before") {
+				return "0 -3px 0 var(--ccve-color-sol)";
+			}
+			return "0 3px 0 var(--ccve-color-sol)";
+		}
+
+		if (reversed) {
+			if (position === "before") {
+				return "3px 0 0 var(--ccve-color-sol)";
+			}
+			return "-3px 0 0 var(--ccve-color-sol)";
+		}
+		if (position === "before") {
+			return "-3px 0 0 var(--ccve-color-sol)";
+		}
+		return "3px 0 0 var(--ccve-color-sol)";
+	}
+
+	getDragPosition(e: DragEvent): "before" | "after" {
+		const rect = this.element.getBoundingClientRect();
+		const arrayDirection = this.parent?.arrayDirection ?? "column";
+
+		const mousePos = arrayDirection.startsWith("row") ? e.clientX : e.clientY;
+		const elementPos = arrayDirection.startsWith("row") ? rect.left : rect.top;
+		const elementSize = arrayDirection.startsWith("row")
+			? rect.width
+			: rect.height;
+
+		const relativePos = mousePos - elementPos;
+		const isInFirstHalf = relativePos < elementSize / 2;
+		const isBefore = arrayDirection.endsWith("reverse")
+			? !isInFirstHalf
+			: isInFirstHalf;
+
+		return isBefore ? "before" : "after";
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			this.controlsElement = document.createElement("array-controls");
+			this.controlsElement.arrayDirection =
+				this.parent?.arrayDirection ?? "column";
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				const source = this.resolveSource();
 				if (!source) {
@@ -86,24 +141,38 @@ export default class ArrayItem extends ComponentEditable {
 				window.CloudCannon?.edit(source, undefined, e);
 			});
 
-			this.controlsElement.addEventListener("move-up", () => {
+			this.controlsElement.addEventListener("move-backward", () => {
 				const source = this.parent?.resolveSource();
 				if (!source) {
 					throw new Error("Source not found");
 				}
 
 				const fromIndex = Number(this.element.dataset.prop);
-				window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				if (reversed) {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+				} else {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+				}
 			});
 
-			this.controlsElement.addEventListener("move-down", () => {
+			this.controlsElement.addEventListener("move-forward", () => {
 				const source = this.parent?.resolveSource();
 				if (!source) {
 					throw new Error("Source not found");
 				}
 
 				const fromIndex = Number(this.element.dataset.prop);
-				window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				if (reversed) {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+				} else {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+				}
 			});
 
 			this.controlsElement.addEventListener("delete", () => {
@@ -126,7 +195,6 @@ export default class ArrayItem extends ComponentEditable {
 
 				e.stopPropagation();
 				this.element.classList.add("dragging");
-				this.element.style.outline = "none";
 
 				e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
 				e.dataTransfer.effectAllowed = "move";
@@ -148,18 +216,42 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer?.setData(this.getDragType(), JSON.stringify(data));
 			});
 
+			const arrayDirection = this.parent?.arrayDirection ?? "column";
+			const reversed = arrayDirection.endsWith("reverse");
+
+			if (arrayDirection.startsWith("column")) {
+				this.controlsElement.moveBackwardText = "up";
+				this.controlsElement.moveForwardText = "down";
+			} else {
+				this.controlsElement.moveBackwardText = "left";
+				this.controlsElement.moveForwardText = "right";
+			}
+
+			if (reversed) {
+				this.controlsElement.disableMoveBackward =
+					Number(this.element.dataset.prop) ===
+					Number(this.element.dataset.length) - 1;
+				this.controlsElement.disableMoveForward =
+					Number(this.element.dataset.prop) === 0;
+			} else {
+				this.controlsElement.disableMoveBackward =
+					Number(this.element.dataset.prop) === 0;
+				this.controlsElement.disableMoveForward =
+					Number(this.element.dataset.prop) ===
+					Number(this.element.dataset.length) - 1;
+			}
+
 			window.CloudCannon?.getInputConfig(
 				this.parent?.resolveSource() ?? "",
 			).then((inputConfig) => {
-				if (!this.controlsElement || typeof inputConfig !== "object") {
+				if (!this.controlsElement) {
 					return;
 				}
 
-				this.controlsElement.disableMoveUp =
-					Number(this.element.dataset.prop) === 0;
-				this.controlsElement.disableMoveDown =
-					Number(this.element.dataset.prop) ===
-					Number(this.element.dataset.length) - 1;
+				if (typeof inputConfig !== "object") {
+					this.element.append(this.controlsElement);
+					return;
+				}
 
 				this.controlsElement.disableReorder =
 					(inputConfig as any)?.options?.disable_reorder ?? false;
@@ -171,9 +263,9 @@ export default class ArrayItem extends ComponentEditable {
 			});
 		}
 
-		this.element.ondragend = () => {
+		this.element.ondragend = (): void => {
 			this.element.classList.remove("dragging");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 		};
 
 		this.element.ondragenter = this.onHover.bind(this);
@@ -183,12 +275,12 @@ export default class ArrayItem extends ComponentEditable {
 			e.stopPropagation();
 
 			this.element.classList.remove("dragover");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 		};
 
 		this.element.ondrop = (e: DragEvent): void => {
 			this.element.classList.remove("dragover");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 
 			if (!e.dataTransfer) {
 				return;
@@ -203,9 +295,17 @@ export default class ArrayItem extends ComponentEditable {
 			const sameArrayData = e.dataTransfer.getData(source);
 			const otherArrayData = e.dataTransfer.getData(dragType);
 
+			const position = this.getDragPosition(e);
+			let newIndex =
+				position === "after"
+					? Number(this.element.dataset.prop) + 1
+					: Number(this.element.dataset.prop);
+
 			if (sameArrayData) {
 				const fromIndex = Number(sameArrayData);
-				const newIndex = Number(this.element.dataset.prop);
+				if (fromIndex < newIndex) {
+					newIndex -= 1;
+				}
 
 				e.preventDefault();
 				e.stopPropagation();
@@ -233,7 +333,6 @@ export default class ArrayItem extends ComponentEditable {
 					throw new Error("Structures do not match");
 				}
 
-				const newIndex = Number(this.element.dataset.prop) + 1;
 				window.CloudCannon?.removeArrayItem(slug, index);
 				window.CloudCannon?.addArrayItem(source, newIndex, value);
 
@@ -244,7 +343,6 @@ export default class ArrayItem extends ComponentEditable {
 				const { index, slug, value } = JSON.parse(otherArrayData);
 				window.CloudCannon?.removeArrayItem(slug, index);
 
-				const newIndex = Number(this.element.dataset.prop) + 1;
 				window.CloudCannon?.addArrayItem(source, newIndex, value);
 
 				e.preventDefault();

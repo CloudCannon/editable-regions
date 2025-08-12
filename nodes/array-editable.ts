@@ -5,7 +5,21 @@ import Editable from "./editable.js";
 
 declare const window: WindowType;
 
+const arrayDirectionValues = [
+	"row",
+	"column",
+	"row-reverse",
+	"column-reverse",
+] as const;
+
+export type ArrayDirection = (typeof arrayDirectionValues)[number];
+
+function isArrayDirection(value: unknown): value is ArrayDirection {
+	return arrayDirectionValues.includes(value as ArrayDirection);
+}
+
 export default class ArrayEditable extends Editable {
+	arrayDirection?: ArrayDirection;
 	value: unknown[] | null | undefined = undefined;
 
 	validateConfiguration(): boolean {
@@ -171,5 +185,25 @@ export default class ArrayEditable extends Editable {
 				child.remove();
 			}
 		});
+	}
+
+	calculateArrayDirection(): ArrayDirection {
+		if (isArrayDirection(this.element.dataset.direction)) {
+			return this.element.dataset.direction;
+		}
+
+		const computedStyles = getComputedStyle(this.element);
+		if (
+			computedStyles.display === "flex" &&
+			isArrayDirection(computedStyles.flexDirection)
+		) {
+			return computedStyles.flexDirection;
+		}
+
+		return "column";
+	}
+
+	mount(): void {
+		this.arrayDirection = this.calculateArrayDirection();
 	}
 }

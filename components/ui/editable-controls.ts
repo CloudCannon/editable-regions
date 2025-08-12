@@ -49,7 +49,7 @@ export default class EditableControls extends HTMLElement {
         gap: 12px;
         padding: 10px 6px;
         margin: 4px;
-        width: fit-content;
+        width: 154px;
         border: 1px solid #eee;
         box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
         border: 2px solid #cfcfcf;
