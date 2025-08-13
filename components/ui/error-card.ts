@@ -1,3 +1,5 @@
+import styleContent from "../../styles/ui/error-card.css?inline";
+
 export default class ErrorCard extends HTMLElement {
 	private _error?: unknown;
 	private shadow?: ShadowRoot;
@@ -21,30 +23,7 @@ export default class ErrorCard extends HTMLElement {
 
 	render(shadow: ShadowRoot, error: unknown) {
 		const style = document.createElement("style");
-		style.textContent = `
-  		:host {
-        display: flex;
-  		  background-color: #ffe7ea;
-        border-radius: var(--ccve-border-radius);
-        padding: var(--ccrt-gap);
-        margin: 2px;
-        border: 2px solid var(--ccve-color-ruby);
-        gap: var(--ccrt-gap);
-  		}
-
-      .heading {
-        font-size: 1.15em;
-        margin-top: 0px;
-      }
-
-      pre {
-        margin-bottom: 0;
-      }
-
-      cc-icon {
-        --cc-icon-fill: var(--ccve-color-ruby);
-      }
-    `;
+		style.textContent = styleContent;
 		shadow.appendChild(style);
 
 		const icon = document.createElement("cc-icon");
