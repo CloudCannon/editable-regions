@@ -1,56 +1,41 @@
+import styleContent from "../../styles/ui/editable-controls.css?inline";
+
 export default class EditableControls extends HTMLElement {
 	protected shadow?: ShadowRoot;
+	protected contextMenu?: HTMLUListElement;
+	protected buttonRow?: HTMLDivElement;
 
 	private editButton?: HTMLButtonElement;
 
-	render(shadow: ShadowRoot) {
+	render(shadow: ShadowRoot): void {
 		const style = document.createElement("style");
-		style.textContent = `
-	    :host {
-				position: absolute;
-        z-index: 99999999999;
-        display: flex;
-        background: #fff;
-        gap: 12px;
-        padding: 6px;
-        margin: 4px;
-        border-radius: var(--ccve-border-radius);
-        top: var(--ccve-editable-outline-width);
-        right: var(--ccve-editable-outline-width);
-        width: fit-content;
-        border: 1px solid #eee;
-        box-shadow: 0 0 16px rgba(0, 0, 0, 0.1);
-      }
-  		button {
-  		  background-color: transparent;
-        border: 0;
-        padding: 0;
-        width: 36px;
-        height: 36px;
-        border-radius: var(--ccve-border-radius);
-        cursor: pointer;
-
-        &[draggable] {
-          cursor: grab;
-        }
-
-        &:hover {
-          background-color: var(--ccve-color-cc-blue);
-
-          & cc-icon {
-            --cc-icon-fill: var(--ccve-color-cloud)
-          }
-        }
-  		}
-    `;
+		style.textContent = styleContent;
 		shadow.appendChild(style);
+
+		this.buttonRow = document.createElement("div");
+		this.buttonRow.classList.add("button-row");
+		shadow.appendChild(this.buttonRow);
+
+		this.contextMenu = document.createElement("ul");
+		this.contextMenu.classList.add("context-menu");
+		shadow.appendChild(this.contextMenu);
 
 		this.editButton = document.createElement("button");
 		this.editButton.innerHTML = '<cc-icon name="edit"></cc-icon>';
 		this.editButton.onclick = () => {
 			this.dispatchEvent(new CustomEvent("edit", { detail: this }));
 		};
-		shadow.append(this.editButton);
+		this.buttonRow.append(this.editButton);
+
+		this.onclick = () => {
+			this.contextMenu?.classList.remove("open");
+			this.removeAttribute("open");
+		};
+
+		this.onblur = () => {
+			this.contextMenu?.classList.remove("open");
+			this.removeAttribute("open");
+		};
 	}
 
 	connectedCallback() {

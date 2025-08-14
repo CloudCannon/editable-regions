@@ -1,10 +1,18 @@
 import "../components/ui/array-controls.js";
+import type ArrayControls from "../components/ui/array-controls.js";
 import type { WindowType } from "../types/window.js";
+import ArrayEditable from "./array-editable.js";
 import ComponentEditable from "./component-editable.js";
 
 declare const window: WindowType;
 
 export default class ArrayItem extends ComponentEditable {
+	parent: ArrayEditable | null = null;
+
+	protected controlsElement?: ArrayControls;
+
+	private inputConfig?: any;
+
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
@@ -19,29 +27,162 @@ export default class ArrayItem extends ComponentEditable {
 			}
 		}
 
+		if (!this.parent || !(this.parent instanceof ArrayEditable)) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array item");
+			error.setAttribute(
+				"message",
+				"Parent array editable not found. Array items must be a descendant of an array editable.",
+			);
+			this.element.replaceChildren(error);
+			return false;
+		}
+
 		return true;
 	}
 
 	onHover(e: DragEvent): void {
 		const source = this.parent?.resolveSource();
-		if (!source || !e.dataTransfer || !e.dataTransfer?.types.includes(source)) {
+		if (!source || !e.dataTransfer) {
 			return;
 		}
-		e.preventDefault();
 
+		if (
+			!e.dataTransfer?.types.includes(source) &&
+			!e.dataTransfer.types.includes(this.getDragType())
+		) {
+			return;
+		}
+
+		e.preventDefault();
 		this.element.classList.add("dragover");
-		this.element.style.outline = "3px solid var(--ccve-color-sol)";
+		this.element.style.boxShadow = this.getDraggingBoxShadow(e);
+	}
+
+	getDragType(): string {
+		if (this.inputConfig?.options?.structures?.values?.length) {
+			return "cc:structure";
+		}
+
+		const currentArraySubtype = this.inputConfig?.options?.__array_subtype;
+		if (currentArraySubtype) {
+			return `cc:${currentArraySubtype}`;
+		}
+
+		const type = window.CloudCannon?.getInputType(
+			this.resolveSource(),
+			this.value,
+		);
+		return `cc:${type}`;
+	}
+
+	getDraggingBoxShadow(e: DragEvent): string {
+		const position = this.getDragPosition(e);
+		const arrayDirection = this.parent?.arrayDirection || "column";
+
+		const column = arrayDirection.startsWith("column");
+		const reversed = arrayDirection.endsWith("reverse");
+
+		if (column) {
+			if (reversed) {
+				if (position === "before") {
+					return "0 3px 0 var(--ccve-color-sol)";
+				}
+				return "0 -3px 0 var(--ccve-color-sol)";
+			}
+			if (position === "before") {
+				return "0 -3px 0 var(--ccve-color-sol)";
+			}
+			return "0 3px 0 var(--ccve-color-sol)";
+		}
+
+		if (reversed) {
+			if (position === "before") {
+				return "3px 0 0 var(--ccve-color-sol)";
+			}
+			return "-3px 0 0 var(--ccve-color-sol)";
+		}
+		if (position === "before") {
+			return "-3px 0 0 var(--ccve-color-sol)";
+		}
+		return "3px 0 0 var(--ccve-color-sol)";
+	}
+
+	getDragPosition(e: DragEvent): "before" | "after" {
+		const rect = this.element.getBoundingClientRect();
+		const arrayDirection = this.parent?.arrayDirection ?? "column";
+
+		const mousePos = arrayDirection.startsWith("row") ? e.clientX : e.clientY;
+		const elementPos = arrayDirection.startsWith("row") ? rect.left : rect.top;
+		const elementSize = arrayDirection.startsWith("row")
+			? rect.width
+			: rect.height;
+
+		const relativePos = mousePos - elementPos;
+		const isInFirstHalf = relativePos < elementSize / 2;
+		const isBefore = arrayDirection.endsWith("reverse")
+			? !isInFirstHalf
+			: isInFirstHalf;
+
+		return isBefore ? "before" : "after";
 	}
 
 	mount(): void {
 		if (!this.controlsElement) {
 			this.controlsElement = document.createElement("array-controls");
+			this.controlsElement.arrayDirection =
+				this.parent?.arrayDirection ?? "column";
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				const source = this.resolveSource();
 				if (!source) {
 					throw new Error("Source not found");
 				}
 				window.CloudCannon?.edit(source, undefined, e);
+			});
+
+			this.controlsElement.addEventListener("move-backward", () => {
+				const source = this.parent?.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+
+				const fromIndex = Number(this.element.dataset.prop);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				if (reversed) {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+				} else {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+				}
+			});
+
+			this.controlsElement.addEventListener("move-forward", () => {
+				const source = this.parent?.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+
+				const fromIndex = Number(this.element.dataset.prop);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				if (reversed) {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
+				} else {
+					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
+				}
+			});
+
+			this.controlsElement.addEventListener("delete", () => {
+				const source = this.parent?.resolveSource();
+				if (!source) {
+					throw new Error("Source not found");
+				}
+
+				const fromIndex = Number(this.element.dataset.prop);
+				window.CloudCannon?.removeArrayItem(source, fromIndex);
 			});
 
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
@@ -54,19 +195,77 @@ export default class ArrayItem extends ComponentEditable {
 
 				e.stopPropagation();
 				this.element.classList.add("dragging");
-				this.element.style.outline = "none";
 
 				e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
 				e.dataTransfer.effectAllowed = "move";
 				e.dataTransfer?.setData(source, this.element.dataset.prop);
+
+				const data: Record<string, any> = {
+					index: this.element.dataset.prop,
+					slug: source,
+					value: this.value,
+				};
+
+				if (this.inputConfig?.options?.structures?.values?.length > 1) {
+					data.structure = window.CloudCannon?.findStructure(
+						this.inputConfig?.options?.structures,
+						this.value,
+					);
+				}
+
+				e.dataTransfer?.setData(this.getDragType(), JSON.stringify(data));
 			});
 
-			this.element.append(this.controlsElement);
+			const arrayDirection = this.parent?.arrayDirection ?? "column";
+			const reversed = arrayDirection.endsWith("reverse");
+
+			if (arrayDirection.startsWith("column")) {
+				this.controlsElement.moveBackwardText = "up";
+				this.controlsElement.moveForwardText = "down";
+			} else {
+				this.controlsElement.moveBackwardText = "left";
+				this.controlsElement.moveForwardText = "right";
+			}
+
+			if (reversed) {
+				this.controlsElement.disableMoveBackward =
+					Number(this.element.dataset.prop) ===
+					Number(this.element.dataset.length) - 1;
+				this.controlsElement.disableMoveForward =
+					Number(this.element.dataset.prop) === 0;
+			} else {
+				this.controlsElement.disableMoveBackward =
+					Number(this.element.dataset.prop) === 0;
+				this.controlsElement.disableMoveForward =
+					Number(this.element.dataset.prop) ===
+					Number(this.element.dataset.length) - 1;
+			}
+
+			window.CloudCannon?.getInputConfig(
+				this.parent?.resolveSource() ?? "",
+			).then((inputConfig) => {
+				if (!this.controlsElement) {
+					return;
+				}
+
+				if (typeof inputConfig !== "object") {
+					this.element.append(this.controlsElement);
+					return;
+				}
+
+				this.controlsElement.disableReorder =
+					(inputConfig as any)?.options?.disable_reorder ?? false;
+				this.controlsElement.disableRemove =
+					(inputConfig as any)?.options?.disable_remove ?? false;
+
+				this.inputConfig = inputConfig;
+				this.element.append(this.controlsElement);
+			});
 		}
 
-		this.element.ondragend = () => {
+		this.element.ondragend = (): void => {
 			this.element.classList.remove("dragging");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 		};
 
 		this.element.ondragenter = this.onHover.bind(this);
@@ -76,12 +275,12 @@ export default class ArrayItem extends ComponentEditable {
 			e.stopPropagation();
 
 			this.element.classList.remove("dragover");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 		};
 
 		this.element.ondrop = (e: DragEvent): void => {
 			this.element.classList.remove("dragover");
-			this.element.style.outline = "";
+			this.element.style.boxShadow = "";
 
 			if (!e.dataTransfer) {
 				return;
@@ -92,16 +291,63 @@ export default class ArrayItem extends ComponentEditable {
 				throw new Error("Source not found");
 			}
 
-			const data = e.dataTransfer.getData(source);
-			const fromIndex = Number(data);
-			const newIndex = Number(this.element.dataset.prop);
+			const dragType = this.getDragType();
+			const sameArrayData = e.dataTransfer.getData(source);
+			const otherArrayData = e.dataTransfer.getData(dragType);
 
-			e.preventDefault();
-			e.stopPropagation();
-			e.dataTransfer.dropEffect = "move";
+			const position = this.getDragPosition(e);
+			let newIndex =
+				position === "after"
+					? Number(this.element.dataset.prop) + 1
+					: Number(this.element.dataset.prop);
 
-			if (window.CloudCannon && fromIndex !== newIndex) {
-				window.CloudCannon.moveArrayItem(source, fromIndex, newIndex);
+			if (sameArrayData) {
+				const fromIndex = Number(sameArrayData);
+				if (fromIndex < newIndex) {
+					newIndex -= 1;
+				}
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.dataTransfer.dropEffect = "move";
+
+				if (window.CloudCannon && fromIndex !== newIndex) {
+					window.CloudCannon.moveArrayItem(source, fromIndex, newIndex);
+				}
+			} else if (otherArrayData && dragType === "cc:structure") {
+				const { index, slug, value, structure } = JSON.parse(otherArrayData);
+
+				if (!this.inputConfig?.options?.structures?.values) {
+					throw new Error("No structures found");
+				}
+
+				const targetStructure = window.CloudCannon?.findStructure(
+					this.inputConfig.options.structures,
+					this.value,
+				);
+				if (!targetStructure) {
+					throw new Error("No target structure found");
+				}
+
+				if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
+					throw new Error("Structures do not match");
+				}
+
+				window.CloudCannon?.removeArrayItem(slug, index);
+				window.CloudCannon?.addArrayItem(source, newIndex, value);
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.dataTransfer.dropEffect = "move";
+			} else if (otherArrayData) {
+				const { index, slug, value } = JSON.parse(otherArrayData);
+				window.CloudCannon?.removeArrayItem(slug, index);
+
+				window.CloudCannon?.addArrayItem(source, newIndex, value);
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.dataTransfer.dropEffect = "move";
 			}
 		};
 	}

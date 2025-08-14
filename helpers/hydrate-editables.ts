@@ -21,6 +21,18 @@ const editableMap: Record<string, typeof Editable | undefined> = {
 };
 
 const hydrateDataEditables = (root: Element) => {
+	if (
+		root instanceof HTMLElement &&
+		root.dataset.editable &&
+		!("editable" in root)
+	) {
+		const Editable = editableMap[root.dataset.editable];
+		if (Editable) {
+			const editable = new Editable(root);
+			editable.connect();
+		}
+	}
+
 	root.querySelectorAll("[data-editable]").forEach((element) => {
 		if (!(element instanceof HTMLElement) || "editable" in element) {
 			return;

@@ -5,23 +5,56 @@ import Editable from "./editable.js";
 
 declare const window: WindowType;
 
-export default class ArrayEditable extends Editable {
-	value: unknown[] | undefined = undefined;
+const arrayDirectionValues = [
+	"row",
+	"column",
+	"row-reverse",
+	"column-reverse",
+] as const;
 
-	validateValue(value: unknown): unknown[] | undefined {
-		if (!Array.isArray(value)) {
-			return undefined;
+export type ArrayDirection = (typeof arrayDirectionValues)[number];
+
+function isArrayDirection(value: unknown): value is ArrayDirection {
+	return arrayDirectionValues.includes(value as ArrayDirection);
+}
+
+export default class ArrayEditable extends Editable {
+	arrayDirection?: ArrayDirection;
+	value: unknown[] | null | undefined = undefined;
+
+	validateConfiguration(): boolean {
+		const prop = this.element.dataset.prop;
+		if (typeof prop !== "string") {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array editable");
+			error.setAttribute("message", "Missing required attribute data-prop");
+			this.element.replaceChildren(error);
+			return false;
+		}
+
+		return true;
+	}
+
+	validateValue(value: unknown): unknown[] | null | undefined {
+		if (!Array.isArray(value) && value !== null) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render array editable");
+			error.setAttribute(
+				"message",
+				`Illegal value type: ${typeof value}. Supported types are array.`,
+			);
+			this.element.replaceChildren(error);
+			return;
 		}
 		return value;
 	}
 
 	update(): void {
-		const value = this.value;
-		if (!value) {
-			throw new Error("array-editable updated with invalid value");
-		}
-
+		const value = this.value ?? [];
 		const children: (HTMLElement & { editable: ArrayItem })[] = [];
+
 		for (const child of this.element.querySelectorAll(
 			"array-item,[data-editable='array-item']",
 		)) {
@@ -53,23 +86,28 @@ export default class ArrayEditable extends Editable {
 					child = children[0].cloneNode(true) as HTMLElement & {
 						editable: ArrayItem;
 					};
-					this.element.appendChild(child);
 					children.push(child);
 				}
 			}
 
-			window.hydrateDataEditables?.(this.element);
-
 			children.forEach((child, i) => {
 				child.dataset.prop = `${i}`;
+				child.dataset.length = `${children.length}`;
+
+				window.hydrateDataEditables?.(child);
+				child.editable.parent = this;
 				child.editable.pushValue(value[i]);
+
+				if (!child.parentElement && i < value.length) {
+					this.element.appendChild(child);
+				}
 			});
 			return;
 		}
 
 		const dataKeys = this.value?.map((item) => {
 			const key = this.element.dataset.idKey;
-			return key ? (item as any)[key] : item;
+			return String(key ? (item as any)[key] : item);
 		});
 
 		const childKeys = children.map((element) => {
@@ -136,6 +174,8 @@ export default class ArrayEditable extends Editable {
 				this.element.appendChild(matchingChild);
 			}
 
+			window.hydrateDataEditables?.(matchingChild);
+
 			matchingChild.editable.parent = this;
 			matchingChild.editable.pushValue(value[i]);
 		});
@@ -145,6 +185,25 @@ export default class ArrayEditable extends Editable {
 				child.remove();
 			}
 		});
-		window.hydrateDataEditables?.(this.element);
+	}
+
+	calculateArrayDirection(): ArrayDirection {
+		if (isArrayDirection(this.element.dataset.direction)) {
+			return this.element.dataset.direction;
+		}
+
+		const computedStyles = getComputedStyle(this.element);
+		if (
+			computedStyles.display === "flex" &&
+			isArrayDirection(computedStyles.flexDirection)
+		) {
+			return computedStyles.flexDirection;
+		}
+
+		return "column";
+	}
+
+	mount(): void {
+		this.arrayDirection = this.calculateArrayDirection();
 	}
 }
