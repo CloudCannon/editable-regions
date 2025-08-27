@@ -17,6 +17,10 @@ declare const window: WindowType;
 export default class ComponentEditable extends Editable {
 	protected controlsElement?: EditableControls;
 
+	getComponents() {
+		return window.cc_components;
+	}
+
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (!key) {
@@ -31,7 +35,7 @@ export default class ComponentEditable extends Editable {
 			return false;
 		}
 
-		const component = window.cc_components?.[key];
+		const component = this.getComponents()?.[key];
 		if (!component) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
@@ -51,7 +55,7 @@ export default class ComponentEditable extends Editable {
 		if (!key) {
 			return super.update();
 		}
-		const component = window.cc_components?.[key];
+		const component = this.getComponents()?.[key];
 		if (!component) {
 			return super.update();
 		}
@@ -142,10 +146,21 @@ export default class ComponentEditable extends Editable {
 						!targetChild?.isEqualNode(renderChild) &&
 						hasEditable(renderChild)
 					) {
-						targetChild.replaceWith(renderChild);
-						renderChild.editable.pushValue(this.value);
+						for (let i = 0; i < this.listeners.length; i++) {
+							targetChild.replaceWith(renderChild);
+							const listener = this.listeners[i];
+							if (listener.editable.element === targetChild) {
+								listener.editable.element = renderChild;
+								renderChild.editable.pushValue(this.value, listener);
+							}
+						}
 					} else if (hasEditable(targetChild)) {
-						targetChild.editable.pushValue(this.value);
+						for (let i = 0; i < this.listeners.length; i++) {
+							const listener = this.listeners[i];
+							if (listener.editable.element === targetChild) {
+								targetChild.editable.pushValue(this.value, listener);
+							}
+						}
 					}
 				} else if (hasEditable(targetChild)) {
 					for (let i = 0; i < this.listeners.length; i++) {
@@ -176,18 +191,22 @@ export default class ComponentEditable extends Editable {
 		}
 	}
 
+	dispatchEdit(source?: string) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: { action: "edit", source },
+			}),
+		);
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			let editPath: string | undefined;
-			Object.entries(this.element.dataset).forEach(([propName]) => {
+			Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
 				if (!propName.startsWith("prop")) {
 					return;
 				}
-
-				const propKey =
-					propName === "prop" ? undefined : propName.substring(4).toLowerCase();
-
-				const propPath = this.resolveSource(propKey);
 
 				if (typeof editPath !== "string") {
 					editPath = propPath;
@@ -199,10 +218,15 @@ export default class ComponentEditable extends Editable {
 				}
 			});
 
+			editPath ||= this.element.dataset.prop;
+			editPath ||= Object.entries(this.element.dataset).find(([propName]) =>
+				propName.startsWith("prop"),
+			)?.[1];
+
 			if (editPath) {
 				this.controlsElement = document.createElement("editable-controls");
 				this.controlsElement.addEventListener("edit", (e: any) => {
-					window.CloudCannon?.edit(editPath ?? "", undefined, e);
+					this.dispatchEdit(editPath);
 				});
 				this.element.append(this.controlsElement);
 			}

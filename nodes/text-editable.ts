@@ -3,9 +3,12 @@ import Editable from "./editable.js";
 
 declare const window: WindowType;
 
+type EditableFocusEvent = CustomEvent<number>;
+
 export default class TextEditable extends Editable {
 	editor?: any;
 	focused = false;
+	focusIndex = 0;
 	value: string | null | undefined;
 
 	validateConfiguration(): boolean {
@@ -67,17 +70,47 @@ export default class TextEditable extends Editable {
 
 	update(): void {
 		this.element.dataset.prop === "@content"
-			? window.CloudCannon?.getFileContent().then((content) =>
-					this.editor?.setContent(content),
-				)
+			? window.CloudCannonAPI.v1
+					.currentFile()
+					.content.get()
+					.then((content) => {
+						console.log("", { content });
+						this.editor?.setContent(content);
+					})
 			: this.editor?.setContent(this.value);
 	}
 
 	mount(): void {
-		this.element.onblur = () => {
+		this.element.addEventListener("blur", () => {
 			this.focused = false;
-			this.parent?.update();
-		};
+			this.element.dispatchEvent(
+				new CustomEvent("editable:blur", {
+					bubbles: true,
+					detail: this.focusIndex,
+				}),
+			);
+		});
+
+		this.element.addEventListener("focus", () => {
+			this.focusIndex += 1;
+			this.element.dispatchEvent(
+				new CustomEvent("editable:focus", {
+					bubbles: true,
+					detail: this.focusIndex,
+				}),
+			);
+		});
+
+		this.element.addEventListener("editable:focus", (e: EditableFocusEvent) => {
+			this.focused = true;
+			this.focusIndex = e.detail;
+		});
+
+		this.element.addEventListener("editable:blur", (e: EditableFocusEvent) => {
+			if (e.detail >= this.focusIndex) {
+				this.focused = false;
+			}
+		});
 
 		if (typeof this.element.dataset.deferMount === "string") {
 			this.element.onclick = () => {
@@ -88,10 +121,6 @@ export default class TextEditable extends Editable {
 			};
 			return;
 		}
-
-		this.element.onfocus = () => {
-			this.focused = true;
-		};
 
 		if (!window.CloudCannon && !this.editor) {
 			document.addEventListener(
@@ -109,14 +138,13 @@ export default class TextEditable extends Editable {
 		}
 
 		const source = this.resolveSource();
-		if (!source) {
-			throw new Error("Source not found");
-		}
 
 		const inputConfig =
-			this.element.dataset.prop === "@content"
-				? undefined
+			!source || this.element.dataset.prop === "@content"
+				? { type: "markdown" }
 				: await window.CloudCannon?.getInputConfig(source);
+
+		console.log(this.element, { inputConfig });
 
 		this.editor = await window.CloudCannon?.createTextEditableRegion(
 			this.element,
@@ -136,14 +164,48 @@ export default class TextEditable extends Editable {
 		return this.editor;
 	}
 
+	dispatchSetFileData(source: string, value: unknown) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "set-file-data",
+					source,
+					value,
+				},
+			}),
+		);
+	}
+
+	dispatchSetFileContent(value: string) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "set-file-content",
+					value,
+				},
+			}),
+		);
+	}
+
 	onChange(value?: string) {
-		const source = this.resolveSource();
+		const source = this.element.dataset.prop;
 		if (!source) {
 			throw new Error("Source not found");
 		}
 
+		this.value = value;
+
 		this.element.dataset.prop === "@content"
-			? window.CloudCannon?.setFileContent(value || "")
-			: window.CloudCannon?.setFileData(source, value);
+			? this.dispatchSetFileContent(value || "")
+			: this.dispatchSetFileData(source, value);
+	}
+}
+
+declare global {
+	interface HTMLElementEventMap {
+		"editable:focus": EditableFocusEvent;
+		"editable:blur": EditableFocusEvent;
 	}
 }

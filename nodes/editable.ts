@@ -1,16 +1,12 @@
+import type { WindowType } from "../types/window";
+
+declare const window: WindowType;
+
 export interface EditableListener {
 	editable: Editable;
 	key?: string;
 	path?: string;
 }
-
-const lookupPath = (path: string, obj: unknown): any => {
-	return path.split(".").reduce((acc, key) => {
-		if (acc && typeof acc === "object" && key in acc) {
-			return (acc as any)[key];
-		}
-	}, obj);
-};
 
 export default class Editable {
 	listeners: EditableListener[] = [];
@@ -27,6 +23,14 @@ export default class Editable {
 		(element as any).editable = this;
 	}
 
+	lookupPath(path: string, obj: unknown): any {
+		return path.split(".").reduce((acc, key) => {
+			if (acc && typeof acc === "object" && key in acc) {
+				return (acc as any)[key];
+			}
+		}, obj);
+	}
+
 	shouldUpdate(_value: unknown) {
 		return true;
 	}
@@ -34,9 +38,9 @@ export default class Editable {
 	getNewValue(value: unknown, listener?: EditableListener): unknown {
 		const { key, path } = listener ?? {};
 		if (!key) {
-			this.propsBase = path ? lookupPath(path, value) : value;
+			this.propsBase = path ? this.lookupPath(path, value) : value;
 		} else {
-			this.props[key] = path ? lookupPath(path, value) : value;
+			this.props[key] = path ? this.lookupPath(path, value) : value;
 		}
 
 		if (Object.entries(this.props).length === 0) {
@@ -149,6 +153,7 @@ export default class Editable {
 			customElements.whenDefined("component-editable"),
 			customElements.whenDefined("image-editable"),
 			customElements.whenDefined("source-editable"),
+			customElements.whenDefined("snippet-editable"),
 		]).then(() => {
 			this.setupListeners();
 			this.validateConfiguration();
@@ -205,6 +210,64 @@ export default class Editable {
 
 			parentEditable.registerListener(listener);
 		});
+
+		this.element.addEventListener("cloudcannon-api", (e: any) => {
+			if (e.target !== this.element) {
+				if (!e.detail.source) {
+					e.detail.source = this.element.dataset.prop;
+				} else {
+					const source = e.detail.source;
+					const [part, ...rest] = source.split(".");
+					const propKey = part.charAt(0).toUpperCase() + part.slice(1);
+					const propPath = this.element.dataset[`prop${propKey}`];
+
+					if (propPath) {
+						rest.unshift(propPath);
+						e.detail.source = rest.join(".");
+					} else if (typeof this.element.dataset.prop !== "string") {
+						throw new Error(`Failed to resolve source "${source}"`);
+					} else if (this.element.dataset.prop) {
+						e.detail.source = `${this.element.dataset.prop}.${source}`;
+					}
+				}
+			}
+
+			if (!this.parent) {
+				e.stopPropagation();
+				this.executeApiCall(e.detail);
+			}
+		});
+	}
+
+	executeApiCall(options: any) {
+		switch (options.action) {
+			case "edit":
+				window.CloudCannon?.edit(options.source);
+				break;
+			case "set-file-data":
+				window.CloudCannon?.setFileData(options.source, options.value);
+				break;
+			case "set-file-content":
+				window.CloudCannonAPI.v1.currentFile().content.set(options.value);
+				break;
+			case "add-array-item":
+				window.CloudCannon?.addArrayItem(
+					options.source,
+					options.newIndex,
+					options.value,
+				);
+				break;
+			case "remove-array-item":
+				window.CloudCannon?.removeArrayItem(options.source, options.fromIndex);
+				break;
+			case "move-array-item":
+				window.CloudCannon?.moveArrayItem(
+					options.source,
+					options.fromIndex,
+					options.toIndex,
+				);
+				break;
+		}
 	}
 
 	mount(): void {}

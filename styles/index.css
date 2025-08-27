@@ -4,6 +4,19 @@
 @import "./image-editable.css";
 @import "./source-editable.css";
 
+snippet-editable {
+    cursor: pointer;
+    position: relative;
+
+    &[data-cms-snippet-type="block"] {
+        display: block;
+    }
+
+    &[data-cms-snippet-type="inline"] {
+        display: inline-block;
+    }
+}
+
 array-controls,
 editable-controls {
     transition: opacity var(--ccve-transition-duration) ease;
@@ -14,6 +27,7 @@ text-editable,
 component-editable,
 image-editable,
 source-editable,
+snippet-editable,
 [data-editable='array-item'],
 [data-editable='text'],
 [data-editable='component'],
@@ -54,6 +68,7 @@ source-editable,
     component-editable,
     image-editable,
     source-editable,
+    snippet-editable,
     [data-editable='array-item'],
     [data-editable='text'],
     [data-editable='component'],
@@ -81,6 +96,7 @@ source-editable,
     & component-editable,
     & image-editable,
     & source-editable,
+    & snippet-editable,
     & [data-editable='array-item'],
     & [data-editable='text'],
     & [data-editable='component'],
