@@ -1,3 +1,4 @@
+import { hasEditable } from "../helpers/checks";
 import type { WindowType } from "../types/window";
 
 declare const window: WindowType;
@@ -24,6 +25,9 @@ export default class Editable {
 	}
 
 	lookupPath(path: string, obj: unknown): any {
+	  if(!path){
+			return obj;
+		}
 		return path.split(".").reduce((acc, key) => {
 			if (acc && typeof acc === "object" && key in acc) {
 				return (acc as any)[key];
@@ -232,7 +236,7 @@ export default class Editable {
 				}
 			}
 
-			if (!this.parent) {
+			if (!this.parent || isAbsolute(e.detail.source)) {
 				e.stopPropagation();
 				this.executeApiCall(e.detail);
 			}
@@ -240,6 +244,30 @@ export default class Editable {
 	}
 
 	executeApiCall(options: any) {
+		if (options.source?.startsWith("@snippet")) {
+			const match = options.source.match(
+				/^@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/,
+			);
+			if (!match) {
+				console.error("Error: Invalid snippet syntax");
+				return;
+			}
+			const { id, rest } = match.groups;
+			const snippet = document.querySelector(`[data-cms-snippet-id="${id}"]`);
+			if (
+				!snippet ||
+				!("editable" in snippet) ||
+				!(snippet.editable instanceof Editable)
+			) {
+				console.error(`Error: Snippet with ID "${id}" not found`);
+				return;
+			}
+			snippet.editable.executeApiCall({
+				...options,
+				source: rest,
+			});
+		}
+
 		switch (options.action) {
 			case "edit":
 				window.CloudCannon?.edit(options.source);
@@ -276,3 +304,7 @@ export default class Editable {
 		return true;
 	}
 }
+
+const isAbsolute = (source: string): boolean => {
+	return source?.startsWith("@snippet");
+};

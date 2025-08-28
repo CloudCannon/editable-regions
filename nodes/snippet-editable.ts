@@ -1,5 +1,6 @@
 import type { WindowType } from "../types/window.js";
 import ComponentEditable from "./component-editable.js";
+import Editable from "./editable.js";
 
 declare const window: WindowType;
 
@@ -36,45 +37,85 @@ export default class SnippetEditable extends ComponentEditable {
 		return value;
 	}
 
-	executeApiCall(options: any) {
+	executeApiCall(options: any): void {
+		if (options.source?.startsWith("@snippet")) {
+			const match = options.source.match(
+				/^@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/,
+			);
+			if (!match) {
+				console.error("Error: Invalid snippet syntax");
+				return;
+			}
+			const { id, rest } = match.groups;
+			if (id !== this.element.getAttribute("data-cms-snippet-id")) {
+				const snippet = document.querySelector(`[data-cms-snippet-id="${id}"]`);
+				if (
+					!snippet ||
+					!("editable" in snippet) ||
+					!(snippet.editable instanceof Editable)
+				) {
+					console.error(`Error: Snippet with ID "${id}" not found`);
+					return;
+				}
+				snippet.editable.executeApiCall({
+					...options,
+					source: rest,
+				});
+			}
+		}
+
 		switch (options.action) {
 			case "edit":
 				window.CloudCannon?.edit(options.source);
 				break;
 			case "set-file-data": {
-				const newValue = this.value;
-				if (newValue && typeof newValue === "object") {
-					let temp: any = newValue;
-					const parts = options.source.split(".");
-					const lastPart = parts.pop();
-					parts.forEach((part: string) => {
-						if (typeof temp?.[part] === "undefined") {
-							temp ??= {};
-							temp[part] ??= {};
-						}
-						temp = temp[part];
-					});
+				const parts = options.source.split(".");
+				const lastPart = parts.pop();
+				const temp = this.lookupPath(parts.join("."), this.value);
+
+				if (temp && typeof temp === "object") {
 					temp[lastPart] = options.value;
 				}
-				this.element.dispatchEvent(
-					new CustomEvent("snippet-change", {
-						detail: {
-							snippetId: this.element.getAttribute("data-cms-snippet-id"),
-							isValid: true,
-							snippetData: newValue,
-						},
-						bubbles: true,
-					}),
-				);
 				break;
 			}
-			case "move-array-item":
-				debugger;
+			case "move-array-item": {
+				const temp = this.lookupPath(options.source, this.value);
+				if (Array.isArray(temp)) {
+					const value = temp.splice(options.fromIndex, 1)[0];
+					temp.splice(options.toIndex, 0, value);
+				}
+				break;
+			}
+			case "remove-array-item": {
+				const temp = this.lookupPath(options.source, this.value);
+				if (Array.isArray(temp)) {
+					temp.splice(options.fromIndex, 1);
+				}
+				break;
+			}
+			case "add-array-item": {
+				const temp = this.lookupPath(options.source, this.value);
+				if (Array.isArray(temp)) {
+					temp.splice(options.toIndex, 0, options.value);
+				}
+
+				break;
+			}
 			case "set-file-content":
-			case "add-array-item":
-			case "remove-array-item":
 				console.error(`${options.action} not implemented for snippet editable`);
+				return;
 		}
+
+		this.element.dispatchEvent(
+			new CustomEvent("snippet-change", {
+				detail: {
+					snippetId: this.element.getAttribute("data-cms-snippet-id"),
+					isValid: true,
+					snippetData: this.value,
+				},
+				bubbles: true,
+			}),
+		);
 	}
 
 	mount(): void {}
@@ -84,6 +125,6 @@ export default class SnippetEditable extends ComponentEditable {
 	}
 
 	resolveSource(source?: string): string | undefined {
-		return source;
+		return `@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`;
 	}
 }

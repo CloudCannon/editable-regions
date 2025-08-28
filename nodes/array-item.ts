@@ -141,13 +141,14 @@ export default class ArrayItem extends ComponentEditable {
 		);
 	}
 
-	dispatchArrayRemove(fromIndex: number) {
+	dispatchArrayRemove(fromIndex: number, source?: string) {
 		this.element.dispatchEvent(
 			new CustomEvent("cloudcannon-api", {
 				bubbles: true,
 				detail: {
 					action: "remove-array-item",
 					fromIndex,
+					source,
 				},
 			}),
 		);
@@ -222,7 +223,7 @@ export default class ArrayItem extends ComponentEditable {
 					value: this.value,
 				};
 
-				if (this.inputConfig?.options?.structures?.values?.length > 1) {
+				if (this.inputConfig?.options?.structures?.values?.length > 0) {
 					data.structure = window.CloudCannon?.findStructure(
 						this.inputConfig?.options?.structures,
 						this.value,
@@ -351,6 +352,7 @@ export default class ArrayItem extends ComponentEditable {
 				}
 
 				window.CloudCannon?.removeArrayItem(slug, index);
+				this.dispatchArrayRemove(index, slug);
 				this.dispatchArrayAdd(newIndex, value);
 
 				e.preventDefault();

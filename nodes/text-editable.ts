@@ -144,8 +144,6 @@ export default class TextEditable extends Editable {
 				? { type: "markdown" }
 				: await window.CloudCannon?.getInputConfig(source);
 
-		console.log(this.element, { inputConfig });
-
 		this.editor = await window.CloudCannon?.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
