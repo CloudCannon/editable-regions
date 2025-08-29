@@ -10,9 +10,21 @@ export default class SnippetEditable extends ComponentEditable {
 	}
 
 	setupListeners(): void {
-		this.element.addEventListener("cloudcannon-api", (e: any) => {
-			e.stopPropagation();
-			this.executeApiCall(e.detail);
+		this.element.addEventListener("cloudcannon-api", async (e: any) => {
+			if (e.target !== this.element) {
+				if (!e.detail.source) {
+					e.detail.source = `@snippet[${this.element.getAttribute("data-cms-snippet-id")}]`;
+				} else {
+					e.detail.source = `@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${e.detail.source}`;
+				}
+			}
+
+			const { absolute, snippets } = this.parseSource(e.detail.source);
+			if (!this.parent || absolute || snippets) {
+				if (this.executeApiCall(e.detail)) {
+					e.stopPropagation();
+				}
+			}
 		});
 	}
 
@@ -37,41 +49,51 @@ export default class SnippetEditable extends ComponentEditable {
 		return value;
 	}
 
-	executeApiCall(options: any): void {
-		if (options.source?.startsWith("@snippet")) {
-			const match = options.source.match(
-				/^@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/,
-			);
-			if (!match) {
-				console.error("Error: Invalid snippet syntax");
-				return;
-			}
-			const { id, rest } = match.groups;
-			if (id !== this.element.getAttribute("data-cms-snippet-id")) {
-				const snippet = document.querySelector(`[data-cms-snippet-id="${id}"]`);
-				if (
-					!snippet ||
-					!("editable" in snippet) ||
-					!(snippet.editable instanceof Editable)
-				) {
-					console.error(`Error: Snippet with ID "${id}" not found`);
-					return;
-				}
-				snippet.editable.executeApiCall({
-					...options,
-					source: rest,
-				});
-			}
+	executeApiCall(options: any): boolean {
+		const { snippets, file, collection, source } = this.parseSource(
+			options.source,
+		);
+
+		if (options.action === "get-input-config") {
+			return false;
 		}
 
+		const snippet = snippets.pop();
+
+		if (
+			snippet &&
+			snippet !== this.element.getAttribute("data-cms-snippet-id")
+		) {
+			const snippetEl = document.querySelector(
+				`[data-cms-snippet-id="${snippet}"]`,
+			);
+			if (
+				!snippetEl ||
+				!("editable" in snippetEl) ||
+				!(snippetEl.editable instanceof Editable)
+			) {
+				console.error(`Error: Snippet with ID "${snippet}" not found`);
+				return false;
+			}
+			return snippetEl.editable.executeApiCall({
+				...options,
+				source,
+			});
+		}
+
+		this.dispatchSnippetChange(options.action, source, options);
+		return true;
+	}
+
+	async dispatchSnippetChange(action: string, source: string, options: any) {
 		switch (options.action) {
 			case "edit":
-				window.CloudCannon?.edit(options.source);
+				window.CloudCannon?.edit(source);
 				break;
-			case "set-file-data": {
-				const parts = options.source.split(".");
+			case "set": {
+				const parts = source.split(".");
 				const lastPart = parts.pop();
-				const temp = this.lookupPath(parts.join("."), this.value);
+				const temp = await this.lookupPath(parts.join("."), this.value);
 
 				if (temp && typeof temp === "object") {
 					temp[lastPart] = options.value;
@@ -79,7 +101,7 @@ export default class SnippetEditable extends ComponentEditable {
 				break;
 			}
 			case "move-array-item": {
-				const temp = this.lookupPath(options.source, this.value);
+				const temp = await this.lookupPath(source, this.value);
 				if (Array.isArray(temp)) {
 					const value = temp.splice(options.fromIndex, 1)[0];
 					temp.splice(options.toIndex, 0, value);
@@ -87,23 +109,20 @@ export default class SnippetEditable extends ComponentEditable {
 				break;
 			}
 			case "remove-array-item": {
-				const temp = this.lookupPath(options.source, this.value);
+				const temp = await this.lookupPath(source, this.value);
 				if (Array.isArray(temp)) {
 					temp.splice(options.fromIndex, 1);
 				}
 				break;
 			}
 			case "add-array-item": {
-				const temp = this.lookupPath(options.source, this.value);
+				const temp = await this.lookupPath(source, this.value);
 				if (Array.isArray(temp)) {
 					temp.splice(options.toIndex, 0, options.value);
 				}
 
 				break;
 			}
-			case "set-file-content":
-				console.error(`${options.action} not implemented for snippet editable`);
-				return;
 		}
 
 		this.element.dispatchEvent(
@@ -125,6 +144,8 @@ export default class SnippetEditable extends ComponentEditable {
 	}
 
 	resolveSource(source?: string): string | undefined {
-		return `@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`;
+		return this.parent
+			? `${this.parent.resolveSource()}.@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`
+			: `@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`;
 	}
 }

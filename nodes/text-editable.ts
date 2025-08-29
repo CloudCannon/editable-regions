@@ -41,11 +41,6 @@ export default class TextEditable extends Editable {
 	}
 
 	validateValue(value: unknown): string | null | undefined {
-		// TODO: Make this less hacky. i.e. when the prop is content that should come through the listeners
-		if (this.element.dataset.prop === "@content") {
-			return "";
-		}
-
 		if (typeof value !== "string" && value !== null) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
@@ -69,15 +64,7 @@ export default class TextEditable extends Editable {
 	}
 
 	update(): void {
-		this.element.dataset.prop === "@content"
-			? window.CloudCannonAPI.v1
-					.currentFile()
-					.content.get()
-					.then((content) => {
-						console.log("", { content });
-						this.editor?.setContent(content);
-					})
-			: this.editor?.setContent(this.value);
+		this.editor?.setContent(this.value);
 	}
 
 	mount(): void {
@@ -139,18 +126,20 @@ export default class TextEditable extends Editable {
 
 		const source = this.resolveSource();
 
-		const inputConfig =
-			!source || this.element.dataset.prop === "@content"
-				? { type: "markdown" }
-				: await window.CloudCannon?.getInputConfig(source);
+		if (!source) {
+			throw new Error("Source not found");
+		}
 
-		this.editor = await window.CloudCannon?.createTextEditableRegion(
+		const inputConfig = source.endsWith("@content")
+			? { type: "markdown" }
+			: await window.CloudCannonAPI?.v0.getInputConfig(source);
+
+		this.editor = await window.CloudCannonAPI?.v0.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
 				elementType: this.element.dataset.type,
-				editableType:
-					this.element.dataset.prop === "@content" ? "content" : undefined,
+				editableType: source.endsWith("@content") ? "content" : undefined,
 				inputConfig,
 			},
 		);
@@ -162,31 +151,6 @@ export default class TextEditable extends Editable {
 		return this.editor;
 	}
 
-	dispatchSetFileData(source: string, value: unknown) {
-		this.element.dispatchEvent(
-			new CustomEvent("cloudcannon-api", {
-				bubbles: true,
-				detail: {
-					action: "set-file-data",
-					source,
-					value,
-				},
-			}),
-		);
-	}
-
-	dispatchSetFileContent(value: string) {
-		this.element.dispatchEvent(
-			new CustomEvent("cloudcannon-api", {
-				bubbles: true,
-				detail: {
-					action: "set-file-content",
-					value,
-				},
-			}),
-		);
-	}
-
 	onChange(value?: string) {
 		const source = this.element.dataset.prop;
 		if (!source) {
@@ -194,10 +158,7 @@ export default class TextEditable extends Editable {
 		}
 
 		this.value = value;
-
-		this.element.dataset.prop === "@content"
-			? this.dispatchSetFileContent(value || "")
-			: this.dispatchSetFileData(source, value);
+		this.dispatchSet(source, value);
 	}
 }
 

@@ -1,7 +1,4 @@
-import { hasEditable } from "../helpers/checks";
-import type { WindowType } from "../types/window";
-
-declare const window: WindowType;
+import CloudCannon from "../helpers/cloudcannon";
 
 export interface EditableListener {
 	editable: Editable;
@@ -24,11 +21,22 @@ export default class Editable {
 		(element as any).editable = this;
 	}
 
-	lookupPath(path: string, obj: unknown): any {
-	  if(!path){
+	async lookupPath(path: string, obj: unknown): Promise<any> {
+		if (!path) {
 			return obj;
 		}
-		return path.split(".").reduce((acc, key) => {
+		return path.split(".").reduce(async (acc, key) => {
+			acc = await acc;
+
+			if (CloudCannon.isAPICollection(acc)) {
+				acc = await acc.items();
+			} else if (CloudCannon.isAPIFile(acc)) {
+				if (key === "@content") {
+					return acc.content.get();
+				}
+				acc = await acc.data.get();
+			}
+
 			if (acc && typeof acc === "object" && key in acc) {
 				return (acc as any)[key];
 			}
@@ -39,12 +47,15 @@ export default class Editable {
 		return true;
 	}
 
-	getNewValue(value: unknown, listener?: EditableListener): unknown {
+	async getNewValue(
+		value: unknown,
+		listener?: EditableListener,
+	): Promise<unknown> {
 		const { key, path } = listener ?? {};
 		if (!key) {
-			this.propsBase = path ? this.lookupPath(path, value) : value;
+			this.propsBase = path ? await this.lookupPath(path, value) : value;
 		} else {
-			this.props[key] = path ? this.lookupPath(path, value) : value;
+			this.props[key] = path ? await this.lookupPath(path, value) : value;
 		}
 
 		if (Object.entries(this.props).length === 0) {
@@ -62,8 +73,8 @@ export default class Editable {
 		return this.validateValue(newValue);
 	}
 
-	pushValue(value: unknown, listener?: EditableListener): void {
-		const newValue = this.getNewValue(value, listener);
+	async pushValue(value: unknown, listener?: EditableListener): Promise<void> {
+		const newValue = await this.getNewValue(value, listener);
 
 		if (typeof newValue === "undefined") {
 			return;
@@ -180,42 +191,44 @@ export default class Editable {
 
 		this.parent = parentEditable || null;
 
-		Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
-			if (!propName.startsWith("prop")) {
-				return;
-			}
+		Object.entries(this.element.dataset).forEach(
+			async ([propName, propPath]) => {
+				if (!propName.startsWith("prop") || typeof propPath !== "string") {
+					return;
+				}
 
-			// TODO: Parse the propPath
-			// TODO: If the propPath is absolute listen to the API
+				const { collection, file, source, absolute } =
+					this.parseSource(propPath);
 
-			const listener = {
-				editable: this,
-				key:
-					propName === "prop" ? undefined : propName.substring(4).toLowerCase(),
-				path: propPath,
-			};
-
-			if (!parentEditable) {
-				const loadCloudCannonValue = async (CloudCannon: any) => {
-					const value = await CloudCannon.value({ keepMarkdownAsHTML: false });
-					this.pushValue(value, listener);
+				const listener = {
+					editable: this,
+					key:
+						propName === "prop"
+							? undefined
+							: propName.substring(4).toLowerCase(),
+					path: source,
 				};
 
-				document.addEventListener("cloudcannon:load", (e) => {
-					(e as any).detail.CloudCannon.enableEvents();
-					return loadCloudCannonValue((e as any).detail.CloudCannon);
-				});
+				if (!absolute && parentEditable) {
+					parentEditable.registerListener(listener);
+					return;
+				}
 
-				document.addEventListener("cloudcannon:update", async (e) => {
-					return loadCloudCannonValue((e as any).detail.CloudCannon);
-				});
-				return;
-			}
+				if (collection) {
+					collection.addEventListener("change", async () => {
+						this.pushValue(collection, listener);
+					});
+					this.pushValue(collection, listener);
+				} else if (file) {
+					file.addEventListener("change", async () => {
+						this.pushValue(file, listener);
+					});
+					this.pushValue(file, listener);
+				}
+			},
+		);
 
-			parentEditable.registerListener(listener);
-		});
-
-		this.element.addEventListener("cloudcannon-api", (e: any) => {
+		this.element.addEventListener("cloudcannon-api", async (e: any) => {
 			if (e.target !== this.element) {
 				if (!e.detail.source) {
 					e.detail.source = this.element.dataset.prop;
@@ -236,66 +249,65 @@ export default class Editable {
 				}
 			}
 
-			if (!this.parent || isAbsolute(e.detail.source)) {
-				e.stopPropagation();
-				this.executeApiCall(e.detail);
+			const { absolute } = this.parseSource(e.detail.source);
+			if (!this.parent || absolute) {
+				if (this.executeApiCall(e.detail)) {
+					e.stopPropagation();
+				}
 			}
 		});
 	}
 
-	executeApiCall(options: any) {
-		if (options.source?.startsWith("@snippet")) {
-			const match = options.source.match(
-				/^@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/,
-			);
-			if (!match) {
-				console.error("Error: Invalid snippet syntax");
-				return;
-			}
-			const { id, rest } = match.groups;
-			const snippet = document.querySelector(`[data-cms-snippet-id="${id}"]`);
-			if (
-				!snippet ||
-				!("editable" in snippet) ||
-				!(snippet.editable instanceof Editable)
-			) {
-				console.error(`Error: Snippet with ID "${id}" not found`);
-				return;
-			}
-			snippet.editable.executeApiCall({
-				...options,
-				source: rest,
-			});
-		}
+	executeApiCall(options: any): boolean {
+		let { file, collection, source } = this.parseSource(options.source);
 
-		switch (options.action) {
-			case "edit":
-				window.CloudCannon?.edit(options.source);
-				break;
-			case "set-file-data":
-				window.CloudCannon?.setFileData(options.source, options.value);
-				break;
-			case "set-file-content":
-				window.CloudCannonAPI.v1.currentFile().content.set(options.value);
-				break;
-			case "add-array-item":
-				window.CloudCannon?.addArrayItem(
-					options.source,
-					options.newIndex,
-					options.value,
-				);
-				break;
-			case "remove-array-item":
-				window.CloudCannon?.removeArrayItem(options.source, options.fromIndex);
-				break;
-			case "move-array-item":
-				window.CloudCannon?.moveArrayItem(
-					options.source,
-					options.fromIndex,
-					options.toIndex,
-				);
-				break;
-		}
+		(async () => {
+			if (collection && !file) {
+				const parts = source.split(".");
+				const first = Number(parts.unshift());
+				file = (await collection.items())[first];
+				source = parts.join(".");
+			}
+
+			switch (options.action) {
+				case "edit":
+					file?.data.edit(options.source);
+					break;
+				case "set":
+					if (source?.endsWith("@content")) {
+						file?.content.set(options.value);
+					} else if (source) {
+						file?.data.set({ slug: source, value: options.value });
+					}
+					break;
+				case "add-array-item":
+					file?.data.addArrayItem({
+						slug: options.source,
+						index: options.newIndex,
+						value: options.value,
+					});
+					break;
+				case "remove-array-item":
+					file?.data.removeArrayItem({
+						slug: options.source,
+						index: options.fromIndex,
+					});
+					break;
+				case "move-array-item":
+					file?.data.moveArrayItem({
+						slug: options.source,
+						index: options.fromIndex,
+						toIndex: options.toIndex,
+					});
+					break;
+				case "get-input-config":
+					window.CloudCannonAPI.v0
+						.getInputConfig(source, file?.path)
+						.then(options.callback);
+					break;
+			}
+		})();
+		return true;
 	}
 
 	mount(): void {}
@@ -303,8 +315,77 @@ export default class Editable {
 	validateConfiguration(): boolean {
 		return true;
 	}
-}
 
-const isAbsolute = (source: string): boolean => {
-	return source?.startsWith("@snippet");
-};
+	dispatchSet(source: string, value: unknown) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "set",
+					source,
+					value,
+				},
+			}),
+		);
+	}
+
+	async dispatchGetInputConfig(source?: string): Promise<any> {
+		return new Promise((resolve) => {
+			this.element.dispatchEvent(
+				new CustomEvent("cloudcannon-api", {
+					bubbles: true,
+					detail: {
+						action: "get-input-config",
+						source,
+						callback: resolve,
+					},
+				}),
+			);
+		});
+	}
+
+	parseSource(source?: string) {
+		let collection;
+		let file;
+		let absolute = false;
+
+		const collectionMatch = source?.match(
+			/^@collections\[(?<key>[^\]]+)\]\.(?<rest>.+)$/,
+		);
+		if (collectionMatch?.groups) {
+			const { key, rest } = collectionMatch.groups;
+			collection = CloudCannon.collection(key);
+			source = rest;
+			absolute = true;
+		} else {
+			const fileMatch = source?.match(
+				/^@file\[(?<path>[^\]]+)\]\.(?<rest>.+)$/,
+			);
+			if (fileMatch?.groups) {
+				const { path, rest } = fileMatch.groups;
+				file = CloudCannon.file(path);
+				source = rest;
+				absolute = true;
+			} else {
+				file = CloudCannon.currentFile();
+			}
+		}
+
+		const snippets = [];
+		let snippetMatch = source?.match(/@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/);
+		while (snippetMatch?.groups) {
+			const { id, rest } = snippetMatch.groups;
+			snippets.push(id);
+			source = rest;
+			snippetMatch = source.match(/@snippet\[(?<id>[^\]]+)\]\.(?<rest>.+)$/);
+		}
+
+		return {
+			collection,
+			file,
+			source,
+			absolute,
+			snippets,
+		};
+	}
+}

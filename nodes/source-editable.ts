@@ -1,4 +1,6 @@
+import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { html as beautifyHtml } from "js-beautify";
+import CloudCannon from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import TextEditable from "./text-editable.js";
 
@@ -26,6 +28,7 @@ const HTML_VOID_ELEMENT: Record<string, boolean> = {
 };
 
 export default class SourceEditable extends TextEditable {
+	file?: CloudCannonJavaScriptV1APIFile;
 	format = {
 		leading: "",
 		trailing: "",
@@ -35,10 +38,21 @@ export default class SourceEditable extends TextEditable {
 	};
 
 	setupListeners(): void {
-		// TODO: Listen for changes in the file source
 		if (this.validateConfiguration()) {
 			this.mount();
+			this.file?.addEventListener("change", () => {
+				this.file?.get().then(this.pushValue.bind(this));
+			});
+			this.file?.get().then(this.pushValue.bind(this));
 		}
+	}
+
+	mount(): void {
+		if (!this.element.dataset.path) {
+			throw new Error("Path is required");
+		}
+		this.file = CloudCannon.file(this.element.dataset.path);
+		super.mount();
 	}
 
 	validateConfiguration(): boolean {
@@ -103,37 +117,38 @@ export default class SourceEditable extends TextEditable {
 	}
 
 	update(): void {
-		window.CloudCannon?.getFileSource({ path: this.element.dataset.path }).then(
-			(source) => {
-				for (const indentation of source.matchAll(INDENTATION_REGEX)) {
-					if (
-						!this.format.indentSize ||
-						indentation[1].length < this.format.indentSize
-					) {
-						this.format.indentSize = indentation[1].length;
-						this.format.indentChar = indentation[0][0];
+		if (!this.value) {
+			return;
+		}
+		const source = this.value;
+		for (const indentation of source.matchAll(INDENTATION_REGEX)) {
+			if (
+				!this.format.indentSize ||
+				indentation[1].length < this.format.indentSize
+			) {
+				this.format.indentSize = indentation[1].length;
+				this.format.indentChar = indentation[0][0];
+			}
+		}
+
+		const { start, end } = this.getSourceIndices(source);
+		const content = source.substring(start, end);
+
+		this.format.leading = content.match(/^(\s*\n)[^\n]*?\S/)?.[1] ?? "";
+		this.format.trailing = content.match(/\S(\n\s*)$/)?.[1] ?? "";
+		this.format.indent =
+			content
+				.split("\n")
+				.filter((line) => line.trim().length > 0)
+				.reduce((acc: string | null, line) => {
+					if (typeof acc !== "string" || !line.startsWith(acc)) {
+						return line.match(/^\s*/)?.[0] ?? "";
 					}
-				}
 
-				const { start, end } = this.getSourceIndices(source);
-				const content = source.substring(start, end);
+					return acc;
+				}, null) ?? "";
 
-				this.format.leading = content.match(/^(\s*\n)[^\n]*?\S/)?.[1] ?? "";
-				this.format.trailing = content.match(/\S(\n\s*)$/)?.[1] ?? "";
-				this.format.indent = content
-					.split("\n")
-					.filter((line) => line.trim().length > 0)
-					.reduce((acc, line) => {
-						if (typeof acc !== "string" || !line.startsWith(acc)) {
-							return line.match(/^\s*/)?.[0] ?? "";
-						}
-
-						return acc;
-					});
-
-				this.editor?.setContent(content);
-			},
-		);
+		this.editor?.setContent(content);
 	}
 
 	async mountEditor(): Promise<any> {
@@ -141,7 +156,7 @@ export default class SourceEditable extends TextEditable {
 			return this.editor;
 		}
 
-		this.editor = await window.CloudCannon?.createTextEditableRegion(
+		this.editor = await window.CloudCannonAPI?.v0.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
@@ -157,28 +172,29 @@ export default class SourceEditable extends TextEditable {
 	}
 
 	onChange(value?: string) {
-		window.CloudCannon?.getFileSource({ path: this.element.dataset.path }).then(
-			(source) => {
-				value = beautifyHtml(value ?? "", {
-					indent_char: this.format.indentChar,
-					indent_size: this.format.indentSize,
-				});
+		this.file?.get().then((source) => {
+			value = beautifyHtml(value ?? "", {
+				indent_char: this.format.indentChar,
+				indent_size: this.format.indentSize,
+			});
 
-				const { start, end } = this.getSourceIndices(source);
-				const content =
-					source.substring(0, start) +
-					this.format.leading +
-					value
-						.split("\n")
-						.map((line) => this.format.indent + line)
-						.join("\n") +
-					this.format.trailing +
-					source.substring(end);
+			const { start, end } = this.getSourceIndices(source);
+			const content =
+				source.substring(0, start) +
+				this.format.leading +
+				value
+					.split("\n")
+					.map((line) => this.format.indent + line)
+					.join("\n") +
+				this.format.trailing +
+				source.substring(end);
 
-				window.CloudCannon?.setFileSource(content, {
-					path: this.element.dataset.path,
-				});
-			},
-		);
+			if (content === this.value) {
+				return;
+			}
+
+			this.value = content;
+			this.file?.set(content);
+		});
 	}
 }

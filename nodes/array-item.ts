@@ -70,7 +70,7 @@ export default class ArrayItem extends ComponentEditable {
 			return `cc:${currentArraySubtype}`;
 		}
 
-		const type = window.CloudCannon?.getInputType(
+		const type = window.CloudCannonAPI?.v0.getInputType(
 			this.resolveSource(),
 			this.value,
 		);
@@ -217,14 +217,17 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer.effectAllowed = "move";
 				e.dataTransfer?.setData(source, this.element.dataset.prop);
 
+				const id = Math.random().toString(36).slice(2);
+				this.element.id = id;
+
 				const data: Record<string, any> = {
 					index: this.element.dataset.prop,
-					slug: source,
+					sourceId: id,
 					value: this.value,
 				};
 
 				if (this.inputConfig?.options?.structures?.values?.length > 0) {
-					data.structure = window.CloudCannon?.findStructure(
+					data.structure = window.CloudCannonAPI?.v0.findStructure(
 						this.inputConfig?.options?.structures,
 						this.value,
 					);
@@ -258,9 +261,7 @@ export default class ArrayItem extends ComponentEditable {
 					Number(this.element.dataset.length) - 1;
 			}
 
-			window.CloudCannon?.getInputConfig(
-				this.parent?.resolveSource() ?? "",
-			).then((inputConfig) => {
+			this.dispatchGetInputConfig().then((inputConfig) => {
 				if (!this.controlsElement) {
 					return;
 				}
@@ -332,13 +333,14 @@ export default class ArrayItem extends ComponentEditable {
 					this.dispatchArrayMove(fromIndex, newIndex);
 				}
 			} else if (otherArrayData) {
-				const { index, slug, value, structure } = JSON.parse(otherArrayData);
+				const { index, sourceId, value, structure } =
+					JSON.parse(otherArrayData);
 				if (dragType === "cc:structure") {
 					if (!this.inputConfig?.options?.structures?.values) {
 						throw new Error("No structures found");
 					}
 
-					const targetStructure = window.CloudCannon?.findStructure(
+					const targetStructure = window.CloudCannonAPI?.v0.findStructure(
 						this.inputConfig.options.structures,
 						this.value,
 					);
@@ -351,8 +353,7 @@ export default class ArrayItem extends ComponentEditable {
 					}
 				}
 
-				window.CloudCannon?.removeArrayItem(slug, index);
-				this.dispatchArrayRemove(index, slug);
+				document.getElementById(sourceId)?.editable.dispatchArrayRemove(index);
 				this.dispatchArrayAdd(newIndex, value);
 
 				e.preventDefault();
