@@ -1,6 +1,6 @@
 import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { html as beautifyHtml } from "js-beautify";
-import CloudCannon from "../helpers/cloudcannon.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import TextEditable from "./text-editable.js";
 
@@ -38,21 +38,14 @@ export default class SourceEditable extends TextEditable {
 	};
 
 	setupListeners(): void {
-		if (this.validateConfiguration()) {
-			this.mount();
-			this.file?.addEventListener("change", () => {
-				this.file?.get().then(this.pushValue.bind(this));
-			});
-			this.file?.get().then(this.pushValue.bind(this));
-		}
-	}
-
-	mount(): void {
 		if (!this.element.dataset.path) {
-			throw new Error("Path is required");
+			return;
 		}
 		this.file = CloudCannon.file(this.element.dataset.path);
-		super.mount();
+		this.file.addEventListener("change", () => {
+			this.file?.get().then(this.pushValue.bind(this));
+		});
+		this.file.get().then(this.pushValue.bind(this));
 	}
 
 	validateConfiguration(): boolean {
@@ -76,6 +69,59 @@ export default class SourceEditable extends TextEditable {
 			return false;
 		}
 		return true;
+	}
+
+	validateValue(value: unknown): string | null | undefined {
+		if (typeof value !== "string" && value !== null) {
+			this.element.classList.add("errored");
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render source editable region");
+			error.setAttribute(
+				"message",
+				`Illegal value type: ${typeof value}. Supported types are string.`,
+			);
+			this.element.replaceChildren(error);
+			return;
+		}
+
+		if (typeof value === "string") {
+			const keyIndex = value.indexOf(`data-key="${this.element.dataset.key}"`);
+			if (keyIndex === -1) {
+				this.element.classList.add("errored");
+				const error = document.createElement("error-card");
+				error.setAttribute(
+					"heading",
+					"Failed to render source editable region",
+				);
+				error.setAttribute(
+					"message",
+					"Failed to find element with matching data-key attribute",
+				);
+				this.element.replaceChildren(error);
+				return;
+			}
+
+			const nextKeyIndex = value.indexOf(
+				`data-key="${this.element.dataset.key}"`,
+				keyIndex + 1,
+			);
+			if (nextKeyIndex !== -1) {
+				this.element.classList.add("errored");
+				const error = document.createElement("error-card");
+				error.setAttribute(
+					"heading",
+					"Failed to render source editable region",
+				);
+				error.setAttribute(
+					"message",
+					"Found duplicate data-key attribute. Make sure all source editables have unique data-key attributes",
+				);
+				this.element.replaceChildren(error);
+				return;
+			}
+		}
+
+		return value;
 	}
 
 	getSourceIndices(source: string): { start: number; end: number } {
@@ -109,11 +155,11 @@ export default class SourceEditable extends TextEditable {
 			}
 
 			if (stack.length === 0) {
-				return { start: start + 1, end: start + tagMatch.index - 1 };
+				return { start: start + 1, end: start + 1 + tagMatch.index };
 			}
 		}
 
-		return { start: start + 1, end: start + source.length - 1 };
+		return { start: start + 1, end: start + 1 + source.length };
 	}
 
 	update(): void {
@@ -166,7 +212,9 @@ export default class SourceEditable extends TextEditable {
 			},
 		);
 
-		this.update();
+		if (typeof this.value === "string") {
+			this.update();
+		}
 
 		return this.editor;
 	}

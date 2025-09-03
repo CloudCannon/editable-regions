@@ -11,8 +11,20 @@ import Editable from "./editable.js";
 import "../components/ui/error-card.js";
 import "../components/ui/editable-controls.js";
 import type EditableControls from "../components/ui/editable-controls.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 
 declare const window: WindowType;
+
+const realizeAPIValue = async (value: unknown): Promise<unknown> => {
+	if (CloudCannon.isAPICollection(value)) {
+		const items = await value.items();
+		return Promise.all(items.map(realizeAPIValue));
+	}
+	if (CloudCannon.isAPIFile(value)) {
+		return value.data.get();
+	}
+	return value;
+};
 
 export default class ComponentEditable extends Editable {
 	protected controlsElement?: EditableControls;
@@ -58,6 +70,13 @@ export default class ComponentEditable extends Editable {
 		const component = this.getComponents()?.[key];
 		if (!component) {
 			return super.update();
+		}
+
+		const value = await realizeAPIValue(this.value);
+		if (value && typeof value === "object" && !Array.isArray(value)) {
+			for (const key of Object.keys(value)) {
+				(value as any)[key] = await realizeAPIValue((value as any)[key]);
+			}
 		}
 
 		let rootEl: HTMLElement;

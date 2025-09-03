@@ -1,4 +1,4 @@
-import CloudCannon from "../helpers/cloudcannon";
+import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
 
 export interface EditableListener {
 	editable: Editable;
@@ -169,6 +169,7 @@ export default class Editable {
 			customElements.whenDefined("image-editable"),
 			customElements.whenDefined("source-editable"),
 			customElements.whenDefined("snippet-editable"),
+			loadedPromise,
 		]).then(() => {
 			this.setupListeners();
 			this.validateConfiguration();
@@ -350,7 +351,7 @@ export default class Editable {
 		let absolute = false;
 
 		const collectionMatch = source?.match(
-			/^@collections\[(?<key>[^\]]+)\]\.(?<rest>.+)$/,
+			/^@collections\[(?<key>[^\]]+)\](\.(?<rest>.+))?$/,
 		);
 		if (collectionMatch?.groups) {
 			const { key, rest } = collectionMatch.groups;
