@@ -1,3 +1,4 @@
+import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
 
 export interface EditableListener {
@@ -261,53 +262,65 @@ export default class Editable {
 
 	executeApiCall(options: any): boolean {
 		let { file, collection, source } = this.parseSource(options.source);
+		if (!source) {
+			throw new Error(`Failed to resolve source "${options.source}"`);
+		}
 
-		(async () => {
-			if (collection && !file) {
-				const parts = source.split(".");
-				const first = Number(parts.unshift());
-				file = (await collection.items())[first];
-				source = parts.join(".");
-			}
+		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
+		if (collection && !file) {
+			const parts = source.split(".");
+			const first = Number(parts.unshift());
+			filePromise = collection.items().then((items) => items[first]);
+			source = parts.join(".");
+		} else {
+			filePromise = Promise.resolve(file);
+		}
 
-			switch (options.action) {
-				case "edit":
-					file?.data.edit(options.source);
-					break;
-				case "set":
-					if (source?.endsWith("@content")) {
-						file?.content.set(options.value);
-					} else if (source) {
-						file?.data.set({ slug: source, value: options.value });
-					}
-					break;
-				case "add-array-item":
+		switch (options.action) {
+			case "edit":
+				filePromise.then((file) => file?.data.edit({ slug: source }));
+				break;
+			case "set":
+				if (source?.endsWith("@content")) {
+					filePromise.then((file) => file?.content.set(options.value));
+				} else if (source) {
+					filePromise.then((file) =>
+						file?.data.set({ slug: source, value: options.value }),
+					);
+				}
+				break;
+			case "add-array-item":
+				filePromise.then((file) =>
 					file?.data.addArrayItem({
-						slug: options.source,
+						slug: source,
 						index: options.newIndex,
 						value: options.value,
-					});
-					break;
-				case "remove-array-item":
+					}),
+				);
+				break;
+			case "remove-array-item":
+				filePromise.then((file) =>
 					file?.data.removeArrayItem({
-						slug: options.source,
+						slug: source,
 						index: options.fromIndex,
-					});
-					break;
-				case "move-array-item":
+					}),
+				);
+				break;
+			case "move-array-item":
+				filePromise.then((file) =>
 					file?.data.moveArrayItem({
-						slug: options.source,
+						slug: source,
 						index: options.fromIndex,
 						toIndex: options.toIndex,
-					});
-					break;
-				case "get-input-config":
-					window.CloudCannonAPI.v0
-						.getInputConfig(source, file?.path)
-						.then(options.callback);
-					break;
-			}
-		})();
+					}),
+				);
+				break;
+			case "get-input-config":
+				filePromise
+					.then((file) => file?.getInputConfig({ slug: source }))
+					.then(options.callback);
+				break;
+		}
 		return true;
 	}
 

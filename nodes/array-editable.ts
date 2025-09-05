@@ -127,18 +127,25 @@ export default class ArrayEditable extends Editable {
 
 		const key = this.element.dataset.idKey;
 		const componentKey = this.element.dataset.componentKey;
-		const dataKeys = [];
-		const componentKeys = [];
+		const dataKeys: (string | null)[] = [];
+		const componentKeys: (string | null)[] = [];
 		for (const item of value) {
 			let data = item;
 			if (CloudCannon.isAPIFile(item)) {
 				data = await item.data.get();
 			}
 
-			dataKeys.push(String(key ? (data as any)?.[key] : null));
-			componentKeys.push(
-				String(componentKey ? (data as any)?.[componentKey] : null),
-			);
+			if (data && typeof data === "object" && key) {
+				dataKeys.push(String((data as any)[key]));
+			} else {
+				dataKeys.push(null);
+			}
+
+			if (data && typeof data === "object" && componentKey) {
+				componentKeys.push(String((data as any)[componentKey]));
+			} else {
+				componentKeys.push(null);
+			}
 		}
 
 		const childKeys = children.map((element) => {
@@ -163,6 +170,9 @@ export default class ArrayEditable extends Editable {
 		const moved: Record<number, boolean> = {};
 
 		dataKeys?.forEach((key, i) => {
+			if (!key) {
+				return;
+			}
 			const placeholder = placeholders[i];
 			const existingElement = children[i];
 			const matchingChildIndex = children.findIndex(

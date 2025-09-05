@@ -1,16 +1,11 @@
 import type {
 	CloudCannonEditorWindow,
 	CloudCannonJavaScriptV1API,
-	CloudCannonJavaScriptV1APICollection,
-	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 
 declare const window: CloudCannonEditorWindow;
 
-let _cloudcannon: CloudCannonJavaScriptV1API & {
-	isAPIFile(obj: unknown): obj is CloudCannonJavaScriptV1APIFile;
-	isAPICollection(obj: unknown): obj is CloudCannonJavaScriptV1APICollection;
-};
+let _cloudcannon: CloudCannonJavaScriptV1API;
 
 export const loadedPromise = new Promise<void>((resolve) => {
 	if (window.CloudCannonAPI) {

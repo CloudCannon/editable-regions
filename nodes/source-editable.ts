@@ -1,10 +1,7 @@
 import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { html as beautifyHtml } from "js-beautify";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import type { WindowType } from "../types/window.js";
 import TextEditable from "./text-editable.js";
-
-declare const window: WindowType;
 
 const INDENTATION_REGEX = /^([ \t]+)[^\s]/gm;
 const TAG_REGEX =
@@ -202,7 +199,7 @@ export default class SourceEditable extends TextEditable {
 			return this.editor;
 		}
 
-		this.editor = await window.CloudCannonAPI?.v0.createTextEditableRegion(
+		this.editor = await CloudCannon.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
@@ -219,7 +216,7 @@ export default class SourceEditable extends TextEditable {
 		return this.editor;
 	}
 
-	onChange(value?: string) {
+	onChange(value?: string | null) {
 		this.file?.get().then((source) => {
 			value = beautifyHtml(value ?? "", {
 				indent_char: this.format.indentChar,

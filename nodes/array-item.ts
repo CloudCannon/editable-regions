@@ -1,5 +1,7 @@
 import "../components/ui/array-controls.js";
 import type ArrayControls from "../components/ui/array-controls.js";
+import { hasArrayItemEditable } from "../helpers/checks.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import ArrayEditable from "./array-editable.js";
 import ComponentEditable from "./component-editable.js";
@@ -70,10 +72,7 @@ export default class ArrayItem extends ComponentEditable {
 			return `cc:${currentArraySubtype}`;
 		}
 
-		const type = window.CloudCannonAPI?.v0.getInputType(
-			this.resolveSource(),
-			this.value,
-		);
+		const type = CloudCannon.getInputType(this.resolveSource(), this.value);
 		return `cc:${type}`;
 	}
 
@@ -227,7 +226,7 @@ export default class ArrayItem extends ComponentEditable {
 				};
 
 				if (this.inputConfig?.options?.structures?.values?.length > 0) {
-					data.structure = window.CloudCannonAPI?.v0.findStructure(
+					data.structure = CloudCannon.findStructure(
 						this.inputConfig?.options?.structures,
 						this.value,
 					);
@@ -340,7 +339,7 @@ export default class ArrayItem extends ComponentEditable {
 						throw new Error("No structures found");
 					}
 
-					const targetStructure = window.CloudCannonAPI?.v0.findStructure(
+					const targetStructure = CloudCannon.findStructure(
 						this.inputConfig.options.structures,
 						this.value,
 					);
@@ -353,7 +352,10 @@ export default class ArrayItem extends ComponentEditable {
 					}
 				}
 
-				document.getElementById(sourceId)?.editable.dispatchArrayRemove(index);
+				const sourceElement = document.getElementById(sourceId);
+				if (sourceElement && hasArrayItemEditable(sourceElement)) {
+					sourceElement.editable.dispatchArrayRemove(index);
+				}
 				this.dispatchArrayAdd(newIndex, value);
 
 				e.preventDefault();

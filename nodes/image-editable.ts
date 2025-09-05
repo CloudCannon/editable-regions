@@ -29,7 +29,7 @@ export default class ImageEditable extends Editable {
 					throw new Error("No file selected");
 				}
 
-				const path = await CloudCannon.upload(file, undefined);
+				const path = await CloudCannon.uploadFile(file, undefined);
 				this.dispatchSet(slug, path);
 			};
 

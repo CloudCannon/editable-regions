@@ -50,9 +50,7 @@ export default class SnippetEditable extends ComponentEditable {
 	}
 
 	executeApiCall(options: any): boolean {
-		const { snippets, file, collection, source } = this.parseSource(
-			options.source,
-		);
+		const { snippets, source } = this.parseSource(options.source);
 
 		if (options.action === "get-input-config") {
 			return false;
@@ -81,21 +79,22 @@ export default class SnippetEditable extends ComponentEditable {
 			});
 		}
 
-		this.dispatchSnippetChange(options.action, source, options);
+		if (source) {
+			this.dispatchSnippetChange(source, options);
+		}
 		return true;
 	}
 
-	async dispatchSnippetChange(action: string, source: string, options: any) {
+	async dispatchSnippetChange(source: string, options: any) {
 		switch (options.action) {
 			case "edit":
-				window.CloudCannon?.edit(source);
 				break;
 			case "set": {
 				const parts = source.split(".");
 				const lastPart = parts.pop();
 				const temp = await this.lookupPath(parts.join("."), this.value);
 
-				if (temp && typeof temp === "object") {
+				if (lastPart && temp && typeof temp === "object") {
 					temp[lastPart] = options.value;
 				}
 				break;

@@ -1,7 +1,5 @@
-import type { WindowType } from "../types/window.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import Editable from "./editable.js";
-
-declare const window: WindowType;
 
 type EditableFocusEvent = CustomEvent<number>;
 
@@ -109,12 +107,7 @@ export default class TextEditable extends Editable {
 			return;
 		}
 
-		if (!window.CloudCannon && !this.editor) {
-			document.addEventListener(
-				"cloudcannon:load",
-				this.mountEditor.bind(this),
-			);
-		} else if (!this.editor) {
+		if (!this.editor) {
 			this.mountEditor();
 		}
 	}
@@ -132,9 +125,9 @@ export default class TextEditable extends Editable {
 
 		const inputConfig = source.endsWith("@content")
 			? { type: "markdown" }
-			: await window.CloudCannonAPI?.v0.getInputConfig(source);
+			: await this.dispatchGetInputConfig(this.element.dataset.prop);
 
-		this.editor = await window.CloudCannonAPI?.v0.createTextEditableRegion(
+		this.editor = await CloudCannon.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
@@ -151,7 +144,7 @@ export default class TextEditable extends Editable {
 		return this.editor;
 	}
 
-	onChange(value?: string) {
+	onChange(value?: string | null) {
 		const source = this.element.dataset.prop;
 		if (!source) {
 			throw new Error("Source not found");
