@@ -146,7 +146,7 @@ export default class TextEditable extends Editable {
 
 	onChange(value?: string | null) {
 		const source = this.element.dataset.prop;
-		if (!source) {
+		if (typeof source !== "string") {
 			throw new Error("Source not found");
 		}
 

@@ -36,6 +36,11 @@ export default class Editable {
 					return acc.content.get();
 				}
 				acc = await acc.data.get();
+			} else if (CloudCannon.isAPIDataset(acc)) {
+				acc = await acc.items();
+				if (!Array.isArray(acc)) {
+					acc = await acc.data.get();
+				}
 			}
 
 			if (acc && typeof acc === "object" && key in acc) {
@@ -199,7 +204,7 @@ export default class Editable {
 					return;
 				}
 
-				const { collection, file, source, absolute } =
+				const { collection, file, dataset, source, absolute } =
 					this.parseSource(propPath);
 
 				const listener = {
@@ -221,6 +226,11 @@ export default class Editable {
 						this.pushValue(collection, listener);
 					});
 					this.pushValue(collection, listener);
+				} else if (dataset) {
+					dataset.addEventListener("change", async () => {
+						this.pushValue(dataset, listener);
+					});
+					this.pushValue(dataset, listener);
 				} else if (file) {
 					file.addEventListener("change", async () => {
 						this.pushValue(file, listener);
@@ -243,8 +253,6 @@ export default class Editable {
 					if (propPath) {
 						rest.unshift(propPath);
 						e.detail.source = rest.join(".");
-					} else if (typeof this.element.dataset.prop !== "string") {
-						throw new Error(`Failed to resolve source "${source}"`);
 					} else if (this.element.dataset.prop) {
 						e.detail.source = `${this.element.dataset.prop}.${source}`;
 					}
@@ -261,19 +269,50 @@ export default class Editable {
 	}
 
 	executeApiCall(options: any): boolean {
-		let { file, collection, source } = this.parseSource(options.source);
-		if (!source) {
-			throw new Error(`Failed to resolve source "${options.source}"`);
-		}
+		let { file, collection, source, dataset } = this.parseSource(
+			options.source,
+		);
 
 		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
-		if (collection && !file) {
-			const parts = source.split(".");
-			const first = Number(parts.unshift());
-			filePromise = collection.items().then((items) => items[first]);
-			source = parts.join(".");
+		if (!file) {
+			if (collection && source) {
+				const parts = source.split(".");
+				const first = Number(parts.shift());
+				filePromise = collection.items().then((items) => items[first]);
+				source = parts.join(".");
+			} else if (dataset) {
+				filePromise = dataset.items().then((items) => {
+					if (Array.isArray(items) && source) {
+						const parts = source.split(".");
+						const first = Number(parts.shift());
+						source = parts.join(".");
+						return items[first];
+					}
+
+					if (CloudCannon.isAPIFile(items)) {
+						return items;
+					}
+				});
+			} else {
+				filePromise = Promise.resolve();
+			}
 		} else {
 			filePromise = Promise.resolve(file);
+		}
+
+		if (!source) {
+			if (options.action === "get-input-config") {
+				options.callback({
+					options: {
+						disable_reorder: true,
+						disable_remove: true,
+					},
+				});
+				return true;
+			}
+			throw new Error(
+				`Failed to resolve source for API call: ${options.source}`,
+			);
 		}
 
 		switch (options.action) {
@@ -284,9 +323,9 @@ export default class Editable {
 				if (source?.endsWith("@content")) {
 					filePromise.then((file) => file?.content.set(options.value));
 				} else if (source) {
-					filePromise.then((file) =>
-						file?.data.set({ slug: source, value: options.value }),
-					);
+					filePromise.then((file) => {
+						file?.data.set({ slug: source, value: options.value });
+					});
 				}
 				break;
 			case "add-array-item":
@@ -361,6 +400,7 @@ export default class Editable {
 	parseSource(source?: string) {
 		let collection;
 		let file;
+		let dataset;
 		let absolute = false;
 
 		const collectionMatch = source?.match(
@@ -381,7 +421,17 @@ export default class Editable {
 				source = rest;
 				absolute = true;
 			} else {
-				file = CloudCannon.currentFile();
+				const dataMatch = source?.match(
+					/^@data\[(?<key>[^\]]+)\]\.(?<rest>.+)$/,
+				);
+				if (dataMatch?.groups) {
+					const { key, rest } = dataMatch.groups;
+					dataset = CloudCannon.dataset(key);
+					source = rest;
+					absolute = true;
+				} else {
+					file = CloudCannon.currentFile();
+				}
 			}
 		}
 
@@ -400,6 +450,7 @@ export default class Editable {
 			source,
 			absolute,
 			snippets,
+			dataset,
 		};
 	}
 }
