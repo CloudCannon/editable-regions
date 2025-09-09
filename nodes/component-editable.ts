@@ -23,6 +23,13 @@ const realizeAPIValue = async (value: unknown): Promise<unknown> => {
 	if (CloudCannon.isAPIFile(value)) {
 		return value.data.get();
 	}
+	if (CloudCannon.isAPIDataset(value)) {
+		const items = await value.items();
+		if (Array.isArray(items)) {
+			return Promise.all(items.map(realizeAPIValue));
+		}
+		return items.data.get();
+	}
 	return value;
 };
 
@@ -165,8 +172,8 @@ export default class ComponentEditable extends Editable {
 						!targetChild?.isEqualNode(renderChild) &&
 						hasEditable(renderChild)
 					) {
+						targetChild.replaceWith(renderChild);
 						for (let i = 0; i < this.listeners.length; i++) {
-							targetChild.replaceWith(renderChild);
 							const listener = this.listeners[i];
 							if (listener.editable.element === targetChild) {
 								listener.editable.element = renderChild;
