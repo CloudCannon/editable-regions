@@ -37,9 +37,11 @@ export default class Editable {
 				}
 				acc = await acc.data.get();
 			} else if (CloudCannon.isAPIDataset(acc)) {
-				acc = await acc.items();
-				if (!Array.isArray(acc)) {
-					acc = await acc.data.get();
+				const items = await acc.items();
+				if (Array.isArray(items)) {
+					acc = items;
+				} else {
+					acc = await items.data.get();
 				}
 			}
 
@@ -269,23 +271,26 @@ export default class Editable {
 	}
 
 	executeApiCall(options: any): boolean {
-		let { file, collection, source, dataset } = this.parseSource(
-			options.source,
-		);
+		let {
+			file,
+			collection,
+			source: parsedSource,
+			dataset,
+		} = this.parseSource(options.source);
 
 		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
 		if (!file) {
-			if (collection && source) {
-				const parts = source.split(".");
+			if (collection && parsedSource) {
+				const parts = parsedSource.split(".");
 				const first = Number(parts.shift());
 				filePromise = collection.items().then((items) => items[first]);
-				source = parts.join(".");
+				parsedSource = parts.join(".");
 			} else if (dataset) {
 				filePromise = dataset.items().then((items) => {
-					if (Array.isArray(items) && source) {
-						const parts = source.split(".");
+					if (Array.isArray(items) && parsedSource) {
+						const parts = parsedSource.split(".");
 						const first = Number(parts.shift());
-						source = parts.join(".");
+						parsedSource = parts.join(".");
 						return items[first];
 					}
 
@@ -294,13 +299,13 @@ export default class Editable {
 					}
 				});
 			} else {
-				filePromise = Promise.resolve();
+				filePromise = Promise.resolve(undefined);
 			}
 		} else {
 			filePromise = Promise.resolve(file);
 		}
 
-		if (!source) {
+		if (!parsedSource) {
 			if (options.action === "get-input-config") {
 				options.callback({
 					options: {
@@ -314,6 +319,8 @@ export default class Editable {
 				`Failed to resolve source for API call: ${options.source}`,
 			);
 		}
+
+		const source = parsedSource;
 
 		switch (options.action) {
 			case "edit":
