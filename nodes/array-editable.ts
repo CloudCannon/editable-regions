@@ -2,6 +2,7 @@ import type {
 	CloudCannonJavaScriptV1APICollection,
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
+import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
 import { hasArrayItemEditable } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
@@ -25,8 +26,12 @@ function isArrayDirection(value: unknown): value is ArrayDirection {
 
 export default class ArrayEditable extends Editable {
 	arrayDirection?: ArrayDirection;
-	value: CloudCannonJavaScriptV1APICollection | unknown[] | null | undefined =
-		undefined;
+	value:
+		| CloudCannonJavaScriptV1APICollection
+		| CloudCannonJavaScriptV1APIDataset
+		| unknown[]
+		| null
+		| undefined = undefined;
 
 	validateConfiguration(): boolean {
 		const prop = this.element.dataset.prop;
@@ -42,13 +47,12 @@ export default class ArrayEditable extends Editable {
 		return true;
 	}
 
-	validateValue(
-		value: unknown,
-	): CloudCannonJavaScriptV1APICollection | unknown[] | null | undefined {
+	validateValue(value: unknown): this["value"] {
 		if (
 			!Array.isArray(value) &&
 			value !== null &&
-			!CloudCannon.isAPICollection(value)
+			!CloudCannon.isAPICollection(value) &&
+			!CloudCannon.isAPIDataset(value)
 		) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
@@ -67,6 +71,14 @@ export default class ArrayEditable extends Editable {
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
+		} else if (CloudCannon.isAPIDataset(this.value)) {
+			const items = await this.value.items();
+			if (Array.isArray(items)) {
+				value = items;
+			} else {
+				const data = await items.data.get();
+				value = Array.isArray(data) ? data : [];
+			}
 		} else if (Array.isArray(this.value)) {
 			value = this.value;
 		} else {

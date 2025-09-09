@@ -60,10 +60,11 @@ export default class Editable {
 		listener?: EditableListener,
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
+		const resolvedValue = path ? await this.lookupPath(path, value) : value;
 		if (!key) {
-			this.propsBase = path ? await this.lookupPath(path, value) : value;
+			this.propsBase = resolvedValue;
 		} else {
-			this.props[key] = path ? await this.lookupPath(path, value) : value;
+			this.props[key] = resolvedValue;
 		}
 
 		if (Object.entries(this.props).length === 0) {
@@ -271,26 +272,23 @@ export default class Editable {
 	}
 
 	executeApiCall(options: any): boolean {
-		let {
-			file,
-			collection,
-			source: parsedSource,
-			dataset,
-		} = this.parseSource(options.source);
+		let { file, collection, source, dataset } = this.parseSource(
+			options.source,
+		);
 
 		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
 		if (!file) {
-			if (collection && parsedSource) {
-				const parts = parsedSource.split(".");
+			if (collection && source) {
+				const parts = source.split(".");
 				const first = Number(parts.shift());
 				filePromise = collection.items().then((items) => items[first]);
-				parsedSource = parts.join(".");
+				source = parts.join(".");
 			} else if (dataset) {
 				filePromise = dataset.items().then((items) => {
-					if (Array.isArray(items) && parsedSource) {
-						const parts = parsedSource.split(".");
+					if (Array.isArray(items) && source) {
+						const parts = source.split(".");
 						const first = Number(parts.shift());
-						parsedSource = parts.join(".");
+						source = parts.join(".");
 						return items[first];
 					}
 
@@ -305,68 +303,59 @@ export default class Editable {
 			filePromise = Promise.resolve(file);
 		}
 
-		if (!parsedSource) {
-			if (options.action === "get-input-config") {
-				options.callback({
-					options: {
-						disable_reorder: true,
-						disable_remove: true,
-					},
-				});
-				return true;
-			}
-			throw new Error(
-				`Failed to resolve source for API call: ${options.source}`,
-			);
-		}
-
-		const source = parsedSource;
-
-		switch (options.action) {
-			case "edit":
-				filePromise.then((file) => file?.data.edit({ slug: source }));
-				break;
-			case "set":
-				if (source?.endsWith("@content")) {
-					filePromise.then((file) => file?.content.set(options.value));
-				} else if (source) {
-					filePromise.then((file) => {
-						file?.data.set({ slug: source, value: options.value });
+		filePromise.then((file) => {
+			if (typeof source !== "string") {
+				if (options.action === "get-input-config") {
+					options.callback({
+						options: {
+							disable_reorder: true,
+							disable_remove: true,
+						},
 					});
+					return true;
 				}
-				break;
-			case "add-array-item":
-				filePromise.then((file) =>
+				debugger;
+				throw new Error(
+					`Failed to resolve source for API call: ${options.source}`,
+				);
+			}
+			switch (options.action) {
+				case "edit":
+					file?.data.edit({ slug: source });
+					break;
+				case "set":
+					if (source?.endsWith("@content")) {
+						file?.content.set(options.value);
+					} else if (source) {
+						file?.data.set({ slug: source, value: options.value });
+					}
+					break;
+				case "add-array-item":
 					file?.data.addArrayItem({
 						slug: source,
 						index: options.newIndex,
 						value: options.value,
-					}),
-				);
-				break;
-			case "remove-array-item":
-				filePromise.then((file) =>
+					});
+					break;
+				case "remove-array-item":
 					file?.data.removeArrayItem({
 						slug: source,
 						index: options.fromIndex,
-					}),
-				);
-				break;
-			case "move-array-item":
-				filePromise.then((file) =>
+					});
+					break;
+				case "move-array-item":
 					file?.data.moveArrayItem({
 						slug: source,
 						index: options.fromIndex,
 						toIndex: options.toIndex,
-					}),
-				);
-				break;
-			case "get-input-config":
-				filePromise
-					.then((file) => file?.getInputConfig({ slug: source }))
-					.then(options.callback);
-				break;
-		}
+					});
+					break;
+				case "get-input-config":
+					file?.getInputConfig({ slug: source }).then(options.callback);
+					break;
+			}
+		});
+
 		return true;
 	}
 
@@ -429,7 +418,7 @@ export default class Editable {
 				absolute = true;
 			} else {
 				const dataMatch = source?.match(
-					/^@data\[(?<key>[^\]]+)\]\.(?<rest>.+)$/,
+					/^@data\[(?<key>[^\]]+)\](\.(?<rest>.+))?$/,
 				);
 				if (dataMatch?.groups) {
 					const { key, rest } = dataMatch.groups;
