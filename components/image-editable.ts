@@ -1,21 +1,19 @@
 import ImageEditable from "../nodes/image-editable.js";
 
 class ImageEditableComponent extends HTMLElement {
-	editable?: ImageEditable;
+	editable: ImageEditable;
+
+	constructor() {
+		super();
+		this.editable = new ImageEditable(this);
+	}
 
 	connectedCallback(): void {
-		const child = this.firstElementChild;
-		if (!(child instanceof HTMLImageElement)) {
-			throw new Error(
-				"ImageEditableComponent must have an image element as its child",
-			);
-		}
-		this.editable = new ImageEditable(child);
 		this.editable.connect();
 	}
 
 	disconnectedCallback(): void {
-		this.editable?.disconnect();
+		this.editable.disconnect();
 	}
 }
 
