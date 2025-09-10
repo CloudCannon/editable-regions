@@ -1,4 +1,10 @@
+import type {
+	CloudCannonJavaScriptV1APICollection,
+	CloudCannonJavaScriptV1APIFile,
+} from "@cloudcannon/javascript-api";
+import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
 import { hasArrayItemEditable } from "../helpers/checks.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import type ArrayItem from "./array-item.js";
 import Editable from "./editable.js";
@@ -20,7 +26,12 @@ function isArrayDirection(value: unknown): value is ArrayDirection {
 
 export default class ArrayEditable extends Editable {
 	arrayDirection?: ArrayDirection;
-	value: unknown[] | null | undefined = undefined;
+	value:
+		| CloudCannonJavaScriptV1APICollection
+		| CloudCannonJavaScriptV1APIDataset
+		| unknown[]
+		| null
+		| undefined = undefined;
 
 	validateConfiguration(): boolean {
 		const prop = this.element.dataset.prop;
@@ -36,8 +47,13 @@ export default class ArrayEditable extends Editable {
 		return true;
 	}
 
-	validateValue(value: unknown): unknown[] | null | undefined {
-		if (!Array.isArray(value) && value !== null) {
+	validateValue(value: unknown): this["value"] {
+		if (
+			!Array.isArray(value) &&
+			value !== null &&
+			!CloudCannon.isAPICollection(value) &&
+			!CloudCannon.isAPIDataset(value)
+		) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
 			error.setAttribute("heading", "Failed to render array editable");
@@ -51,8 +67,24 @@ export default class ArrayEditable extends Editable {
 		return value;
 	}
 
-	update(): void {
-		const value = this.value ?? [];
+	async update(): Promise<void> {
+		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
+		if (CloudCannon.isAPICollection(this.value)) {
+			value = await this.value.items();
+		} else if (CloudCannon.isAPIDataset(this.value)) {
+			const items = await this.value.items();
+			if (Array.isArray(items)) {
+				value = items;
+			} else {
+				const data = await items.data.get();
+				value = Array.isArray(data) ? data : [];
+			}
+		} else if (Array.isArray(this.value)) {
+			value = this.value;
+		} else {
+			value = [];
+		}
+
 		const children: (HTMLElement & { editable: ArrayItem })[] = [];
 
 		for (const child of this.element.querySelectorAll(
@@ -105,10 +137,28 @@ export default class ArrayEditable extends Editable {
 			return;
 		}
 
-		const dataKeys = this.value?.map((item) => {
-			const key = this.element.dataset.idKey;
-			return String(key ? (item as any)[key] : item);
-		});
+		const key = this.element.dataset.idKey;
+		const componentKey = this.element.dataset.componentKey;
+		const dataKeys: (string | null)[] = [];
+		const componentKeys: (string | null)[] = [];
+		for (const item of value) {
+			let data = item;
+			if (CloudCannon.isAPIFile(item)) {
+				data = await item.data.get();
+			}
+
+			if (data && typeof data === "object" && key) {
+				dataKeys.push(String((data as any)[key]));
+			} else {
+				dataKeys.push(null);
+			}
+
+			if (data && typeof data === "object" && componentKey) {
+				componentKeys.push(String((data as any)[componentKey]));
+			} else {
+				componentKeys.push(null);
+			}
+		}
 
 		const childKeys = children.map((element) => {
 			return element.dataset.id;
@@ -132,6 +182,9 @@ export default class ArrayEditable extends Editable {
 		const moved: Record<number, boolean> = {};
 
 		dataKeys?.forEach((key, i) => {
+			if (!key) {
+				return;
+			}
 			const placeholder = placeholders[i];
 			const existingElement = children[i];
 			const matchingChildIndex = children.findIndex(
@@ -147,16 +200,8 @@ export default class ArrayEditable extends Editable {
 					matchingChild = document.createElement("array-item");
 					matchingChild.dataset.id = key;
 
-					const componentKey = this.element.dataset.componentKey;
-					if (
-						componentKey &&
-						typeof this.value?.[i] === "object" &&
-						this.value[i] &&
-						(this.value[i] as any)[componentKey]
-					) {
-						matchingChild.dataset.component = (this.value[i] as any)[
-							componentKey
-						];
+					if (componentKeys[i]) {
+						matchingChild.dataset.component = componentKeys[i];
 					}
 				}
 			} else {

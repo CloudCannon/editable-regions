@@ -8,6 +8,8 @@ import "./text-editable.js";
 import "./component-editable.js";
 import "./image-editable.js";
 import "./source-editable.js";
+import "./snippet-editable.js";
+import { loadedPromise } from "../helpers/cloudcannon.js";
 
 declare const window: WindowType;
 
@@ -18,6 +20,8 @@ Promise.all([
 	customElements.whenDefined("component-editable"),
 	customElements.whenDefined("image-editable"),
 	customElements.whenDefined("source-editable"),
+	customElements.whenDefined("snippet-editable"),
+	loadedPromise,
 ]).then(() => {
 	window.hydrateDataEditables?.(document.body);
 });

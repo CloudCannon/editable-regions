@@ -1,5 +1,7 @@
 import "../components/ui/array-controls.js";
 import type ArrayControls from "../components/ui/array-controls.js";
+import { hasArrayItemEditable } from "../helpers/checks.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import ArrayEditable from "./array-editable.js";
 import ComponentEditable from "./component-editable.js";
@@ -70,10 +72,7 @@ export default class ArrayItem extends ComponentEditable {
 			return `cc:${currentArraySubtype}`;
 		}
 
-		const type = window.CloudCannon?.getInputType(
-			this.resolveSource(),
-			this.value,
-		);
+		const type = CloudCannon.getInputType(this.resolveSource(), this.value);
 		return `cc:${type}`;
 	}
 
@@ -128,61 +127,78 @@ export default class ArrayItem extends ComponentEditable {
 		return isBefore ? "before" : "after";
 	}
 
+	dispatchArrayMove(fromIndex: number, toIndex: number) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "move-array-item",
+					fromIndex,
+					toIndex,
+				},
+			}),
+		);
+	}
+
+	dispatchArrayRemove(fromIndex: number, source?: string) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "remove-array-item",
+					fromIndex,
+					source,
+				},
+			}),
+		);
+	}
+
+	dispatchArrayAdd(newIndex: number, value: unknown) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: {
+					action: "add-array-item",
+					newIndex,
+					value,
+				},
+			}),
+		);
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			this.controlsElement = document.createElement("array-controls");
 			this.controlsElement.arrayDirection =
 				this.parent?.arrayDirection ?? "column";
 			this.controlsElement.addEventListener("edit", (e: any) => {
-				const source = this.resolveSource();
-				if (!source) {
-					throw new Error("Source not found");
-				}
-				window.CloudCannon?.edit(source, undefined, e);
+				this.dispatchEdit(this.element.dataset.prop);
 			});
 
 			this.controlsElement.addEventListener("move-backward", () => {
-				const source = this.parent?.resolveSource();
-				if (!source) {
-					throw new Error("Source not found");
-				}
-
 				const fromIndex = Number(this.element.dataset.prop);
 				const arrayDirection = this.parent?.arrayDirection ?? "column";
 				const reversed = arrayDirection.endsWith("reverse");
 
-				if (reversed) {
-					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
-				} else {
-					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
-				}
+				this.dispatchArrayMove(
+					fromIndex,
+					reversed ? fromIndex + 1 : fromIndex - 1,
+				);
 			});
 
 			this.controlsElement.addEventListener("move-forward", () => {
-				const source = this.parent?.resolveSource();
-				if (!source) {
-					throw new Error("Source not found");
-				}
-
 				const fromIndex = Number(this.element.dataset.prop);
 				const arrayDirection = this.parent?.arrayDirection ?? "column";
 				const reversed = arrayDirection.endsWith("reverse");
 
-				if (reversed) {
-					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex - 1);
-				} else {
-					window.CloudCannon?.moveArrayItem(source, fromIndex, fromIndex + 1);
-				}
+				this.dispatchArrayMove(
+					fromIndex,
+					reversed ? fromIndex - 1 : fromIndex + 1,
+				);
 			});
 
 			this.controlsElement.addEventListener("delete", () => {
-				const source = this.parent?.resolveSource();
-				if (!source) {
-					throw new Error("Source not found");
-				}
-
-				const fromIndex = Number(this.element.dataset.prop);
-				window.CloudCannon?.removeArrayItem(source, fromIndex);
+				this.dispatchArrayRemove(Number(this.element.dataset.prop));
 			});
 
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
@@ -200,14 +216,17 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer.effectAllowed = "move";
 				e.dataTransfer?.setData(source, this.element.dataset.prop);
 
+				const id = Math.random().toString(36).slice(2);
+				this.element.id = id;
+
 				const data: Record<string, any> = {
 					index: this.element.dataset.prop,
-					slug: source,
+					sourceId: id,
 					value: this.value,
 				};
 
-				if (this.inputConfig?.options?.structures?.values?.length > 1) {
-					data.structure = window.CloudCannon?.findStructure(
+				if (this.inputConfig?.options?.structures?.values?.length > 0) {
+					data.structure = CloudCannon.findStructure(
 						this.inputConfig?.options?.structures,
 						this.value,
 					);
@@ -241,9 +260,7 @@ export default class ArrayItem extends ComponentEditable {
 					Number(this.element.dataset.length) - 1;
 			}
 
-			window.CloudCannon?.getInputConfig(
-				this.parent?.resolveSource() ?? "",
-			).then((inputConfig) => {
+			this.dispatchGetInputConfig().then((inputConfig) => {
 				if (!this.controlsElement) {
 					return;
 				}
@@ -311,39 +328,35 @@ export default class ArrayItem extends ComponentEditable {
 				e.stopPropagation();
 				e.dataTransfer.dropEffect = "move";
 
-				if (window.CloudCannon && fromIndex !== newIndex) {
-					window.CloudCannon.moveArrayItem(source, fromIndex, newIndex);
+				if (fromIndex !== newIndex) {
+					this.dispatchArrayMove(fromIndex, newIndex);
 				}
-			} else if (otherArrayData && dragType === "cc:structure") {
-				const { index, slug, value, structure } = JSON.parse(otherArrayData);
-
-				if (!this.inputConfig?.options?.structures?.values) {
-					throw new Error("No structures found");
-				}
-
-				const targetStructure = window.CloudCannon?.findStructure(
-					this.inputConfig.options.structures,
-					this.value,
-				);
-				if (!targetStructure) {
-					throw new Error("No target structure found");
-				}
-
-				if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
-					throw new Error("Structures do not match");
-				}
-
-				window.CloudCannon?.removeArrayItem(slug, index);
-				window.CloudCannon?.addArrayItem(source, newIndex, value);
-
-				e.preventDefault();
-				e.stopPropagation();
-				e.dataTransfer.dropEffect = "move";
 			} else if (otherArrayData) {
-				const { index, slug, value } = JSON.parse(otherArrayData);
-				window.CloudCannon?.removeArrayItem(slug, index);
+				const { index, sourceId, value, structure } =
+					JSON.parse(otherArrayData);
+				if (dragType === "cc:structure") {
+					if (!this.inputConfig?.options?.structures?.values) {
+						throw new Error("No structures found");
+					}
 
-				window.CloudCannon?.addArrayItem(source, newIndex, value);
+					const targetStructure = CloudCannon.findStructure(
+						this.inputConfig.options.structures,
+						this.value,
+					);
+					if (!targetStructure) {
+						throw new Error("No target structure found");
+					}
+
+					if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
+						throw new Error("Structures do not match");
+					}
+				}
+
+				const sourceElement = document.getElementById(sourceId);
+				if (sourceElement && hasArrayItemEditable(sourceElement)) {
+					sourceElement.editable.dispatchArrayRemove(index);
+				}
+				this.dispatchArrayAdd(newIndex, value);
 
 				e.preventDefault();
 				e.stopPropagation();

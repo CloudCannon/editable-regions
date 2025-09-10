@@ -11,11 +11,34 @@ import Editable from "./editable.js";
 import "../components/ui/error-card.js";
 import "../components/ui/editable-controls.js";
 import type EditableControls from "../components/ui/editable-controls.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 
 declare const window: WindowType;
 
+const realizeAPIValue = async (value: unknown): Promise<unknown> => {
+	if (CloudCannon.isAPICollection(value)) {
+		const items = await value.items();
+		return Promise.all(items.map(realizeAPIValue));
+	}
+	if (CloudCannon.isAPIFile(value)) {
+		return value.data.get();
+	}
+	if (CloudCannon.isAPIDataset(value)) {
+		const items = await value.items();
+		if (Array.isArray(items)) {
+			return Promise.all(items.map(realizeAPIValue));
+		}
+		return items.data.get();
+	}
+	return value;
+};
+
 export default class ComponentEditable extends Editable {
 	protected controlsElement?: EditableControls;
+
+	getComponents() {
+		return window.cc_components;
+	}
 
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
@@ -31,7 +54,7 @@ export default class ComponentEditable extends Editable {
 			return false;
 		}
 
-		const component = window.cc_components?.[key];
+		const component = this.getComponents()?.[key];
 		if (!component) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
@@ -51,9 +74,16 @@ export default class ComponentEditable extends Editable {
 		if (!key) {
 			return super.update();
 		}
-		const component = window.cc_components?.[key];
+		const component = this.getComponents()?.[key];
 		if (!component) {
 			return super.update();
+		}
+
+		const value = await realizeAPIValue(this.value);
+		if (value && typeof value === "object" && !Array.isArray(value)) {
+			for (const key of Object.keys(value)) {
+				(value as any)[key] = await realizeAPIValue((value as any)[key]);
+			}
 		}
 
 		let rootEl: HTMLElement;
@@ -143,9 +173,20 @@ export default class ComponentEditable extends Editable {
 						hasEditable(renderChild)
 					) {
 						targetChild.replaceWith(renderChild);
-						renderChild.editable.pushValue(this.value);
+						for (let i = 0; i < this.listeners.length; i++) {
+							const listener = this.listeners[i];
+							if (listener.editable.element === targetChild) {
+								listener.editable.element = renderChild;
+								renderChild.editable.pushValue(this.value, listener);
+							}
+						}
 					} else if (hasEditable(targetChild)) {
-						targetChild.editable.pushValue(this.value);
+						for (let i = 0; i < this.listeners.length; i++) {
+							const listener = this.listeners[i];
+							if (listener.editable.element === targetChild) {
+								targetChild.editable.pushValue(this.value, listener);
+							}
+						}
 					}
 				} else if (hasEditable(targetChild)) {
 					for (let i = 0; i < this.listeners.length; i++) {
@@ -176,18 +217,22 @@ export default class ComponentEditable extends Editable {
 		}
 	}
 
+	dispatchEdit(source?: string) {
+		this.element.dispatchEvent(
+			new CustomEvent("cloudcannon-api", {
+				bubbles: true,
+				detail: { action: "edit", source },
+			}),
+		);
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			let editPath: string | undefined;
-			Object.entries(this.element.dataset).forEach(([propName]) => {
+			Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
 				if (!propName.startsWith("prop")) {
 					return;
 				}
-
-				const propKey =
-					propName === "prop" ? undefined : propName.substring(4).toLowerCase();
-
-				const propPath = this.resolveSource(propKey);
 
 				if (typeof editPath !== "string") {
 					editPath = propPath;
@@ -199,10 +244,15 @@ export default class ComponentEditable extends Editable {
 				}
 			});
 
+			editPath ||= this.element.dataset.prop;
+			editPath ||= Object.entries(this.element.dataset).find(([propName]) =>
+				propName.startsWith("prop"),
+			)?.[1];
+
 			if (editPath) {
 				this.controlsElement = document.createElement("editable-controls");
 				this.controlsElement.addEventListener("edit", (e: any) => {
-					window.CloudCannon?.edit(editPath ?? "", undefined, e);
+					this.dispatchEdit(editPath);
 				});
 				this.element.append(this.controlsElement);
 			}

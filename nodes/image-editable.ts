@@ -1,7 +1,5 @@
-import type { WindowType } from "../types/window.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import Editable from "./editable.js";
-
-declare const window: WindowType;
 
 export default class ImageEditable extends Editable {
 	value: { src?: string } | undefined = undefined;
@@ -23,18 +21,16 @@ export default class ImageEditable extends Editable {
 			input.type = "file";
 
 			input.onchange = async (e) => {
-				const slug = this.resolveSource("src");
-				if (!slug) {
-					throw new Error("Slug is required");
-				}
+				const slug =
+					this.element.dataset.propSrc ?? `${this.element.dataset.prop}.src`;
 
 				const file = (e.target as any)?.files[0];
 				if (!file) {
 					throw new Error("No file selected");
 				}
 
-				const path = await window.CloudCannon?.uploadFile(file);
-				window.CloudCannon?.set(slug, path);
+				const path = await CloudCannon.uploadFile(file, undefined);
+				this.dispatchSet(slug, path);
 			};
 
 			input.click();

@@ -1,11 +1,12 @@
-import type { WindowType } from "../types/window.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import Editable from "./editable.js";
 
-declare const window: WindowType;
+type EditableFocusEvent = CustomEvent<number>;
 
 export default class TextEditable extends Editable {
 	editor?: any;
 	focused = false;
+	focusIndex = 0;
 	value: string | null | undefined;
 
 	validateConfiguration(): boolean {
@@ -38,11 +39,6 @@ export default class TextEditable extends Editable {
 	}
 
 	validateValue(value: unknown): string | null | undefined {
-		// TODO: Make this less hacky. i.e. when the prop is content that should come through the listeners
-		if (this.element.dataset.prop === "@content") {
-			return "";
-		}
-
 		if (typeof value !== "string" && value !== null) {
 			this.element.classList.add("errored");
 			const error = document.createElement("error-card");
@@ -66,18 +62,40 @@ export default class TextEditable extends Editable {
 	}
 
 	update(): void {
-		this.element.dataset.prop === "@content"
-			? window.CloudCannon?.getFileContent().then((content) =>
-					this.editor?.setContent(content),
-				)
-			: this.editor?.setContent(this.value);
+		this.editor?.setContent(this.value);
 	}
 
 	mount(): void {
-		this.element.onblur = () => {
+		this.element.addEventListener("blur", () => {
 			this.focused = false;
-			this.parent?.update();
-		};
+			this.element.dispatchEvent(
+				new CustomEvent("editable:blur", {
+					bubbles: true,
+					detail: this.focusIndex,
+				}),
+			);
+		});
+
+		this.element.addEventListener("focus", () => {
+			this.focusIndex += 1;
+			this.element.dispatchEvent(
+				new CustomEvent("editable:focus", {
+					bubbles: true,
+					detail: this.focusIndex,
+				}),
+			);
+		});
+
+		this.element.addEventListener("editable:focus", (e: EditableFocusEvent) => {
+			this.focused = true;
+			this.focusIndex = e.detail;
+		});
+
+		this.element.addEventListener("editable:blur", (e: EditableFocusEvent) => {
+			if (e.detail >= this.focusIndex) {
+				this.focused = false;
+			}
+		});
 
 		if (typeof this.element.dataset.deferMount === "string") {
 			this.element.onclick = () => {
@@ -89,16 +107,7 @@ export default class TextEditable extends Editable {
 			return;
 		}
 
-		this.element.onfocus = () => {
-			this.focused = true;
-		};
-
-		if (!window.CloudCannon && !this.editor) {
-			document.addEventListener(
-				"cloudcannon:load",
-				this.mountEditor.bind(this),
-			);
-		} else if (!this.editor) {
+		if (!this.editor) {
 			this.mountEditor();
 		}
 	}
@@ -109,22 +118,21 @@ export default class TextEditable extends Editable {
 		}
 
 		const source = this.resolveSource();
+
 		if (!source) {
 			throw new Error("Source not found");
 		}
 
-		const inputConfig =
-			this.element.dataset.prop === "@content"
-				? undefined
-				: await window.CloudCannon?.getInputConfig(source);
+		const inputConfig = source.endsWith("@content")
+			? { type: "markdown" }
+			: await this.dispatchGetInputConfig(this.element.dataset.prop);
 
-		this.editor = await window.CloudCannon?.createTextEditableRegion(
+		this.editor = await CloudCannon.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
 				elementType: this.element.dataset.type,
-				editableType:
-					this.element.dataset.prop === "@content" ? "content" : undefined,
+				editableType: source.endsWith("@content") ? "content" : undefined,
 				inputConfig,
 			},
 		);
@@ -136,14 +144,20 @@ export default class TextEditable extends Editable {
 		return this.editor;
 	}
 
-	onChange(value?: string) {
-		const source = this.resolveSource();
-		if (!source) {
+	onChange(value?: string | null) {
+		const source = this.element.dataset.prop;
+		if (typeof source !== "string") {
 			throw new Error("Source not found");
 		}
 
-		this.element.dataset.prop === "@content"
-			? window.CloudCannon?.setFileContent(value || "")
-			: window.CloudCannon?.setFileData(source, value);
+		this.value = value;
+		this.dispatchSet(source, value);
+	}
+}
+
+declare global {
+	interface HTMLElementEventMap {
+		"editable:focus": EditableFocusEvent;
+		"editable:blur": EditableFocusEvent;
 	}
 }
