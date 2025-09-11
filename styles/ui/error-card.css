@@ -1,4 +1,7 @@
-:host {
+.container {
+    all: initial;
+    font-family: var(--ccrt-font-family);
+
     display: flex;
     background-color: #ffe7ea;
     border-radius: var(--ccve-border-radius);

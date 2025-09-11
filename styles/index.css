@@ -3,19 +3,7 @@
 @import "./component-editable.css";
 @import "./image-editable.css";
 @import "./source-editable.css";
-
-snippet-editable {
-    cursor: pointer;
-    position: relative;
-
-    &[data-cms-snippet-type="block"] {
-        display: block;
-    }
-
-    &[data-cms-snippet-type="inline"] {
-        display: inline-block;
-    }
-}
+@import "./snippet-editable.css";
 
 array-controls,
 editable-controls {
@@ -54,6 +42,7 @@ snippet-editable,
 
     &.errored {
         outline: none !important;
+        cursor: default !important;
     }
 
     &.dragover * {

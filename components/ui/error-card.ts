@@ -26,12 +26,16 @@ export default class ErrorCard extends HTMLElement {
 		style.textContent = styleContent;
 		shadow.appendChild(style);
 
+		const container = document.createElement("div");
+		container.className = "container";
+		shadow.appendChild(container);
+
 		const icon = document.createElement("cc-icon");
 		icon.setAttribute("name", "warning");
-		shadow.appendChild(icon);
+		container.appendChild(icon);
 
 		const body = document.createElement("div");
-		shadow.appendChild(body);
+		container.appendChild(body);
 
 		const heading = document.createElement("p");
 		heading.className = "heading";
