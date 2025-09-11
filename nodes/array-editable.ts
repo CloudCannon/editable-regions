@@ -5,6 +5,7 @@ import type {
 import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
 import { hasArrayItemEditable } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
+import { hydrateDataEditables } from "../helpers/hydrate-editables.js";
 import type { WindowType } from "../types/window.js";
 import type ArrayItem from "./array-item.js";
 import Editable from "./editable.js";
@@ -126,7 +127,7 @@ export default class ArrayEditable extends Editable {
 				child.dataset.prop = `${i}`;
 				child.dataset.length = `${children.length}`;
 
-				window.hydrateDataEditables?.(child);
+				hydrateDataEditables(child);
 				child.editable.parent = this;
 				child.editable.pushValue(value[i]);
 
@@ -219,7 +220,7 @@ export default class ArrayEditable extends Editable {
 				this.element.appendChild(matchingChild);
 			}
 
-			window.hydrateDataEditables?.(matchingChild);
+			hydrateDataEditables(matchingChild);
 
 			matchingChild.editable.parent = this;
 			matchingChild.editable.pushValue(value[i]);

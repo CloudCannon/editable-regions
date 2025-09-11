@@ -12,15 +12,15 @@ import type { WindowType } from "../types/window.js";
 declare const window: WindowType;
 
 const editableMap: Record<string, typeof Editable | undefined> = {
-	text: TextEditable,
-	component: ComponentEditable,
 	array: ArrayEditable,
 	"array-item": ArrayItem,
+	component: ComponentEditable,
 	image: ImageEditable,
 	source: SourceEditable,
+	text: TextEditable,
 };
 
-const hydrateDataEditables = (root: Element) => {
+export const hydrateDataEditables = (root: Element) => {
 	if (
 		root instanceof HTMLElement &&
 		root.dataset.editable &&
@@ -38,12 +38,19 @@ const hydrateDataEditables = (root: Element) => {
 			return;
 		}
 
-		if (!element.dataset.editable) {
+		if (!element.dataset.editable || element.dataset.cloudcannonIgnore) {
 			return;
 		}
 
 		const Editable = editableMap[element.dataset.editable];
 		if (!Editable) {
+			const error = document.createElement("error-card");
+			error.setAttribute("heading", "Failed to render editable region");
+			error.setAttribute(
+				"message",
+				`Unrecognized editable type: "${element.dataset.editable}". The supported types are: ${Object.keys(editableMap).join(", ")}`,
+			);
+			element.replaceWith(error);
 			return;
 		}
 
