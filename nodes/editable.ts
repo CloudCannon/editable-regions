@@ -1,4 +1,6 @@
 import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
+import type { CloudCannonJavaScriptV1APICollection } from "@cloudcannon/javascript-api";
+import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
 import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
 
 export interface EditableListener {
@@ -8,11 +10,20 @@ export interface EditableListener {
 }
 
 export default class Editable {
+	APIListeners: {
+		obj:
+			| CloudCannonJavaScriptV1APIFile
+			| CloudCannonJavaScriptV1APICollection
+			| CloudCannonJavaScriptV1APIDataset;
+		fn: () => void;
+		event: "change" | "delete";
+	}[] = [];
 	listeners: EditableListener[] = [];
 	value: unknown = undefined;
 	parent: Editable | null = null;
 	element: HTMLElement;
 	mounted = false;
+	connected = false;
 
 	propsBase: unknown;
 	props: Record<string, unknown> = {};
@@ -85,18 +96,19 @@ export default class Editable {
 	async pushValue(value: unknown, listener?: EditableListener): Promise<void> {
 		const newValue = await this.getNewValue(value, listener);
 
-		if (typeof newValue === "undefined") {
+		if (typeof newValue === "undefined" || !this.shouldUpdate(newValue)) {
 			return;
 		}
 
-		if (!this.mounted && this.validateConfiguration()) {
+		this.value = newValue;
+		if (this.connected && !this.mounted) {
 			this.mounted = true;
 			this.mount();
+			return this.update();
 		}
 
-		if (this.mounted && this.shouldUpdate(newValue)) {
-			this.value = newValue;
-			this.update();
+		if (this.mounted) {
+			return this.update();
 		}
 	}
 
@@ -120,7 +132,7 @@ export default class Editable {
 			return;
 		}
 
-		if (this.mounted) {
+		if (this.value !== undefined) {
 			listener.editable.pushValue(this.value, listener);
 		}
 
@@ -136,6 +148,9 @@ export default class Editable {
 	disconnect(): void {
 		this.parent?.deregisterListener(this);
 		this.parent = null;
+		this.APIListeners.forEach(({ obj, fn, event }) =>
+			obj.removeEventListener(event, fn),
+		);
 	}
 
 	resolveSource(source?: string): string | undefined {
@@ -181,7 +196,14 @@ export default class Editable {
 			loadedPromise,
 		]).then(() => {
 			this.setupListeners();
-			this.validateConfiguration();
+			if (this.validateConfiguration()) {
+				this.connected = true;
+				if (this.value !== undefined && !this.mounted) {
+					this.mounted = true;
+					this.mount();
+					this.update();
+				}
+			}
 		});
 	}
 
@@ -224,21 +246,19 @@ export default class Editable {
 					return;
 				}
 
-				if (collection) {
-					collection.addEventListener("change", async () => {
-						this.pushValue(collection, listener);
+				// Any single data path should only be able to refer to a single absolute API object
+				const obj = collection || dataset || file;
+				if (obj) {
+					const handleAPIChange = async () => {
+						this.pushValue(obj, listener);
+					};
+					this.APIListeners.push({
+						obj,
+						fn: handleAPIChange,
+						event: "change",
 					});
-					this.pushValue(collection, listener);
-				} else if (dataset) {
-					dataset.addEventListener("change", async () => {
-						this.pushValue(dataset, listener);
-					});
-					this.pushValue(dataset, listener);
-				} else if (file) {
-					file.addEventListener("change", async () => {
-						this.pushValue(file, listener);
-					});
-					this.pushValue(file, listener);
+					obj.addEventListener("change", handleAPIChange);
+					handleAPIChange();
 				}
 			},
 		);
@@ -314,7 +334,6 @@ export default class Editable {
 					});
 					return true;
 				}
-				debugger;
 				throw new Error(
 					`Failed to resolve source for API call: ${options.source}`,
 				);

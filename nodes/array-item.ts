@@ -199,6 +199,7 @@ export default class ArrayItem extends ComponentEditable {
 
 			this.controlsElement.addEventListener("delete", () => {
 				this.dispatchArrayRemove(Number(this.element.dataset.prop));
+				this.element.remove();
 			});
 
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
@@ -330,6 +331,16 @@ export default class ArrayItem extends ComponentEditable {
 
 				if (fromIndex !== newIndex) {
 					this.dispatchArrayMove(fromIndex, newIndex);
+					const sourceElement = this.parent?.element.querySelector(
+						`[data-prop="${fromIndex}"]`,
+					);
+					if (sourceElement) {
+						if (position === "after") {
+							this.element.after(sourceElement);
+						} else {
+							this.element.before(sourceElement);
+						}
+					}
 				}
 			} else if (otherArrayData) {
 				const { index, sourceId, value, structure } =
@@ -354,15 +365,32 @@ export default class ArrayItem extends ComponentEditable {
 
 				const sourceElement = document.getElementById(sourceId);
 				if (sourceElement && hasArrayItemEditable(sourceElement)) {
+					if (Array.isArray(sourceElement.editable.parent?.value)) {
+						sourceElement.editable.parent.value.splice(index, 1);
+					}
 					sourceElement.editable.dispatchArrayRemove(index);
+					if (position === "after") {
+						this.element.after(sourceElement);
+					} else {
+						this.element.before(sourceElement);
+					}
+					sourceElement.editable.parent?.update();
+				}
+				if (Array.isArray(this.parent?.value)) {
+					this.parent.value.splice(newIndex, 0, value);
 				}
 				this.dispatchArrayAdd(newIndex, value);
+				this.parent?.update();
 
 				e.preventDefault();
 				e.stopPropagation();
 				e.dataTransfer.dropEffect = "move";
 			}
 		};
+
+		if (this.value !== undefined) {
+			this.update();
+		}
 	}
 
 	setupListeners(): void {

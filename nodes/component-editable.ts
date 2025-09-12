@@ -12,7 +12,6 @@ import "../components/ui/error-card.js";
 import "../components/ui/editable-controls.js";
 import type EditableControls from "../components/ui/editable-controls.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import { hydrateDataEditables } from "../helpers/hydrate-editables.js";
 
 declare const window: WindowType;
 
@@ -98,7 +97,6 @@ export default class ComponentEditable extends Editable {
 			this.element.replaceChildren(error);
 			return;
 		}
-		hydrateDataEditables(rootEl);
 
 		const child = rootEl.firstElementChild;
 		if (

@@ -7,9 +7,7 @@ import {
 	SourceEditable,
 	TextEditable,
 } from "../nodes";
-import type { WindowType } from "../types/window.js";
-
-declare const window: WindowType;
+import { hasEditable } from "./checks";
 
 const editableMap: Record<string, typeof Editable | undefined> = {
 	array: ArrayEditable,
@@ -18,6 +16,18 @@ const editableMap: Record<string, typeof Editable | undefined> = {
 	image: ImageEditable,
 	source: SourceEditable,
 	text: TextEditable,
+};
+
+export const dehydrateDataEditables = (root: Element) => {
+	if (root instanceof HTMLElement && hasEditable(root)) {
+		root.editable.disconnect();
+	}
+
+	root.querySelectorAll("[data-editable]").forEach((element) => {
+		if (element instanceof HTMLElement && hasEditable(element)) {
+			element.editable.disconnect();
+		}
+	});
 };
 
 export const hydrateDataEditables = (root: Element) => {
@@ -59,5 +69,3 @@ export const hydrateDataEditables = (root: Element) => {
 		editable.connect();
 	});
 };
-
-window.hydrateDataEditables = hydrateDataEditables;

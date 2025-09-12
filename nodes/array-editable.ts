@@ -5,7 +5,6 @@ import type {
 import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
 import { hasArrayItemEditable } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import { hydrateDataEditables } from "../helpers/hydrate-editables.js";
 import type { WindowType } from "../types/window.js";
 import type ArrayItem from "./array-item.js";
 import Editable from "./editable.js";
@@ -107,10 +106,8 @@ export default class ArrayEditable extends Editable {
 		}
 
 		if (!this.element.dataset.idKey) {
-			if (children.length > value.length) {
-				for (let i = value.length; i < children.length; i++) {
-					children[i].remove();
-				}
+			while (children.length > value.length) {
+				children.pop()?.remove();
 			}
 
 			for (let i = 0; i < value.length; i++) {
@@ -119,22 +116,12 @@ export default class ArrayEditable extends Editable {
 					child = children[0].cloneNode(true) as HTMLElement & {
 						editable: ArrayItem;
 					};
-					children.push(child);
-				}
-			}
-
-			children.forEach((child, i) => {
-				child.dataset.prop = `${i}`;
-				child.dataset.length = `${children.length}`;
-
-				hydrateDataEditables(child);
-				child.editable.parent = this;
-				child.editable.pushValue(value[i]);
-
-				if (!child.parentElement && i < value.length) {
 					this.element.appendChild(child);
 				}
-			});
+				child.dataset.prop = `${i}`;
+				child.dataset.length = `${children.length}`;
+				child.editable?.pushValue(value[i]);
+			}
 			return;
 		}
 
@@ -219,8 +206,6 @@ export default class ArrayEditable extends Editable {
 			} else {
 				this.element.appendChild(matchingChild);
 			}
-
-			hydrateDataEditables(matchingChild);
 
 			matchingChild.editable.parent = this;
 			matchingChild.editable.pushValue(value[i]);

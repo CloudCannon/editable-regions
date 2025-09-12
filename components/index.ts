@@ -1,5 +1,3 @@
-import type { WindowType } from "../types/window.js";
-
 import "../helpers/hydrate-editables";
 
 import "./array-editable.js";
@@ -10,8 +8,28 @@ import "./image-editable.js";
 import "./source-editable.js";
 import "./snippet-editable.js";
 import { loadedPromise } from "../helpers/cloudcannon.js";
+import {
+	dehydrateDataEditables,
+	hydrateDataEditables,
+} from "../helpers/hydrate-editables";
 
-declare const window: WindowType;
+const observer = new MutationObserver((mutations) => {
+	mutations.forEach((mutation) => {
+		mutation.removedNodes.forEach((el) => {
+			if (el instanceof HTMLElement) {
+				dehydrateDataEditables(el);
+			}
+		});
+
+		mutation.addedNodes.forEach((el) => {
+			if (el instanceof HTMLElement) {
+				hydrateDataEditables(el);
+			}
+		});
+	});
+});
+
+observer.observe(document, { childList: true, subtree: true });
 
 Promise.all([
 	customElements.whenDefined("array-item"),
@@ -23,5 +41,5 @@ Promise.all([
 	customElements.whenDefined("snippet-editable"),
 	loadedPromise,
 ]).then(() => {
-	window.hydrateDataEditables?.(document.body);
+	hydrateDataEditables(document.body);
 });
