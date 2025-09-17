@@ -110,13 +110,26 @@ export default class ImageEditable extends Editable {
 		return value;
 	}
 
-	update(): void {
+	async update(): Promise<void> {
 		if (!this.imageEl) {
 			throw new Error("Element is not an HTMLImageElement");
 		}
 
 		if (this.configuredSrc && this.imageEl.src !== this.value?.src) {
-			this.imageEl.src = this.value?.src ?? "";
+			const previewUrl = await CloudCannon.getPreviewUrl(
+				this.value?.src ?? "",
+				this.inputConfig.src,
+			);
+			this.imageEl.src = previewUrl;
+			const parent = this.imageEl.parentElement;
+			if (parent instanceof HTMLPictureElement) {
+				for (const sourceEl of parent.children) {
+					if (sourceEl instanceof HTMLSourceElement) {
+						sourceEl.src = previewUrl;
+						sourceEl.srcset = previewUrl;
+					}
+				}
+			}
 		}
 
 		if (this.configuredAlt && this.imageEl.alt !== this.value?.alt) {
