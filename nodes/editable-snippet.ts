@@ -1,10 +1,10 @@
-import { editableSnippetRenderers } from "../helpers/cloudcannon.js";
+import { getEditableSnippetRenderers } from "../helpers/cloudcannon.js";
 import EditableComponent from "./editable-component.js";
 import Editable from "./editable.js";
 
 export default class EditableSnippet extends EditableComponent {
 	getComponents() {
-		return editableSnippetRenderers;
+		return getEditableSnippetRenderers();
 	}
 
 	setupListeners(): void {

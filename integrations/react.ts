@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { editableComponentRenderers } from "../helpers/cloudcannon";
+import { addEditableComponentRenderer } from "../helpers/cloudcannon";
 
 export const registerReactComponent = (
 	key: string,
@@ -17,5 +17,5 @@ export const registerReactComponent = (
 		return rootEl;
 	};
 
-	editableComponentRenderers[key] = wrappedComponent;
+	addEditableComponentRenderer(key, wrappedComponent);
 };

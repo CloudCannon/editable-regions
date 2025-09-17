@@ -43,7 +43,23 @@ export const loadedPromise = Promise.all([
 	customElements.whenDefined("editable-snippet"),
 ]);
 
-export const editableComponentRenderers = window.cc_components || {};
-export const editableSnippetRenderers = window.cc_snippets || {};
+export const addEditableComponentRenderer = (
+	key: string,
+	renderer: ComponentRenderer,
+) => {
+	window.cc_components = window.cc_components || {};
+	window.cc_components[key] = renderer;
+};
+
+export const addEditableSnippetRenderer = (
+	key: string,
+	renderer: ComponentRenderer,
+) => {
+	window.cc_snippets = window.cc_snippets || {};
+	window.cc_snippets[key] = renderer;
+};
+
+export const getEditableComponentRenderers = () => window.cc_components ?? {};
+export const getEditableSnippetRenderers = () => window.cc_snippets ?? {};
 
 export { _cloudcannon as CloudCannon };

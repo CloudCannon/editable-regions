@@ -12,7 +12,7 @@ import "../components/ui/editable-component-controls.js";
 import type EditableComponentControls from "../components/ui/editable-component-controls.js";
 import {
 	CloudCannon,
-	editableComponentRenderers,
+	getEditableComponentRenderers,
 } from "../helpers/cloudcannon.js";
 
 const realizeAPIValue = async (value: unknown): Promise<unknown> => {
@@ -37,7 +37,7 @@ export default class EditableComponent extends Editable {
 	protected controlsElement?: EditableComponentControls;
 
 	getComponents() {
-		return editableComponentRenderers;
+		return getEditableComponentRenderers();
 	}
 
 	validateConfiguration(): boolean {

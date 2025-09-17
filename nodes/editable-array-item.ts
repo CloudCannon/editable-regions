@@ -4,10 +4,7 @@ import {
 	hasEditableArrayItem,
 	isEditableArrayItem,
 } from "../helpers/checks.js";
-import {
-	CloudCannon,
-	editableComponentRenderers,
-} from "../helpers/cloudcannon.js";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
@@ -21,7 +18,7 @@ export default class EditableArrayItem extends EditableComponent {
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
-			const component = editableComponentRenderers[key];
+			const component = this.getComponents()[key];
 			if (!component) {
 				this.element.classList.add("errored");
 				const error = document.createElement("editable-region-error-card");
