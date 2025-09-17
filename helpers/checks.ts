@@ -1,18 +1,18 @@
-import ArrayItem from "../nodes/array-item.js";
+import EditableArrayItem from "../nodes/editable-array-item.js";
+import EditableText from "../nodes/editable-text.js";
 import Editable from "../nodes/editable.js";
-import TextEditable from "../nodes/text-editable.js";
 
 const TAG_NAMES = [
-	"TEXT-EDITABLE",
-	"COMPONENT-EDITABLE",
-	"ARRAY-ITEM",
-	"ARRAY-EDITABLE",
-	"IMAGE-EDITABLE",
-	"SOURCE-EDITABLE",
-	"SNIPPET-EDITABLE",
+	"EDITABLE-TEXT",
+	"EDITABLE-COMPONENT",
+	"EDITABLE-ARRAY-ITEM",
+	"EDITABLE-ARRAY",
+	"EDITABLE-IMAGE",
+	"EDITABLE-SOURCE",
+	"EDITABLE-SNIPPET",
 ];
 
-const EDITABLE_TYPES = [
+const EDITABLE_REGION_TYPES = [
 	"text",
 	"component",
 	"array",
@@ -22,12 +22,12 @@ const EDITABLE_TYPES = [
 ];
 
 const CORRESPONDING_NAME: Record<string, string> = {
-	"TEXT-EDITABLE": "text",
-	"COMPONENT-EDITABLE": "component",
-	"ARRAY-ITEM": "array-item",
-	"ARRAY-EDITABLE": "array",
-	"IMAGE-EDITABLE": "image",
-	"SOURCE-EDITABLE": "source",
+	"EDITABLE-TEXT": "text",
+	"EDITABLE-COMPONENT": "component",
+	"EDITABLE-ARRAY-ITEM": "array-item",
+	"EDITABLE-ARRAY": "array",
+	"EDITABLE-IMAGE": "image",
+	"EDITABLE-SOURCE": "source",
 };
 
 export const hasEditable = <T extends object>(
@@ -36,16 +36,16 @@ export const hasEditable = <T extends object>(
 	return "editable" in el && el.editable instanceof Editable;
 };
 
-export const hasTextEditable = <T extends object>(
+export const hasEditableText = <T extends object>(
 	el: T,
-): el is T & { editable: TextEditable } => {
-	return "editable" in el && el.editable instanceof TextEditable;
+): el is T & { editable: EditableText } => {
+	return "editable" in el && el.editable instanceof EditableText;
 };
 
-export const hasArrayItemEditable = <T extends object>(
+export const hasEditableArrayItem = <T extends object>(
 	el: T,
-): el is T & { editable: ArrayItem } => {
-	return "editable" in el && el.editable instanceof ArrayItem;
+): el is T & { editable: EditableArrayItem } => {
+	return "editable" in el && el.editable instanceof EditableArrayItem;
 };
 
 export const isEditableElement = (el: unknown): boolean => {
@@ -55,7 +55,8 @@ export const isEditableElement = (el: unknown): boolean => {
 
 	return (
 		TAG_NAMES.includes(el.tagName) ||
-		(!!el.dataset.editable && EDITABLE_TYPES.includes(el.dataset.editable))
+		(!!el.dataset.editable &&
+			EDITABLE_REGION_TYPES.includes(el.dataset.editable))
 	);
 };
 
@@ -78,31 +79,17 @@ export const areEqualEditables = (a: HTMLElement, b: HTMLElement) => {
 	);
 };
 
-export const isTextEditable = (el?: Element | null): boolean => {
+export const isEditableText = (el?: Element | null): boolean => {
 	return (
-		el?.tagName === "TEXT-EDITABLE" ||
+		el?.tagName === "EDITABLE-TEXT" ||
 		(el instanceof HTMLElement && el.dataset.editable === "text")
 	);
 };
 
-export const isComponentEditable = (el?: Element | null): boolean => {
+export const isEditableArrayItem = (el?: Element | null): boolean => {
 	return (
-		el?.tagName === "COMPONENT-EDITABLE" ||
-		(el instanceof HTMLElement && el.dataset.editable === "component")
-	);
-};
-
-export const isArrayItem = (el?: Element | null): boolean => {
-	return (
-		el?.tagName === "ARRAY-ITEM" ||
+		el?.tagName === "EDITABLE-ARRAY-ITEM" ||
 		(el instanceof HTMLElement && el.dataset.editable === "array-item")
-	);
-};
-
-export const isArrayEditable = (el?: Element | null): boolean => {
-	return (
-		el?.tagName === "ARRAY-EDITABLE" ||
-		(el instanceof HTMLElement && el.dataset.editable === "array")
 	);
 };
 

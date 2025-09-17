@@ -1,7 +1,7 @@
-import type { ArrayDirection } from "../../nodes/array-editable";
-import EditableControls from "./editable-controls";
+import type { ArrayDirection } from "../../nodes/editable-array";
+import EditableComponentControls from "./editable-component-controls";
 
-export default class ArrayControls extends EditableControls {
+export default class EditableArrayItemControls extends EditableComponentControls {
 	arrayDirection: ArrayDirection = "column";
 
 	moveBackwardText: "up" | "left" = "up";
@@ -111,10 +111,13 @@ export default class ArrayControls extends EditableControls {
 	}
 }
 
-customElements.define("array-controls", ArrayControls);
+customElements.define(
+	"editable-array-item-controls",
+	EditableArrayItemControls,
+);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		"array-controls": ArrayControls;
+		"editable-array-item-controls": EditableArrayItemControls;
 	}
 }

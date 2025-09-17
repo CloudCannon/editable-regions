@@ -1,6 +1,8 @@
-import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
-import type { CloudCannonJavaScriptV1APICollection } from "@cloudcannon/javascript-api";
-import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
+import type {
+	CloudCannonJavaScriptV1APICollection,
+	CloudCannonJavaScriptV1APIDataset,
+	CloudCannonJavaScriptV1APIFile,
+} from "@cloudcannon/javascript-api";
 import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
 
 export interface EditableListener {
@@ -185,16 +187,7 @@ export default class Editable {
 	}
 
 	connect(): void {
-		Promise.all([
-			customElements.whenDefined("array-item"),
-			customElements.whenDefined("array-editable"),
-			customElements.whenDefined("text-editable"),
-			customElements.whenDefined("component-editable"),
-			customElements.whenDefined("image-editable"),
-			customElements.whenDefined("source-editable"),
-			customElements.whenDefined("snippet-editable"),
-			loadedPromise,
-		]).then(() => {
+		loadedPromise.then(() => {
 			this.setupListeners();
 			if (this.validateConfiguration()) {
 				this.connected = true;
@@ -413,9 +406,9 @@ export default class Editable {
 	}
 
 	parseSource(source?: string) {
-		let collection;
-		let file;
-		let dataset;
+		let collection: CloudCannonJavaScriptV1APICollection | undefined;
+		let file: CloudCannonJavaScriptV1APIFile | undefined;
+		let dataset: CloudCannonJavaScriptV1APIDataset | undefined;
 		let absolute = false;
 
 		const collectionMatch = source?.match(

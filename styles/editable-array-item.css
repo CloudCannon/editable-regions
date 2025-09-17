@@ -1,0 +1,8 @@
+editable-array-item {
+	display: block;
+}
+
+editable-array-item,
+[data-editable="array-item"] {
+	position: relative;
+}

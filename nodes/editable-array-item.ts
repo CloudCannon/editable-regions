@@ -1,27 +1,30 @@
-import "../components/ui/array-controls.js";
-import type ArrayControls from "../components/ui/array-controls.js";
-import { hasArrayItemEditable, isArrayItem } from "../helpers/checks.js";
-import { CloudCannon } from "../helpers/cloudcannon.js";
-import type { WindowType } from "../types/window.js";
-import ArrayEditable from "./array-editable.js";
-import ComponentEditable from "./component-editable.js";
+import "../components/ui/editable-array-item-controls.js";
+import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
+import {
+	hasEditableArrayItem,
+	isEditableArrayItem,
+} from "../helpers/checks.js";
+import {
+	CloudCannon,
+	editableComponentRenderers,
+} from "../helpers/cloudcannon.js";
+import EditableArray from "./editable-array.js";
+import EditableComponent from "./editable-component.js";
 
-declare const window: WindowType;
+export default class EditableArrayItem extends EditableComponent {
+	parent: EditableArray | null = null;
 
-export default class ArrayItem extends ComponentEditable {
-	parent: ArrayEditable | null = null;
-
-	protected controlsElement?: ArrayControls;
+	protected controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
-			const component = window.cc_components?.[key];
+			const component = editableComponentRenderers[key];
 			if (!component) {
 				this.element.classList.add("errored");
-				const error = document.createElement("error-card");
+				const error = document.createElement("editable-region-error-card");
 				error.setAttribute("heading", "Failed to render component");
 				error.setAttribute("message", `Couldn't find component '${key}'`);
 				this.element.replaceChildren(error);
@@ -29,9 +32,9 @@ export default class ArrayItem extends ComponentEditable {
 			}
 		}
 
-		if (!this.parent || !(this.parent instanceof ArrayEditable)) {
+		if (!this.parent || !(this.parent instanceof EditableArray)) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array item");
 			error.setAttribute(
 				"message",
@@ -206,7 +209,9 @@ export default class ArrayItem extends ComponentEditable {
 
 	mount(): void {
 		if (!this.controlsElement) {
-			this.controlsElement = document.createElement("array-controls");
+			this.controlsElement = document.createElement(
+				"editable-array-item-controls",
+			);
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
@@ -221,7 +226,7 @@ export default class ArrayItem extends ComponentEditable {
 					reversed ? fromIndex + 1 : fromIndex - 1,
 				);
 
-				if (isArrayItem(this.element.previousElementSibling)) {
+				if (isEditableArrayItem(this.element.previousElementSibling)) {
 					this.element.previousElementSibling?.before(this.element);
 				}
 			});
@@ -236,7 +241,7 @@ export default class ArrayItem extends ComponentEditable {
 					reversed ? fromIndex - 1 : fromIndex + 1,
 				);
 
-				if (isArrayItem(this.element.nextElementSibling)) {
+				if (isEditableArrayItem(this.element.nextElementSibling)) {
 					this.element.nextElementSibling?.after(this.element);
 				}
 			});
@@ -385,7 +390,7 @@ export default class ArrayItem extends ComponentEditable {
 				}
 
 				const sourceElement = document.getElementById(sourceId);
-				if (sourceElement && hasArrayItemEditable(sourceElement)) {
+				if (sourceElement && hasEditableArrayItem(sourceElement)) {
 					if (Array.isArray(sourceElement.editable.parent?.value)) {
 						sourceElement.editable.parent.value = structuredClone(
 							sourceElement.editable.parent.value,

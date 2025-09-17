@@ -1,7 +1,7 @@
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import Editable from "./editable.js";
 
-export default class ImageEditable extends Editable {
+export default class EditableImage extends Editable {
 	value: { src?: string; alt?: string; title?: string } | null | undefined =
 		undefined;
 	inputConfig: { src?: any; alt?: any; title?: any } = {};
@@ -13,7 +13,7 @@ export default class ImageEditable extends Editable {
 
 	displayError(heading: string, message: string) {
 		this.element.classList.add("errored");
-		const error = document.createElement("error-card");
+		const error = document.createElement("editable-region-error-card");
 		error.setAttribute("heading", heading);
 		error.setAttribute("message", message);
 		if (this.imageEl) {

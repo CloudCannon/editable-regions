@@ -1,7 +1,7 @@
 import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { html as beautifyHtml } from "js-beautify";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import TextEditable from "./text-editable.js";
+import EditableText from "./editable-text.js";
 
 const INDENTATION_REGEX = /^([ \t]+)[^\s]/gm;
 const TAG_REGEX =
@@ -24,7 +24,7 @@ const HTML_VOID_ELEMENT: Record<string, boolean> = {
 	wbr: true,
 };
 
-export default class SourceEditable extends TextEditable {
+export default class EditableSource extends EditableText {
 	file?: CloudCannonJavaScriptV1APIFile;
 	format = {
 		leading: "",
@@ -49,7 +49,7 @@ export default class SourceEditable extends TextEditable {
 		const path = this.element.dataset.path;
 		if (typeof path !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render source editable region");
 			error.setAttribute("message", "Missing required attribute data-path");
 			this.element.replaceChildren(error);
@@ -59,7 +59,7 @@ export default class SourceEditable extends TextEditable {
 		const key = this.element.dataset.key;
 		if (typeof key !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render source editable region");
 			error.setAttribute("message", "Missing required attribute data-key");
 			this.element.replaceChildren(error);
@@ -71,7 +71,7 @@ export default class SourceEditable extends TextEditable {
 	validateValue(value: unknown): string | null | undefined {
 		if (typeof value !== "string" && value !== null) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render source editable region");
 			error.setAttribute(
 				"message",
@@ -85,7 +85,7 @@ export default class SourceEditable extends TextEditable {
 			const keyIndex = value.indexOf(`data-key="${this.element.dataset.key}"`);
 			if (keyIndex === -1) {
 				this.element.classList.add("errored");
-				const error = document.createElement("error-card");
+				const error = document.createElement("editable-region-error-card");
 				error.setAttribute(
 					"heading",
 					"Failed to render source editable region",
@@ -104,7 +104,7 @@ export default class SourceEditable extends TextEditable {
 			);
 			if (nextKeyIndex !== -1) {
 				this.element.classList.add("errored");
-				const error = document.createElement("error-card");
+				const error = document.createElement("editable-region-error-card");
 				error.setAttribute(
 					"heading",
 					"Failed to render source editable region",

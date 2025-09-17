@@ -2,18 +2,18 @@ import {
 	areEqualEditables,
 	areEqualNodes,
 	hasEditable,
-	hasTextEditable,
+	hasEditableText,
 	isEditableElement,
-	isTextEditable,
+	isEditableText,
 } from "../helpers/checks.js";
-import type { WindowType } from "../types/window.js";
 import Editable from "./editable.js";
-import "../components/ui/error-card.js";
-import "../components/ui/editable-controls.js";
-import type EditableControls from "../components/ui/editable-controls.js";
-import { CloudCannon } from "../helpers/cloudcannon.js";
-
-declare const window: WindowType;
+import "../components/ui/editable-region-error-card.js";
+import "../components/ui/editable-component-controls.js";
+import type EditableComponentControls from "../components/ui/editable-component-controls.js";
+import {
+	CloudCannon,
+	editableComponentRenderers,
+} from "../helpers/cloudcannon.js";
 
 const realizeAPIValue = async (value: unknown): Promise<unknown> => {
 	if (CloudCannon.isAPICollection(value)) {
@@ -33,18 +33,18 @@ const realizeAPIValue = async (value: unknown): Promise<unknown> => {
 	return value;
 };
 
-export default class ComponentEditable extends Editable {
-	protected controlsElement?: EditableControls;
+export default class EditableComponent extends Editable {
+	protected controlsElement?: EditableComponentControls;
 
 	getComponents() {
-		return window.cc_components;
+		return editableComponentRenderers;
 	}
 
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (!key) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render component");
 			error.setAttribute(
 				"message",
@@ -57,7 +57,7 @@ export default class ComponentEditable extends Editable {
 		const component = this.getComponents()?.[key];
 		if (!component) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render component");
 			error.setAttribute("message", `Couldn't find component '${key}'`);
 			this.element.replaceChildren(error);
@@ -91,7 +91,7 @@ export default class ComponentEditable extends Editable {
 			rootEl = await component(this.value);
 		} catch (err: unknown) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", `Failed to render component: ${key}`);
 			error.error = err;
 			this.element.replaceChildren(error);
@@ -102,7 +102,7 @@ export default class ComponentEditable extends Editable {
 		if (
 			child instanceof HTMLElement &&
 			"editable" in child &&
-			child.editable instanceof ComponentEditable &&
+			child.editable instanceof EditableComponent &&
 			child.dataset.component === key
 		) {
 			rootEl = child;
@@ -166,9 +166,9 @@ export default class ComponentEditable extends Editable {
 			) {
 				if (!areEqualEditables(renderChild, targetChild)) {
 					targetChild.replaceWith(renderChild);
-				} else if (isTextEditable(renderChild) && isTextEditable(targetChild)) {
+				} else if (isEditableText(renderChild) && isEditableText(targetChild)) {
 					if (
-						hasTextEditable(targetChild) &&
+						hasEditableText(targetChild) &&
 						!targetChild.editable.focused &&
 						!targetChild?.isEqualNode(renderChild) &&
 						hasEditable(renderChild)
@@ -251,7 +251,9 @@ export default class ComponentEditable extends Editable {
 			)?.[1];
 
 			if (editPath) {
-				this.controlsElement = document.createElement("editable-controls");
+				this.controlsElement = document.createElement(
+					"editable-component-controls",
+				);
 				this.controlsElement.addEventListener("edit", (e: any) => {
 					this.dispatchEdit(editPath);
 				});

@@ -1,12 +1,10 @@
-import type { WindowType } from "../types/window.js";
-import ComponentEditable from "./component-editable.js";
+import { editableSnippetRenderers } from "../helpers/cloudcannon.js";
+import EditableComponent from "./editable-component.js";
 import Editable from "./editable.js";
 
-declare const window: WindowType;
-
-export default class SnippetEditable extends ComponentEditable {
+export default class EditableSnippet extends EditableComponent {
 	getComponents() {
-		return window.cc_snippets;
+		return editableSnippetRenderers;
 	}
 
 	setupListeners(): void {

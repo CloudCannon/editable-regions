@@ -1,6 +1,6 @@
-import styleContent from "../../styles/ui/error-card.css?inline";
+import styleContent from "../../styles/ui/editable-region-error-card.css?inline";
 
-export default class ErrorCard extends HTMLElement {
+export default class EditableRegionErrorCard extends HTMLElement {
 	private _error?: unknown;
 	private shadow?: ShadowRoot;
 
@@ -68,10 +68,10 @@ export default class ErrorCard extends HTMLElement {
 	}
 }
 
-customElements.define("error-card", ErrorCard);
+customElements.define("editable-region-error-card", EditableRegionErrorCard);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		"error-card": ErrorCard;
+		"editable-region-error-card": EditableRegionErrorCard;
 	}
 }

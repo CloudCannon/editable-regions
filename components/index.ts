@@ -1,29 +1,27 @@
-import "../helpers/hydrate-editables";
-
-import "./array-editable.js";
-import "./array-item.js";
-import "./text-editable.js";
-import "./component-editable.js";
-import "./image-editable.js";
-import "./source-editable.js";
-import "./snippet-editable.js";
+import "./editable-array-component.js";
+import "./editable-array-item-component.js";
+import "./editable-text-component.js";
+import "./editable-component-component.js";
+import "./editable-image-component.js";
+import "./editable-source-component.js";
+import "./editable-snippet-component.js";
 import { loadedPromise } from "../helpers/cloudcannon.js";
 import {
-	dehydrateDataEditables,
-	hydrateDataEditables,
-} from "../helpers/hydrate-editables";
+	dehydrateDataEditableRegions,
+	hydrateDataEditableRegions,
+} from "../helpers/hydrate-editable-regions";
 
 const observer = new MutationObserver((mutations) => {
 	mutations.forEach((mutation) => {
 		mutation.removedNodes.forEach((el) => {
 			if (el instanceof HTMLElement) {
-				dehydrateDataEditables(el);
+				dehydrateDataEditableRegions(el);
 			}
 		});
 
 		mutation.addedNodes.forEach((el) => {
 			if (el instanceof HTMLElement) {
-				hydrateDataEditables(el);
+				hydrateDataEditableRegions(el);
 			}
 		});
 	});
@@ -31,15 +29,6 @@ const observer = new MutationObserver((mutations) => {
 
 observer.observe(document, { childList: true, subtree: true });
 
-Promise.all([
-	customElements.whenDefined("array-item"),
-	customElements.whenDefined("array-editable"),
-	customElements.whenDefined("text-editable"),
-	customElements.whenDefined("component-editable"),
-	customElements.whenDefined("image-editable"),
-	customElements.whenDefined("source-editable"),
-	customElements.whenDefined("snippet-editable"),
-	loadedPromise,
-]).then(() => {
-	hydrateDataEditables(document.body);
+loadedPromise.then(() => {
+	hydrateDataEditableRegions(document.body);
 });

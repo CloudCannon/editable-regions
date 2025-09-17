@@ -1,8 +1,0 @@
-component-editable {
-    display: block;
-}
-
-component-editable,
-[data-editable='component'] {
-    position: relative;
-}

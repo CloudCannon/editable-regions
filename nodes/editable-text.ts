@@ -3,7 +3,7 @@ import Editable from "./editable.js";
 
 type EditableFocusEvent = CustomEvent<number>;
 
-export default class TextEditable extends Editable {
+export default class EditableText extends Editable {
 	editor?: any;
 	focused = false;
 	focusIndex = 0;
@@ -13,7 +13,7 @@ export default class TextEditable extends Editable {
 		const prop = this.element.dataset.prop;
 		if (typeof prop !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render text editable region");
 			error.setAttribute("message", "Missing required attribute data-prop");
 			this.element.replaceChildren(error);
@@ -26,7 +26,7 @@ export default class TextEditable extends Editable {
 			!["span", "text", "block"].includes(elementType)
 		) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render text editable region");
 			error.setAttribute(
 				"message",
@@ -41,7 +41,7 @@ export default class TextEditable extends Editable {
 	validateValue(value: unknown): string | null | undefined {
 		if (typeof value !== "string" && value !== null) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render text editable region");
 			error.setAttribute(
 				"message",

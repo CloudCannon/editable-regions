@@ -3,11 +3,18 @@ import type {
 	CloudCannonJavaScriptV1API,
 } from "@cloudcannon/javascript-api";
 
-declare const window: CloudCannonEditorWindow;
+export type ComponentRenderer = (
+	props: any,
+) => HTMLElement | Promise<HTMLElement>;
+
+declare const window: CloudCannonEditorWindow & {
+	cc_components?: Record<string, ComponentRenderer>;
+	cc_snippets?: Record<string, ComponentRenderer>;
+};
 
 let _cloudcannon: CloudCannonJavaScriptV1API;
 
-export const loadedPromise = new Promise<void>((resolve) => {
+const apiLoadedPromise = new Promise<void>((resolve) => {
 	if (window.CloudCannonAPI) {
 		_cloudcannon = window.CloudCannonAPI.useVersion("v1") as any;
 		resolve();
@@ -24,5 +31,19 @@ export const loadedPromise = new Promise<void>((resolve) => {
 		);
 	}
 });
+
+export const loadedPromise = Promise.all([
+	apiLoadedPromise,
+	customElements.whenDefined("editable-array-item"),
+	customElements.whenDefined("editable-array"),
+	customElements.whenDefined("editable-text"),
+	customElements.whenDefined("editable-component"),
+	customElements.whenDefined("editable-image"),
+	customElements.whenDefined("editable-source"),
+	customElements.whenDefined("editable-snippet"),
+]);
+
+export const editableComponentRenderers = window.cc_components || {};
+export const editableSnippetRenderers = window.cc_snippets || {};
 
 export { _cloudcannon as CloudCannon };

@@ -1,24 +1,24 @@
 import {
-	ArrayEditable,
-	ArrayItem,
-	ComponentEditable,
 	type Editable,
-	ImageEditable,
-	SourceEditable,
-	TextEditable,
+	EditableArray,
+	EditableArrayItem,
+	EditableComponent,
+	EditableImage,
+	EditableSource,
+	EditableText,
 } from "../nodes";
 import { hasEditable } from "./checks";
 
 const editableMap: Record<string, typeof Editable | undefined> = {
-	array: ArrayEditable,
-	"array-item": ArrayItem,
-	component: ComponentEditable,
-	image: ImageEditable,
-	source: SourceEditable,
-	text: TextEditable,
+	array: EditableArray,
+	"array-item": EditableArrayItem,
+	component: EditableComponent,
+	image: EditableImage,
+	source: EditableSource,
+	text: EditableText,
 };
 
-export const dehydrateDataEditables = (root: Element) => {
+export const dehydrateDataEditableRegions = (root: Element) => {
 	if (root instanceof HTMLElement && hasEditable(root)) {
 		root.editable.disconnect();
 	}
@@ -30,7 +30,7 @@ export const dehydrateDataEditables = (root: Element) => {
 	});
 };
 
-export const hydrateDataEditables = (root: Element) => {
+export const hydrateDataEditableRegions = (root: Element) => {
 	if (
 		root instanceof HTMLElement &&
 		root.dataset.editable &&
@@ -54,7 +54,7 @@ export const hydrateDataEditables = (root: Element) => {
 
 		const Editable = editableMap[element.dataset.editable];
 		if (!Editable) {
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render editable region");
 			error.setAttribute(
 				"message",
