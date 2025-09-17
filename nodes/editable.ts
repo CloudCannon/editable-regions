@@ -3,6 +3,7 @@ import type {
 	CloudCannonJavaScriptV1APIDataset,
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
+import { hasEditable } from "../helpers/checks";
 import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
 
 export interface EditableListener {
@@ -11,15 +12,17 @@ export interface EditableListener {
 	path?: string;
 }
 
+export interface APIListener {
+	obj:
+		| CloudCannonJavaScriptV1APIFile
+		| CloudCannonJavaScriptV1APICollection
+		| CloudCannonJavaScriptV1APIDataset;
+	fn: () => void;
+	event: "change" | "delete";
+}
+
 export default class Editable {
-	APIListeners: {
-		obj:
-			| CloudCannonJavaScriptV1APIFile
-			| CloudCannonJavaScriptV1APICollection
-			| CloudCannonJavaScriptV1APIDataset;
-		fn: () => void;
-		event: "change" | "delete";
-	}[] = [];
+	APIListeners: APIListener[] = [];
 	listeners: EditableListener[] = [];
 	value: unknown = undefined;
 	parent: Editable | null = null;
@@ -204,11 +207,8 @@ export default class Editable {
 		let parentEditable: Editable | undefined;
 		let parent = this.element.parentElement;
 		while (parent) {
-			if (
-				"editable" in parent &&
-				(parent as any).editable instanceof Editable
-			) {
-				parentEditable = (parent as any).editable;
+			if (hasEditable(parent)) {
+				parentEditable = parent.editable;
 				break;
 			}
 			parent = parent.parentElement;
@@ -242,7 +242,7 @@ export default class Editable {
 				// Any single data path should only be able to refer to a single absolute API object
 				const obj = collection || dataset || file;
 				if (obj) {
-					const handleAPIChange = async () => {
+					const handleAPIChange = () => {
 						this.pushValue(obj, listener);
 					};
 					this.APIListeners.push({
