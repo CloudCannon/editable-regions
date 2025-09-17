@@ -48,7 +48,7 @@ export const hasArrayItemEditable = <T extends object>(
 	return "editable" in el && el.editable instanceof ArrayItem;
 };
 
-export const isEditableElement = (el: unknown): el is HTMLElement => {
+export const isEditableElement = (el: unknown): boolean => {
 	if (!(el instanceof HTMLElement)) {
 		return false;
 	}
@@ -78,22 +78,32 @@ export const areEqualEditables = (a: HTMLElement, b: HTMLElement) => {
 	);
 };
 
-export const isTextEditable = (el: HTMLElement): boolean => {
-	return el.tagName === "TEXT-EDITABLE" || el.dataset.editable === "text";
-};
-
-export const isComponentEditable = (el: HTMLElement): boolean => {
+export const isTextEditable = (el?: Element | null): boolean => {
 	return (
-		el.tagName === "COMPONENT-EDITABLE" || el.dataset.editable === "component"
+		el?.tagName === "TEXT-EDITABLE" ||
+		(el instanceof HTMLElement && el.dataset.editable === "text")
 	);
 };
 
-export const isArrayItem = (el: HTMLElement): boolean => {
-	return el.tagName === "ARRAY-ITEM" || el.dataset.editable === "array-item";
+export const isComponentEditable = (el?: Element | null): boolean => {
+	return (
+		el?.tagName === "COMPONENT-EDITABLE" ||
+		(el instanceof HTMLElement && el.dataset.editable === "component")
+	);
 };
 
-export const isArrayEditable = (el: HTMLElement): boolean => {
-	return el.tagName === "ARRAY-EDITABLE" || el.dataset.editable === "array";
+export const isArrayItem = (el?: Element | null): boolean => {
+	return (
+		el?.tagName === "ARRAY-ITEM" ||
+		(el instanceof HTMLElement && el.dataset.editable === "array-item")
+	);
+};
+
+export const isArrayEditable = (el?: Element | null): boolean => {
+	return (
+		el?.tagName === "ARRAY-EDITABLE" ||
+		(el instanceof HTMLElement && el.dataset.editable === "array")
+	);
 };
 
 export const areEqualNodes = (a: ChildNode, b: ChildNode) => {

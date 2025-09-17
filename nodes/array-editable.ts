@@ -3,7 +3,7 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
-import { hasArrayItemEditable } from "../helpers/checks.js";
+import { hasArrayItemEditable, isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import type ArrayItem from "./array-item.js";
@@ -94,11 +94,12 @@ export default class ArrayEditable extends Editable {
 				continue;
 			}
 
-			let parent = child.editable.parent?.element ?? child.parentElement;
-			while (parent && !("editable" in parent)) {
+			let parent = child.parentElement;
+			while (parent instanceof HTMLElement && !isEditableElement(parent)) {
 				parent = parent.parentElement;
 			}
-			if (!parent || parent.editable !== this) {
+
+			if (!parent || ("editable" in parent && parent.editable !== this)) {
 				continue;
 			}
 

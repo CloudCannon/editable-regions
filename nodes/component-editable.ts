@@ -159,6 +159,8 @@ export default class ComponentEditable extends Editable {
 			) {
 				targetChild.nodeValue = renderChild.nodeValue;
 			} else if (
+				targetChild instanceof HTMLElement &&
+				renderChild instanceof HTMLElement &&
 				isEditableElement(renderChild) &&
 				isEditableElement(targetChild)
 			) {

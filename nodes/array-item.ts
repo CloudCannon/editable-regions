@@ -1,6 +1,6 @@
 import "../components/ui/array-controls.js";
 import type ArrayControls from "../components/ui/array-controls.js";
-import { hasArrayItemEditable } from "../helpers/checks.js";
+import { hasArrayItemEditable, isArrayItem } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type { WindowType } from "../types/window.js";
 import ArrayEditable from "./array-editable.js";
@@ -166,11 +166,47 @@ export default class ArrayItem extends ComponentEditable {
 		);
 	}
 
+	async update(): Promise<void> {
+		await super.update();
+		this.updateControls();
+	}
+
+	updateControls() {
+		if (!this.controlsElement) {
+			return;
+		}
+
+		const arrayDirection = this.parent?.arrayDirection ?? "column";
+		const reversed = arrayDirection.endsWith("reverse");
+
+		this.controlsElement.arrayDirection = arrayDirection;
+
+		if (arrayDirection.startsWith("column")) {
+			this.controlsElement.moveBackwardText = "up";
+			this.controlsElement.moveForwardText = "down";
+		} else {
+			this.controlsElement.moveBackwardText = "left";
+			this.controlsElement.moveForwardText = "right";
+		}
+
+		if (reversed) {
+			this.controlsElement.disableMoveBackward =
+				Number(this.element.dataset.prop) ===
+				Number(this.element.dataset.length) - 1;
+			this.controlsElement.disableMoveForward =
+				Number(this.element.dataset.prop) === 0;
+		} else {
+			this.controlsElement.disableMoveBackward =
+				Number(this.element.dataset.prop) === 0;
+			this.controlsElement.disableMoveForward =
+				Number(this.element.dataset.prop) ===
+				Number(this.element.dataset.length) - 1;
+		}
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			this.controlsElement = document.createElement("array-controls");
-			this.controlsElement.arrayDirection =
-				this.parent?.arrayDirection ?? "column";
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
@@ -184,6 +220,10 @@ export default class ArrayItem extends ComponentEditable {
 					fromIndex,
 					reversed ? fromIndex + 1 : fromIndex - 1,
 				);
+
+				if (isArrayItem(this.element.previousElementSibling)) {
+					this.element.previousElementSibling?.before(this.element);
+				}
 			});
 
 			this.controlsElement.addEventListener("move-forward", () => {
@@ -195,6 +235,10 @@ export default class ArrayItem extends ComponentEditable {
 					fromIndex,
 					reversed ? fromIndex - 1 : fromIndex + 1,
 				);
+
+				if (isArrayItem(this.element.nextElementSibling)) {
+					this.element.nextElementSibling?.after(this.element);
+				}
 			});
 
 			this.controlsElement.addEventListener("delete", () => {
@@ -236,30 +280,7 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer?.setData(this.getDragType(), JSON.stringify(data));
 			});
 
-			const arrayDirection = this.parent?.arrayDirection ?? "column";
-			const reversed = arrayDirection.endsWith("reverse");
-
-			if (arrayDirection.startsWith("column")) {
-				this.controlsElement.moveBackwardText = "up";
-				this.controlsElement.moveForwardText = "down";
-			} else {
-				this.controlsElement.moveBackwardText = "left";
-				this.controlsElement.moveForwardText = "right";
-			}
-
-			if (reversed) {
-				this.controlsElement.disableMoveBackward =
-					Number(this.element.dataset.prop) ===
-					Number(this.element.dataset.length) - 1;
-				this.controlsElement.disableMoveForward =
-					Number(this.element.dataset.prop) === 0;
-			} else {
-				this.controlsElement.disableMoveBackward =
-					Number(this.element.dataset.prop) === 0;
-				this.controlsElement.disableMoveForward =
-					Number(this.element.dataset.prop) ===
-					Number(this.element.dataset.length) - 1;
-			}
+			this.updateControls();
 
 			this.dispatchGetInputConfig().then((inputConfig) => {
 				if (!this.controlsElement) {
@@ -366,6 +387,9 @@ export default class ArrayItem extends ComponentEditable {
 				const sourceElement = document.getElementById(sourceId);
 				if (sourceElement && hasArrayItemEditable(sourceElement)) {
 					if (Array.isArray(sourceElement.editable.parent?.value)) {
+						sourceElement.editable.parent.value = structuredClone(
+							sourceElement.editable.parent.value,
+						);
 						sourceElement.editable.parent.value.splice(index, 1);
 					}
 					sourceElement.editable.dispatchArrayRemove(index);
@@ -377,6 +401,7 @@ export default class ArrayItem extends ComponentEditable {
 					sourceElement.editable.parent?.update();
 				}
 				if (Array.isArray(this.parent?.value)) {
+					this.parent.value = structuredClone(this.parent.value);
 					this.parent.value.splice(newIndex, 0, value);
 				}
 				this.dispatchArrayAdd(newIndex, value);
