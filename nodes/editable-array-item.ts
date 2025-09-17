@@ -1,27 +1,27 @@
-import "../components/ui/array-controls.js";
-import type ArrayControls from "../components/ui/array-controls.js";
-import { hasArrayItemEditable } from "../helpers/checks.js";
+import "../components/ui/editable-array-item-controls.js";
+import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
+import {
+	hasEditableArrayItem,
+	isEditableArrayItem,
+} from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import type { WindowType } from "../types/window.js";
-import ArrayEditable from "./array-editable.js";
-import ComponentEditable from "./component-editable.js";
+import EditableArray from "./editable-array.js";
+import EditableComponent from "./editable-component.js";
 
-declare const window: WindowType;
+export default class EditableArrayItem extends EditableComponent {
+	parent: EditableArray | null = null;
 
-export default class ArrayItem extends ComponentEditable {
-	parent: ArrayEditable | null = null;
-
-	protected controlsElement?: ArrayControls;
+	protected controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
-			const component = window.cc_components?.[key];
+			const component = this.getComponents()[key];
 			if (!component) {
 				this.element.classList.add("errored");
-				const error = document.createElement("error-card");
+				const error = document.createElement("editable-region-error-card");
 				error.setAttribute("heading", "Failed to render component");
 				error.setAttribute("message", `Couldn't find component '${key}'`);
 				this.element.replaceChildren(error);
@@ -29,9 +29,9 @@ export default class ArrayItem extends ComponentEditable {
 			}
 		}
 
-		if (!this.parent || !(this.parent instanceof ArrayEditable)) {
+		if (!this.parent || !(this.parent instanceof EditableArray)) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array item");
 			error.setAttribute(
 				"message",
@@ -166,11 +166,49 @@ export default class ArrayItem extends ComponentEditable {
 		);
 	}
 
+	async update(): Promise<void> {
+		await super.update();
+		this.updateControls();
+	}
+
+	updateControls() {
+		if (!this.controlsElement) {
+			return;
+		}
+
+		const arrayDirection = this.parent?.arrayDirection ?? "column";
+		const reversed = arrayDirection.endsWith("reverse");
+
+		this.controlsElement.arrayDirection = arrayDirection;
+
+		if (arrayDirection.startsWith("column")) {
+			this.controlsElement.moveBackwardText = "up";
+			this.controlsElement.moveForwardText = "down";
+		} else {
+			this.controlsElement.moveBackwardText = "left";
+			this.controlsElement.moveForwardText = "right";
+		}
+
+		if (reversed) {
+			this.controlsElement.disableMoveBackward =
+				Number(this.element.dataset.prop) ===
+				Number(this.element.dataset.length) - 1;
+			this.controlsElement.disableMoveForward =
+				Number(this.element.dataset.prop) === 0;
+		} else {
+			this.controlsElement.disableMoveBackward =
+				Number(this.element.dataset.prop) === 0;
+			this.controlsElement.disableMoveForward =
+				Number(this.element.dataset.prop) ===
+				Number(this.element.dataset.length) - 1;
+		}
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
-			this.controlsElement = document.createElement("array-controls");
-			this.controlsElement.arrayDirection =
-				this.parent?.arrayDirection ?? "column";
+			this.controlsElement = document.createElement(
+				"editable-array-item-controls",
+			);
 			this.controlsElement.addEventListener("edit", (e: any) => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
@@ -184,6 +222,10 @@ export default class ArrayItem extends ComponentEditable {
 					fromIndex,
 					reversed ? fromIndex + 1 : fromIndex - 1,
 				);
+
+				if (isEditableArrayItem(this.element.previousElementSibling)) {
+					this.element.previousElementSibling?.before(this.element);
+				}
 			});
 
 			this.controlsElement.addEventListener("move-forward", () => {
@@ -195,10 +237,15 @@ export default class ArrayItem extends ComponentEditable {
 					fromIndex,
 					reversed ? fromIndex - 1 : fromIndex + 1,
 				);
+
+				if (isEditableArrayItem(this.element.nextElementSibling)) {
+					this.element.nextElementSibling?.after(this.element);
+				}
 			});
 
 			this.controlsElement.addEventListener("delete", () => {
 				this.dispatchArrayRemove(Number(this.element.dataset.prop));
+				this.element.remove();
 			});
 
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
@@ -235,30 +282,7 @@ export default class ArrayItem extends ComponentEditable {
 				e.dataTransfer?.setData(this.getDragType(), JSON.stringify(data));
 			});
 
-			const arrayDirection = this.parent?.arrayDirection ?? "column";
-			const reversed = arrayDirection.endsWith("reverse");
-
-			if (arrayDirection.startsWith("column")) {
-				this.controlsElement.moveBackwardText = "up";
-				this.controlsElement.moveForwardText = "down";
-			} else {
-				this.controlsElement.moveBackwardText = "left";
-				this.controlsElement.moveForwardText = "right";
-			}
-
-			if (reversed) {
-				this.controlsElement.disableMoveBackward =
-					Number(this.element.dataset.prop) ===
-					Number(this.element.dataset.length) - 1;
-				this.controlsElement.disableMoveForward =
-					Number(this.element.dataset.prop) === 0;
-			} else {
-				this.controlsElement.disableMoveBackward =
-					Number(this.element.dataset.prop) === 0;
-				this.controlsElement.disableMoveForward =
-					Number(this.element.dataset.prop) ===
-					Number(this.element.dataset.length) - 1;
-			}
+			this.updateControls();
 
 			this.dispatchGetInputConfig().then((inputConfig) => {
 				if (!this.controlsElement) {
@@ -330,6 +354,16 @@ export default class ArrayItem extends ComponentEditable {
 
 				if (fromIndex !== newIndex) {
 					this.dispatchArrayMove(fromIndex, newIndex);
+					const sourceElement = this.parent?.element.querySelector(
+						`[data-prop="${fromIndex}"]`,
+					);
+					if (sourceElement) {
+						if (position === "after") {
+							this.element.after(sourceElement);
+						} else {
+							this.element.before(sourceElement);
+						}
+					}
 				}
 			} else if (otherArrayData) {
 				const { index, sourceId, value, structure } =
@@ -353,16 +387,37 @@ export default class ArrayItem extends ComponentEditable {
 				}
 
 				const sourceElement = document.getElementById(sourceId);
-				if (sourceElement && hasArrayItemEditable(sourceElement)) {
+				if (sourceElement && hasEditableArrayItem(sourceElement)) {
+					if (Array.isArray(sourceElement.editable.parent?.value)) {
+						sourceElement.editable.parent.value = structuredClone(
+							sourceElement.editable.parent.value,
+						);
+						sourceElement.editable.parent.value.splice(index, 1);
+					}
 					sourceElement.editable.dispatchArrayRemove(index);
+					if (position === "after") {
+						this.element.after(sourceElement);
+					} else {
+						this.element.before(sourceElement);
+					}
+					sourceElement.editable.parent?.update();
+				}
+				if (Array.isArray(this.parent?.value)) {
+					this.parent.value = structuredClone(this.parent.value);
+					this.parent.value.splice(newIndex, 0, value);
 				}
 				this.dispatchArrayAdd(newIndex, value);
+				this.parent?.update();
 
 				e.preventDefault();
 				e.stopPropagation();
 				e.dataTransfer.dropEffect = "move";
 			}
 		};
+
+		if (this.value !== undefined) {
+			this.update();
+		}
 	}
 
 	setupListeners(): void {

@@ -1,0 +1,4 @@
+editable-image,
+[data-editable="image"] {
+	cursor: pointer;
+}

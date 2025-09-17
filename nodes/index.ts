@@ -1,8 +1,8 @@
 export { default as Editable } from "./editable.js";
-export { default as ArrayEditable } from "./array-editable.js";
-export { default as ArrayItem } from "./array-item.js";
-export { default as TextEditable } from "./text-editable.js";
-export { default as ComponentEditable } from "./component-editable.js";
-export { default as ImageEditable } from "./image-editable.js";
-export { default as SourceEditable } from "./source-editable.js";
-export { default as SnippetEditable } from "./snippet-editable.js";
+export { default as EditableArray } from "./editable-array.js";
+export { default as EditableArrayItem } from "./editable-array-item.js";
+export { default as EditableText } from "./editable-text.js";
+export { default as EditableComponent } from "./editable-component.js";
+export { default as EditableImage } from "./editable-image.js";
+export { default as EditableSource } from "./editable-source.js";
+export { default as EditableSnippet } from "./editable-snippet.js";

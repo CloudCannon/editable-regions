@@ -1,15 +1,12 @@
 import type {
 	CloudCannonJavaScriptV1APICollection,
+	CloudCannonJavaScriptV1APIDataset,
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
-import type { CloudCannonJavaScriptV1APIDataset } from "@cloudcannon/javascript-api";
-import { hasArrayItemEditable } from "../helpers/checks.js";
+import { hasEditableArrayItem, isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
-import type { WindowType } from "../types/window.js";
-import type ArrayItem from "./array-item.js";
+import type EditableArrayItem from "./editable-array-item.js";
 import Editable from "./editable.js";
-
-declare const window: WindowType;
 
 const arrayDirectionValues = [
 	"row",
@@ -24,7 +21,7 @@ function isArrayDirection(value: unknown): value is ArrayDirection {
 	return arrayDirectionValues.includes(value as ArrayDirection);
 }
 
-export default class ArrayEditable extends Editable {
+export default class EditableArray extends Editable {
 	arrayDirection?: ArrayDirection;
 	value:
 		| CloudCannonJavaScriptV1APICollection
@@ -37,7 +34,7 @@ export default class ArrayEditable extends Editable {
 		const prop = this.element.dataset.prop;
 		if (typeof prop !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array editable");
 			error.setAttribute("message", "Missing required attribute data-prop");
 			this.element.replaceChildren(error);
@@ -55,7 +52,7 @@ export default class ArrayEditable extends Editable {
 			!CloudCannon.isAPIDataset(value)
 		) {
 			this.element.classList.add("errored");
-			const error = document.createElement("error-card");
+			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array editable");
 			error.setAttribute(
 				"message",
@@ -85,20 +82,21 @@ export default class ArrayEditable extends Editable {
 			value = [];
 		}
 
-		const children: (HTMLElement & { editable: ArrayItem })[] = [];
+		const children: (HTMLElement & { editable: EditableArrayItem })[] = [];
 
 		for (const child of this.element.querySelectorAll(
-			"array-item,[data-editable='array-item']",
+			"editable-array-item,[data-editable='array-item']",
 		)) {
-			if (!hasArrayItemEditable(child)) {
+			if (!hasEditableArrayItem(child)) {
 				continue;
 			}
 
-			let parent = child.editable.parent?.element ?? child.parentElement;
-			while (parent && !("editable" in parent)) {
+			let parent = child.parentElement;
+			while (parent instanceof HTMLElement && !isEditableElement(parent)) {
 				parent = parent.parentElement;
 			}
-			if (!parent || parent.editable !== this) {
+
+			if (!parent || ("editable" in parent && parent.editable !== this)) {
 				continue;
 			}
 
@@ -106,34 +104,22 @@ export default class ArrayEditable extends Editable {
 		}
 
 		if (!this.element.dataset.idKey) {
-			if (children.length > value.length) {
-				for (let i = value.length; i < children.length; i++) {
-					children[i].remove();
-				}
+			while (children.length > value.length) {
+				children.pop()?.remove();
 			}
 
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
 				if (!child) {
 					child = children[0].cloneNode(true) as HTMLElement & {
-						editable: ArrayItem;
+						editable: EditableArrayItem;
 					};
-					children.push(child);
-				}
-			}
-
-			children.forEach((child, i) => {
-				child.dataset.prop = `${i}`;
-				child.dataset.length = `${children.length}`;
-
-				window.hydrateDataEditables?.(child);
-				child.editable.parent = this;
-				child.editable.pushValue(value[i]);
-
-				if (!child.parentElement && i < value.length) {
 					this.element.appendChild(child);
 				}
-			});
+				child.dataset.prop = `${i}`;
+				child.dataset.length = `${children.length}`;
+				child.editable?.pushValue(value[i]);
+			}
 			return;
 		}
 
@@ -197,7 +183,7 @@ export default class ArrayEditable extends Editable {
 				if (clone) {
 					matchingChild = clone.cloneNode(true) as any;
 				} else {
-					matchingChild = document.createElement("array-item");
+					matchingChild = document.createElement("editable-array-item");
 					matchingChild.dataset.id = key;
 
 					if (componentKeys[i]) {
@@ -218,8 +204,6 @@ export default class ArrayEditable extends Editable {
 			} else {
 				this.element.appendChild(matchingChild);
 			}
-
-			window.hydrateDataEditables?.(matchingChild);
 
 			matchingChild.editable.parent = this;
 			matchingChild.editable.pushValue(value[i]);

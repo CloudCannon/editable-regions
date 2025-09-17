@@ -1,8 +1,0 @@
-array-item {
-    display: block;
-}
-
-array-item,
-[data-editable='array-item'] {
-    position: relative;
-}

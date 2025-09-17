@@ -1,6 +1,6 @@
-import styleContent from "../../styles/ui/editable-controls.css?inline";
+import styleContent from "../../styles/ui/editable-component-controls.css?inline";
 
-export default class EditableControls extends HTMLElement {
+export default class EditableComponentControls extends HTMLElement {
 	protected shadow?: ShadowRoot;
 	protected contextMenu?: HTMLUListElement;
 	protected buttonRow?: HTMLDivElement;
@@ -48,10 +48,10 @@ export default class EditableControls extends HTMLElement {
 	}
 }
 
-customElements.define("editable-controls", EditableControls);
+customElements.define("editable-component-controls", EditableComponentControls);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		"editable-controls": EditableControls;
+		"editable-component-controls": EditableComponentControls;
 	}
 }

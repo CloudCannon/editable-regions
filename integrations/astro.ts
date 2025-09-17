@@ -7,9 +7,7 @@ import { type FunctionComponent, createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server.browser";
-import type { WindowType } from "../types/window.js";
-
-declare const window: WindowType;
+import { addEditableComponentRenderer } from "../helpers/cloudcannon";
 
 interface ReactRoot {
 	Component: FunctionComponent<any>;
@@ -285,6 +283,5 @@ export const registerAstroComponent = (
 	};
 
 	// Register the wrapped component in the global registry
-	window.cc_components ??= {};
-	window.cc_components[key] = wrappedComponent;
+	addEditableComponentRenderer(key, wrappedComponent);
 };

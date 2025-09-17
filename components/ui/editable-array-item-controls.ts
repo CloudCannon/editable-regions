@@ -1,27 +1,67 @@
-import type { ArrayDirection } from "../../nodes/array-editable";
-import EditableControls from "./editable-controls";
+import type { ArrayDirection } from "../../nodes/editable-array";
+import EditableComponentControls from "./editable-component-controls";
 
-export default class ArrayControls extends EditableControls {
-	disableMoveForward = false;
-	disableMoveBackward = false;
-	disableRemove = false;
-	disableReorder = false;
+export default class EditableArrayItemControls extends EditableComponentControls {
 	arrayDirection: ArrayDirection = "column";
 
 	moveBackwardText: "up" | "left" = "up";
 	moveForwardText: "down" | "right" = "down";
+
+	private _disableMoveForward = false;
+	private _disableMoveBackward = false;
+	private _disableRemove = false;
+	private _disableReorder = false;
 
 	private moveForwardButton?: HTMLButtonElement;
 	private moveBackwardButton?: HTMLButtonElement;
 	private deleteButton?: HTMLButtonElement;
 	private dragHandle?: HTMLButtonElement;
 
+	set disableMoveForward(value: boolean) {
+		this._disableMoveForward = value;
+		this.update();
+	}
+
+	set disableMoveBackward(value: boolean) {
+		this._disableMoveBackward = value;
+		this.update();
+	}
+
+	set disableRemove(value: boolean) {
+		this._disableRemove = value;
+		this.update();
+	}
+
+	set disableReorder(value: boolean) {
+		this._disableReorder = value;
+		this.update();
+	}
+
+	update() {
+		if (this.dragHandle) {
+			this.dragHandle.draggable = !this._disableReorder;
+			this.dragHandle.innerHTML = `<cc-icon name="${this.dragHandle.draggable ? "drag_indicator" : "more_vert"}"></cc-icon>`;
+		}
+
+		if (this.moveForwardButton) {
+			this.moveForwardButton.disabled =
+				this._disableMoveForward || this._disableReorder;
+		}
+
+		if (this.moveBackwardButton) {
+			this.moveBackwardButton.disabled =
+				this._disableMoveBackward || this._disableReorder;
+		}
+
+		if (this.deleteButton) {
+			this.deleteButton.disabled = this._disableRemove;
+		}
+	}
+
 	render(shadow: ShadowRoot): void {
 		super.render(shadow);
 
 		this.dragHandle = document.createElement("button");
-		this.dragHandle.draggable = !this.disableReorder;
-		this.dragHandle.innerHTML = `<cc-icon name="${this.dragHandle.draggable ? "drag_indicator" : "more_vert"}"></cc-icon>`;
 		this.dragHandle.onclick = (e) => {
 			e.stopPropagation();
 			if (this.contextMenu?.classList.contains("open")) {
@@ -40,8 +80,6 @@ export default class ArrayControls extends EditableControls {
 
 		const backwardIconName = this.moveBackwardText === "up" ? "north" : "west";
 		this.moveBackwardButton = document.createElement("button");
-		this.moveBackwardButton.disabled =
-			this.disableMoveBackward || this.disableReorder;
 		this.moveBackwardButton.innerHTML = `<cc-icon name="${backwardIconName}"></cc-icon> Move ${this.moveBackwardText}`;
 		this.moveBackwardButton.onclick = () => {
 			this.dispatchEvent(new CustomEvent("move-backward", { detail: this }));
@@ -52,8 +90,6 @@ export default class ArrayControls extends EditableControls {
 
 		const forwardIconName = this.moveForwardText === "down" ? "south" : "east";
 		this.moveForwardButton = document.createElement("button");
-		this.moveForwardButton.disabled =
-			this.disableMoveForward || this.disableReorder;
 		this.moveForwardButton.innerHTML = `<cc-icon name="${forwardIconName}"></cc-icon> Move ${this.moveForwardText}`;
 		this.moveForwardButton.onclick = (): void => {
 			this.dispatchEvent(new CustomEvent("move-forward", { detail: this }));
@@ -63,7 +99,6 @@ export default class ArrayControls extends EditableControls {
 		this.contextMenu?.append(moveForwardContainer);
 
 		this.deleteButton = document.createElement("button");
-		this.deleteButton.disabled = this.disableRemove;
 		this.deleteButton.innerHTML = '<cc-icon name="delete"></cc-icon> Delete';
 		this.deleteButton.onclick = () => {
 			this.dispatchEvent(new CustomEvent("delete", { detail: this }));
@@ -71,13 +106,18 @@ export default class ArrayControls extends EditableControls {
 		const deleteContainer = document.createElement("li");
 		deleteContainer.append(this.deleteButton);
 		this.contextMenu?.append(deleteContainer);
+
+		this.update();
 	}
 }
 
-customElements.define("array-controls", ArrayControls);
+customElements.define(
+	"editable-array-item-controls",
+	EditableArrayItemControls,
+);
 
 declare global {
 	interface HTMLElementTagNameMap {
-		"array-controls": ArrayControls;
+		"editable-array-item-controls": EditableArrayItemControls;
 	}
 }

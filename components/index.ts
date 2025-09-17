@@ -1,27 +1,34 @@
-import type { WindowType } from "../types/window.js";
-
-import "../helpers/hydrate-editables";
-
-import "./array-editable.js";
-import "./array-item.js";
-import "./text-editable.js";
-import "./component-editable.js";
-import "./image-editable.js";
-import "./source-editable.js";
-import "./snippet-editable.js";
+import "./editable-array-component.js";
+import "./editable-array-item-component.js";
+import "./editable-text-component.js";
+import "./editable-component-component.js";
+import "./editable-image-component.js";
+import "./editable-source-component.js";
+import "./editable-snippet-component.js";
 import { loadedPromise } from "../helpers/cloudcannon.js";
+import {
+	dehydrateDataEditableRegions,
+	hydrateDataEditableRegions,
+} from "../helpers/hydrate-editable-regions";
 
-declare const window: WindowType;
+const observer = new MutationObserver((mutations) => {
+	mutations.forEach((mutation) => {
+		mutation.removedNodes.forEach((el) => {
+			if (el instanceof HTMLElement) {
+				dehydrateDataEditableRegions(el);
+			}
+		});
 
-Promise.all([
-	customElements.whenDefined("array-item"),
-	customElements.whenDefined("array-editable"),
-	customElements.whenDefined("text-editable"),
-	customElements.whenDefined("component-editable"),
-	customElements.whenDefined("image-editable"),
-	customElements.whenDefined("source-editable"),
-	customElements.whenDefined("snippet-editable"),
-	loadedPromise,
-]).then(() => {
-	window.hydrateDataEditables?.(document.body);
+		mutation.addedNodes.forEach((el) => {
+			if (el instanceof HTMLElement) {
+				hydrateDataEditableRegions(el);
+			}
+		});
+	});
+});
+
+observer.observe(document, { childList: true, subtree: true });
+
+loadedPromise.then(() => {
+	hydrateDataEditableRegions(document.body);
 });
