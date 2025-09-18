@@ -16,10 +16,12 @@
 		"styles",
 		"types"
 	],
-	"dependencies": {},
 	"exports": {
+		"./*": null,
 		"./astro": "./integrations/astro.js",
-		"./react": "./integrations/react.js"
+		"./react": "./integrations/react.js",
+		"./internal/components": "./components/index.js",
+		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
