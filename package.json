@@ -17,6 +17,10 @@
 		"types"
 	],
 	"dependencies": {},
+	"exports": {
+		"./astro": "./integrations/astro.js",
+		"./react": "./integrations/react.js"
+	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@cloudcannon/javascript-api": "0.0.9",
