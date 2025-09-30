@@ -129,6 +129,7 @@ export const registerAstroComponent = (key, component) => {
 			]),
 			slots: null,
 			props,
+			resolve: () => "editable-region-placeholder",
 			/**
 			 * @param {*} astroGlobal
 			 * @param {*} props
