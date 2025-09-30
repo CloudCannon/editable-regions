@@ -19,7 +19,8 @@
 	"exports": {
 		"./*": null,
 		"./astro": "./integrations/astro/index.mjs",
-		"./astro/*": "./integrations/astro/*.mjs",
+		"./astro/react-renderer": "./integrations/astro/react-renderer.mjs",
+		"./astro/integration": "./integrations/astro/astro-integration.mjs",
 		"./react": "./integrations/react.mjs",
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
@@ -30,6 +31,7 @@
 		"@types/js-beautify": "1.14.3",
 		"@types/react": "18.3.12",
 		"@types/react-dom": "18.3.1",
+		"astro": "^5.14.1",
 		"typescript": "5.9.2"
 	}
 }
