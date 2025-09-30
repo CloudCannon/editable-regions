@@ -25,7 +25,7 @@ export default () => {
 			"astro:build:setup": async ({ target, vite }) => {
 				if (target === "client") {
 					vite.define ??= {};
-					vite.define.ENV_EDITABLE_COMPONENT = true;
+					vite.define.ENV_CLIENT = true;
 
 					vite.plugins?.unshift({
 						name: "vite-plugin-editable-regions",
@@ -98,7 +98,7 @@ export default () => {
 					});
 				} else {
 					vite.define ??= {};
-					vite.define.ENV_EDITABLE_COMPONENT = false;
+					vite.define.ENV_CLIENT = false;
 				}
 			},
 		},

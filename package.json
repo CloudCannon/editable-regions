@@ -1,5 +1,5 @@
 {
-	"name": "@cloudcannon/editables",
+	"name": "@cloudcannon/editable-regions",
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
@@ -18,10 +18,22 @@
 	],
 	"exports": {
 		"./*": null,
-		"./astro": "./integrations/astro/index.mjs",
-		"./astro/react-renderer": "./integrations/astro/react-renderer.mjs",
-		"./astro/integration": "./integrations/astro/astro-integration.mjs",
-		"./react": "./integrations/react.mjs",
+		"./astro": {
+			"default": "./integrations/astro/index.mjs",
+			"types": "./types/astro.d.ts"
+		},
+		"./astro-react-renderer": {
+			"default": "./integrations/astro/react-renderer.mjs",
+			"types": "./types/astro.d.ts"
+		},
+		"./astro-integration": {
+			"default": "./integrations/astro/astro-integration.mjs",
+			"types": "./types/astro.d.ts"
+		},
+		"./react": {
+			"default": "./integrations/react.mjs",
+			"types": "./types/react.d.ts"
+		},
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},
