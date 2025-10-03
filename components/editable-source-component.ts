@@ -1,6 +1,6 @@
 import EditableSource from "../nodes/editable-source.js";
 
-class EditableComponentSource extends HTMLElement {
+export default class EditableComponentSource extends HTMLElement {
 	editable: EditableSource;
 
 	constructor() {

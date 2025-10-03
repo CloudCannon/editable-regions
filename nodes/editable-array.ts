@@ -3,6 +3,7 @@ import type {
 	CloudCannonJavaScriptV1APIDataset,
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
+import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
 import { hasEditableArrayItem, isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type EditableArrayItem from "./editable-array-item.js";
@@ -183,7 +184,9 @@ export default class EditableArray extends Editable {
 				if (clone) {
 					matchingChild = clone.cloneNode(true) as any;
 				} else {
-					matchingChild = document.createElement("editable-array-item");
+					matchingChild = document.createElement(
+						"editable-array-item",
+					) as EditableArrayItemComponent;
 					matchingChild.dataset.id = key;
 
 					if (componentKeys[i]) {

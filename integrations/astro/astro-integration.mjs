@@ -19,7 +19,14 @@ export default () => {
 	return {
 		name: "editable-regions",
 		hooks: {
-			"astro:config:setup": ({ config }) => {
+			"astro:config:setup": ({ config, updateConfig }) => {
+				updateConfig({
+					vite: {
+						define: {
+							ENV_CLIENT: false,
+						},
+					},
+				});
 				astroConfig = config;
 			},
 			"astro:build:setup": async ({ target, vite }) => {
@@ -96,9 +103,6 @@ export default () => {
 							}
 						},
 					});
-				} else {
-					vite.define ??= {};
-					vite.define.ENV_CLIENT = false;
 				}
 			},
 		},

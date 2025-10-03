@@ -1,6 +1,6 @@
 import EditableComponent from "../nodes/editable-component.js";
 
-class EditableComponentComponent extends HTMLElement {
+export default class EditableComponentComponent extends HTMLElement {
 	editable: EditableComponent;
 
 	constructor() {

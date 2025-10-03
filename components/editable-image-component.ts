@@ -1,6 +1,6 @@
 import EditableImage from "../nodes/editable-image.js";
 
-class EditableImageComponent extends HTMLElement {
+export default class EditableImageComponent extends HTMLElement {
 	editable: EditableImage;
 
 	constructor() {
