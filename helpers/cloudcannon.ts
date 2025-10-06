@@ -49,6 +49,7 @@ export const addEditableComponentRenderer = (
 ) => {
 	window.cc_components = window.cc_components || {};
 	window.cc_components[key] = renderer;
+	document.dispatchEvent(new CustomEvent(`editable-regions:registered-${key}`));
 };
 
 export const addEditableSnippetRenderer = (
@@ -57,6 +58,7 @@ export const addEditableSnippetRenderer = (
 ) => {
 	window.cc_snippets = window.cc_snippets || {};
 	window.cc_snippets[key] = renderer;
+	document.dispatchEvent(new CustomEvent(`editable-regions:registered-${key}`));
 };
 
 export const getEditableComponentRenderers = () => window.cc_components ?? {};

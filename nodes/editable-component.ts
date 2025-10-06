@@ -54,16 +54,6 @@ export default class EditableComponent extends Editable {
 			return false;
 		}
 
-		const component = this.getComponents()?.[key];
-		if (!component) {
-			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render component");
-			error.setAttribute("message", `Couldn't find component '${key}'`);
-			this.element.replaceChildren(error);
-			return false;
-		}
-
 		return true;
 	}
 
@@ -227,6 +217,23 @@ export default class EditableComponent extends Editable {
 		);
 	}
 
+	setupListeners(): void {
+		super.setupListeners();
+		const key = this.element.dataset.component;
+		if (!key) {
+			return;
+		}
+
+		const component = this.getComponents()?.[key];
+		if (!component) {
+			document.addEventListener(
+				`editable-regions:registered-${key}`,
+				() => this.update(),
+				{ once: true },
+			);
+		}
+	}
+
 	mount(): void {
 		if (!this.controlsElement) {
 			let editPath: string | undefined;
@@ -259,6 +266,8 @@ export default class EditableComponent extends Editable {
 				});
 				this.element.append(this.controlsElement);
 			}
+
+			this.update();
 		}
 	}
 }

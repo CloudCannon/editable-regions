@@ -1,6 +1,6 @@
 import EditableText from "../nodes/editable-text.js";
 
-class EditableTextComponent extends HTMLElement {
+export default class EditableTextComponent extends HTMLElement {
 	editable: EditableText;
 
 	constructor() {

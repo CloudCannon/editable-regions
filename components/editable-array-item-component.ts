@@ -1,6 +1,6 @@
 import EditableArrayItem from "../nodes/editable-array-item.js";
 
-class EditableArrayItemComponent extends HTMLElement {
+export default class EditableArrayItemComponent extends HTMLElement {
 	editable: EditableArrayItem;
 
 	constructor() {

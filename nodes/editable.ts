@@ -165,8 +165,6 @@ export default class Editable {
 				: this.element.dataset.prop;
 		}
 
-		// TODO: If source is absolute, return it as is
-
 		const [part, ...rest] = source.split(".");
 		const propKey = part.charAt(0).toUpperCase() + part.slice(1);
 		const propPath = this.element.dataset[`prop${propKey}`];
@@ -186,7 +184,9 @@ export default class Editable {
 			source = `${this.element.dataset.prop}.${source}`;
 		}
 
-		return this.parent ? this.parent.resolveSource(source) : source;
+		return this.parent && !source.startsWith("@")
+			? this.parent.resolveSource(source)
+			: source;
 	}
 
 	connect(): void {
@@ -216,11 +216,14 @@ export default class Editable {
 
 		this.parent = parentEditable || null;
 
+		let hasProps = false;
 		Object.entries(this.element.dataset).forEach(
 			async ([propName, propPath]) => {
 				if (!propName.startsWith("prop") || typeof propPath !== "string") {
 					return;
 				}
+
+				hasProps = true;
 
 				const { collection, file, dataset, source, absolute } =
 					this.parseSource(propPath);
@@ -282,6 +285,10 @@ export default class Editable {
 				}
 			}
 		});
+
+		if (!hasProps) {
+			this.mount();
+		}
 	}
 
 	executeApiCall(options: any): boolean {

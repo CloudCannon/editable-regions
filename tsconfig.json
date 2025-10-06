@@ -1,30 +1,22 @@
 {
 	"compilerOptions": {
 		"target": "ES2020",
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
 		"module": "ESNext",
 		"moduleResolution": "node",
-		"allowJs": false,
-		"checkJs": false,
-		"noEmit": true,
+		"allowJs": true,
+		"checkJs": true,
 		"strict": true,
 		"noImplicitReturns": false,
 		"skipLibCheck": true,
 		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,
 		"resolveJsonModule": true,
-		"lib": ["ES2020", "DOM", "DOM.Iterable"],
 		"jsx": "react-jsx",
-		"jsxImportSource": "react"
+		"jsxImportSource": "react",
+		"isolatedModules": true,
+		"noEmit": true
 	},
-	"include": [
-		"components/**/*.ts",
-		"nodes/**/*.ts",
-		"integrations/**/*.ts",
-		"types/**/*.d.ts"
-	],
-	"exclude": ["node_modules", "test"],
-	"typeAcquisition": {
-		"enable": true,
-		"include": ["node"]
-	}
+	"include": ["**/*"],
+	"exclude": ["node_modules"]
 }

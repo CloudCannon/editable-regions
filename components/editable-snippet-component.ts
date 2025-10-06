@@ -1,6 +1,6 @@
 import EditableSnippet from "../nodes/editable-snippet.js";
 
-class EditableSnippetComponent extends HTMLElement {
+export default class EditableSnippetComponent extends HTMLElement {
 	editable: EditableSnippet;
 
 	constructor() {
