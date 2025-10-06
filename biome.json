@@ -1,13 +1,20 @@
 {
 	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
 	"vcs": {
-		"enabled": false,
+		"enabled": true,
 		"clientKind": "git",
-		"useIgnoreFile": false
+		"useIgnoreFile": true
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": []
+		"ignore": [
+			".zed/**",
+			".backstage/**",
+			".github/**",
+			"package.json",
+			"package-lock.json",
+			"CHANGELOG.md"
+		]
 	},
 	"formatter": {
 		"enabled": true,
