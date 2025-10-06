@@ -1,7 +1,22 @@
 {
 	"name": "@cloudcannon/editable-regions",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"type": "module",
+	"description": "Visual Editing for the CloudCannon CMS.",
+	"keywords": [
+		"cloudcannon"
+	],
+	"license": "MIT",
+	"author": "CloudCannon <support@cloudcannon.com>",
+	"homepage": "https://github.com/CloudCannon/editable-regions#readme",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/CloudCannon/editable-regions.git"
+	},
+	"bugs": {
+		"url": "https://github.com/CloudCannon/editable-regions/issues",
+		"email": "support@cloudcannon.com"
+	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"typecheck:watch": "tsc --noEmit --watch",
