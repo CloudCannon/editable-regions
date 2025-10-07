@@ -86,9 +86,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build
-        run: npm run build
-
       - name: Publish internal
         uses: JS-DevTools/npm-publish@v3
         with:
