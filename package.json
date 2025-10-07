@@ -57,7 +57,7 @@
 		"@cloudcannon/javascript-api": "0.0.9",
 		"@types/js-beautify": "1.14.3",
 		"@types/react": "18.3.12",
-		"@types/react-dom": "18.3.1",
+		"@types/react-dom": "19.2.1",
 		"astro": "^5.14.1",
 		"typescript": "5.9.3"
 	}
