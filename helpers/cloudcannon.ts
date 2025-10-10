@@ -16,14 +16,14 @@ let _cloudcannon: CloudCannonJavaScriptV1API;
 
 const apiLoadedPromise = new Promise<void>((resolve) => {
 	if (window.CloudCannonAPI) {
-		_cloudcannon = window.CloudCannonAPI.useVersion("v1") as any;
+		_cloudcannon = window.CloudCannonAPI.useVersion("v1", true) as any;
 		resolve();
 	} else {
 		document.addEventListener(
 			"cloudcannon:load",
 			() => {
 				if (window.CloudCannonAPI) {
-					_cloudcannon = window.CloudCannonAPI.useVersion("v1") as any;
+					_cloudcannon = window.CloudCannonAPI.useVersion("v1", true) as any;
 				}
 				return resolve();
 			},
