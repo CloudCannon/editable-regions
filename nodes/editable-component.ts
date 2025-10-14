@@ -40,6 +40,16 @@ export default class EditableComponent extends Editable {
 		return getEditableComponentRenderers();
 	}
 
+	shouldMount(): boolean {
+		if (super.shouldMount()) {
+			return true;
+		}
+
+		return !Object.keys(this.element.dataset).some((key) =>
+			key.startsWith("prop"),
+		);
+	}
+
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (!key) {

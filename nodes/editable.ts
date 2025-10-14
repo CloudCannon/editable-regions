@@ -4,7 +4,8 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import { hasEditable } from "../helpers/checks";
-import { CloudCannon, loadedPromise } from "../helpers/cloudcannon";
+import { CloudCannon } from "../helpers/cloudcannon";
+import { loadingPromise } from "../helpers/loading";
 
 export interface EditableListener {
 	editable: Editable;
@@ -69,6 +70,10 @@ export default class Editable {
 
 	shouldUpdate(_value: unknown) {
 		return true;
+	}
+
+	shouldMount() {
+		return this.value !== undefined;
 	}
 
 	async getNewValue(
@@ -190,11 +195,11 @@ export default class Editable {
 	}
 
 	connect(): void {
-		loadedPromise.then(() => {
+		loadingPromise.then(() => {
 			this.setupListeners();
 			if (this.validateConfiguration()) {
 				this.connected = true;
-				if (this.value !== undefined && !this.mounted) {
+				if (!this.mounted && this.shouldMount()) {
 					this.mounted = true;
 					this.mount();
 					this.update();
@@ -216,48 +221,41 @@ export default class Editable {
 
 		this.parent = parentEditable || null;
 
-		let hasProps = false;
-		Object.entries(this.element.dataset).forEach(
-			async ([propName, propPath]) => {
-				if (!propName.startsWith("prop") || typeof propPath !== "string") {
-					return;
-				}
+		Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
+			if (!propName.startsWith("prop") || typeof propPath !== "string") {
+				return;
+			}
 
-				hasProps = true;
+			const { collection, file, dataset, source, absolute } =
+				this.parseSource(propPath);
 
-				const { collection, file, dataset, source, absolute } =
-					this.parseSource(propPath);
+			const listener = {
+				editable: this,
+				key:
+					propName === "prop" ? undefined : propName.substring(4).toLowerCase(),
+				path: source,
+			};
 
-				const listener = {
-					editable: this,
-					key:
-						propName === "prop"
-							? undefined
-							: propName.substring(4).toLowerCase(),
-					path: source,
+			if (!absolute && parentEditable) {
+				parentEditable.registerListener(listener);
+				return;
+			}
+
+			// Any single data path should only be able to refer to a single absolute API object
+			const obj = collection || dataset || file;
+			if (obj) {
+				const handleAPIChange = () => {
+					this.pushValue(obj, listener);
 				};
-
-				if (!absolute && parentEditable) {
-					parentEditable.registerListener(listener);
-					return;
-				}
-
-				// Any single data path should only be able to refer to a single absolute API object
-				const obj = collection || dataset || file;
-				if (obj) {
-					const handleAPIChange = () => {
-						this.pushValue(obj, listener);
-					};
-					this.APIListeners.push({
-						obj,
-						fn: handleAPIChange,
-						event: "change",
-					});
-					obj.addEventListener("change", handleAPIChange);
-					handleAPIChange();
-				}
-			},
-		);
+				this.APIListeners.push({
+					obj,
+					fn: handleAPIChange,
+					event: "change",
+				});
+				obj.addEventListener("change", handleAPIChange);
+				handleAPIChange();
+			}
+		});
 
 		this.element.addEventListener("cloudcannon-api", async (e: any) => {
 			if (e.target !== this.element) {
@@ -285,10 +283,6 @@ export default class Editable {
 				}
 			}
 		});
-
-		if (!hasProps) {
-			this.mount();
-		}
 	}
 
 	executeApiCall(options: any): boolean {

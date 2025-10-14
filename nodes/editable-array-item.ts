@@ -15,6 +15,10 @@ export default class EditableArrayItem extends EditableComponent {
 
 	private inputConfig?: any;
 
+	shouldMount(): boolean {
+		return this.value !== undefined;
+	}
+
 	validateConfiguration(): boolean {
 		const key = this.element.dataset.component;
 		if (key) {
