@@ -127,7 +127,7 @@ export const registerAstroComponent = (key, component) => {
 				["visible", "editable-region-placeholder"],
 				["media", "editable-region-placeholder"],
 			]),
-			slots: null,
+			slots: {},
 			props,
 			resolve: () => "editable-region-placeholder",
 			/**
@@ -162,7 +162,7 @@ export const registerAstroComponent = (key, component) => {
 			},
 		};
 		// Render the Astro component to HTML string
-		const result = await renderToString(SSRResult, component, props, null);
+		const result = await renderToString(SSRResult, component, props, {});
 		const doc = document.implementation.createHTMLDocument();
 		doc.body.innerHTML = result;
 
