@@ -117,13 +117,7 @@ export default class EditableText extends Editable {
 			return this.editor;
 		}
 
-		const source = this.resolveSource();
-
-		if (!source) {
-			throw new Error("Source not found");
-		}
-
-		const inputConfig = source.endsWith("@content")
+		const inputConfig = this.contextBase?.isContent
 			? { type: "markdown" }
 			: await this.dispatchGetInputConfig(this.element.dataset.prop);
 
@@ -132,7 +126,7 @@ export default class EditableText extends Editable {
 			this.onChange.bind(this),
 			{
 				elementType: this.element.dataset.type,
-				editableType: source.endsWith("@content") ? "content" : undefined,
+				editableType: this.contextBase?.isContent ? "content" : undefined,
 				inputConfig,
 			},
 		);

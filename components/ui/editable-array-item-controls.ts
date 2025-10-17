@@ -11,11 +11,14 @@ export default class EditableArrayItemControls extends EditableComponentControls
 	private _disableMoveBackward = false;
 	private _disableRemove = false;
 	private _disableReorder = false;
+	private _disableAdd = false;
 
 	private moveForwardButton?: HTMLButtonElement;
 	private moveBackwardButton?: HTMLButtonElement;
 	private deleteButton?: HTMLButtonElement;
 	private dragHandle?: HTMLButtonElement;
+	private duplicateButton?: HTMLButtonElement;
+	private addButton?: HTMLButtonElement;
 
 	set disableMoveForward(value: boolean) {
 		this._disableMoveForward = value;
@@ -37,7 +40,20 @@ export default class EditableArrayItemControls extends EditableComponentControls
 		this.update();
 	}
 
+	set disableAdd(value: boolean) {
+		this._disableAdd = value;
+		this.update();
+	}
+
 	update() {
+		if (this.addButton) {
+			this.addButton.disabled = this._disableAdd;
+		}
+
+		if (this.duplicateButton) {
+			this.duplicateButton.disabled = this._disableAdd;
+		}
+
 		if (this.dragHandle) {
 			this.dragHandle.draggable = !this._disableReorder;
 			this.dragHandle.innerHTML = `<cc-icon name="${this.dragHandle.draggable ? "drag_indicator" : "more_vert"}"></cc-icon>`;
@@ -56,6 +72,20 @@ export default class EditableArrayItemControls extends EditableComponentControls
 		if (this.deleteButton) {
 			this.deleteButton.disabled = this._disableRemove;
 		}
+	}
+
+	addContextMenuButton(
+		icon: string,
+		text: string,
+		onClick: (e: PointerEvent) => void,
+	): HTMLButtonElement {
+		const button = document.createElement("button");
+		button.onclick = onClick;
+		button.innerHTML = `<cc-icon name="${icon}"></cc-icon> ${text}`;
+		const buttonContainer = document.createElement("li");
+		buttonContainer.append(button);
+		this.contextMenu?.append(buttonContainer);
+		return button;
 	}
 
 	render(shadow: ShadowRoot): void {
@@ -78,34 +108,41 @@ export default class EditableArrayItemControls extends EditableComponentControls
 		};
 		this.buttonRow?.append(this.dragHandle);
 
+		this.addButton = this.addContextMenuButton("add", "Add", (e) => {
+			this.dispatchEvent(
+				new CustomEvent("add", { detail: { originalEvent: e } }),
+			);
+		});
+
+		this.duplicateButton = this.addContextMenuButton(
+			"library_add",
+			"Duplicate",
+			() => {
+				this.dispatchEvent(new CustomEvent("duplicate", { detail: this }));
+			},
+		);
+
 		const backwardIconName = this.moveBackwardText === "up" ? "north" : "west";
-		this.moveBackwardButton = document.createElement("button");
-		this.moveBackwardButton.innerHTML = `<cc-icon name="${backwardIconName}"></cc-icon> Move ${this.moveBackwardText}`;
-		this.moveBackwardButton.onclick = () => {
-			this.dispatchEvent(new CustomEvent("move-backward", { detail: this }));
-		};
-		const moveBackwardContainer = document.createElement("li");
-		moveBackwardContainer.append(this.moveBackwardButton);
-		this.contextMenu?.append(moveBackwardContainer);
+		this.moveBackwardButton = this.addContextMenuButton(
+			backwardIconName,
+			`Move ${this.moveBackwardText}`,
+			() => {
+				this.dispatchEvent(new CustomEvent("move-backward", { detail: this }));
+			},
+		);
 
 		const forwardIconName = this.moveForwardText === "down" ? "south" : "east";
-		this.moveForwardButton = document.createElement("button");
-		this.moveForwardButton.innerHTML = `<cc-icon name="${forwardIconName}"></cc-icon> Move ${this.moveForwardText}`;
-		this.moveForwardButton.onclick = (): void => {
-			this.dispatchEvent(new CustomEvent("move-forward", { detail: this }));
-		};
-		const moveForwardContainer = document.createElement("li");
-		moveForwardContainer.append(this.moveForwardButton);
-		this.contextMenu?.append(moveForwardContainer);
+		this.moveForwardButton = this.addContextMenuButton(
+			forwardIconName,
+			`Move ${this.moveForwardText}`,
+			() => {
+				this.dispatchEvent(new CustomEvent("move-forward", { detail: this }));
+			},
+		);
 
-		this.deleteButton = document.createElement("button");
-		this.deleteButton.innerHTML = '<cc-icon name="delete"></cc-icon> Delete';
-		this.deleteButton.onclick = () => {
+		this.deleteButton = this.addContextMenuButton("delete", "Delete", () => {
 			this.dispatchEvent(new CustomEvent("delete", { detail: this }));
-		};
-		const deleteContainer = document.createElement("li");
-		deleteContainer.append(this.deleteButton);
-		this.contextMenu?.append(deleteContainer);
+		});
 
 		this.update();
 	}

@@ -13,6 +13,15 @@ export interface EditableListener {
 	path?: string;
 }
 
+export interface EditableContext {
+	fullPath?: string;
+	filePath?: string;
+	isContent?: boolean;
+	file?: CloudCannonJavaScriptV1APIFile;
+	collection?: CloudCannonJavaScriptV1APICollection;
+	dataset?: CloudCannonJavaScriptV1APIDataset;
+}
+
 export interface APIListener {
 	obj:
 		| CloudCannonJavaScriptV1APIFile
@@ -25,14 +34,20 @@ export interface APIListener {
 export default class Editable {
 	APIListeners: APIListener[] = [];
 	listeners: EditableListener[] = [];
+	domListeners: any[] = [];
 	value: unknown = undefined;
 	parent: Editable | null = null;
 	element: HTMLElement;
 	mounted = false;
 	connected = false;
+	disconnecting = false;
+	needsReconnect = false;
 
 	propsBase: unknown;
+	contextBase?: EditableContext;
 	props: Record<string, unknown> = {};
+	contexts: Record<string, EditableContext> = {};
+	connectPromise?: Promise<void>;
 
 	constructor(element: HTMLElement) {
 		this.element = element;
@@ -68,6 +83,68 @@ export default class Editable {
 		}, obj);
 	}
 
+	async lookupPathAndContext(
+		path: string,
+		obj: unknown,
+		contexts: { [key: string]: EditableContext } = {},
+	): Promise<{ value: any; context: EditableContext }> {
+		if (!path) {
+			return {
+				value: obj,
+				context: {},
+			};
+		}
+
+		let value: any = obj;
+		let context: EditableContext | undefined;
+
+		for (const key of path.split(".")) {
+			if (!context && contexts[key]) {
+				context = {
+					...contexts[key],
+				};
+			} else {
+				context = context ?? {
+					...contexts.__base_context,
+				};
+			}
+
+			if (CloudCannon.isAPICollection(value)) {
+				context.collection = value;
+				value = await value.items();
+			} else if (CloudCannon.isAPIFile(value)) {
+				context.file = value;
+				if (key === "@content") {
+					context.isContent = true;
+					value = await value.content.get();
+				} else {
+					value = await value.data.get();
+				}
+			} else if (CloudCannon.isAPIDataset(value)) {
+				context.dataset = value;
+				const items = await value.items();
+				if (Array.isArray(items)) {
+					value = items;
+				} else {
+					context.file = items;
+					value = await items.data.get();
+				}
+			}
+
+			if (value && typeof value === "object" && key in value) {
+				value = (value as any)[key];
+			}
+
+			context.fullPath = context.fullPath ? `${context.fullPath}.${key}` : key;
+			if (context.file) {
+				context.filePath = context.filePath
+					? `${context.filePath}.${key}`
+					: key;
+			}
+		}
+		return { value, context: context ?? {} };
+	}
+
 	shouldUpdate(_value: unknown) {
 		return true;
 	}
@@ -79,13 +156,19 @@ export default class Editable {
 	async getNewValue(
 		value: unknown,
 		listener?: EditableListener,
+		contexts?: { [key: string]: EditableContext },
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
-		const resolvedValue = path ? await this.lookupPath(path, value) : value;
+
+		const { value: resolvedValue, context: newContext } = path
+			? await this.lookupPathAndContext(path, value, contexts)
+			: { value, context: {} };
 		if (!key) {
 			this.propsBase = resolvedValue;
+			this.contextBase = newContext;
 		} else {
 			this.props[key] = resolvedValue;
+			this.contexts[key] = newContext;
 		}
 
 		if (Object.entries(this.props).length === 0) {
@@ -103,8 +186,12 @@ export default class Editable {
 		return this.validateValue(newValue);
 	}
 
-	async pushValue(value: unknown, listener?: EditableListener): Promise<void> {
-		const newValue = await this.getNewValue(value, listener);
+	async pushValue(
+		value: unknown,
+		listener?: EditableListener,
+		contexts?: { [key: string]: EditableContext },
+	): Promise<void> {
+		const newValue = await this.getNewValue(value, listener, contexts);
 
 		if (typeof newValue === "undefined" || !this.shouldUpdate(newValue)) {
 			return;
@@ -124,7 +211,10 @@ export default class Editable {
 
 	update(): void {
 		this.listeners.forEach((listener) =>
-			listener.editable.pushValue(this.value, listener),
+			listener.editable.pushValue(this.value, listener, {
+				...this.contexts,
+				__base_context: this.contextBase ?? {},
+			}),
 		);
 	}
 
@@ -143,7 +233,10 @@ export default class Editable {
 		}
 
 		if (this.value !== undefined) {
-			listener.editable.pushValue(this.value, listener);
+			listener.editable.pushValue(this.value, listener, {
+				...this.contexts,
+				__base_context: this.contextBase ?? {},
+			});
 		}
 
 		this.listeners.push(listener);
@@ -155,47 +248,42 @@ export default class Editable {
 		);
 	}
 
-	disconnect(): void {
+	async disconnect(): Promise<void> {
+		this.disconnecting = true;
+
+		if (this.connectPromise) {
+			await this.connectPromise;
+		}
+
 		this.parent?.deregisterListener(this);
 		this.parent = null;
 		this.APIListeners.forEach(({ obj, fn, event }) =>
 			obj.removeEventListener(event, fn),
 		);
-	}
+		this.APIListeners = [];
+		this.domListeners.forEach(({ name, listener }) => {
+			this.element.removeEventListener(name, listener);
+		});
+		this.domListeners = [];
+		this.connected = false;
+		this.connectPromise = undefined;
+		this.disconnecting = false;
 
-	resolveSource(source?: string): string | undefined {
-		if (typeof source !== "string") {
-			return this.parent
-				? this.parent.resolveSource(this.element.dataset.prop)
-				: this.element.dataset.prop;
+		if (this.needsReconnect) {
+			this.needsReconnect = false;
+			this.connect();
 		}
-
-		const [part, ...rest] = source.split(".");
-		const propKey = part.charAt(0).toUpperCase() + part.slice(1);
-		const propPath = this.element.dataset[`prop${propKey}`];
-
-		if (propPath) {
-			rest.unshift(propPath);
-			return this.parent
-				? this.parent.resolveSource(rest.join("."))
-				: rest.join(".");
-		}
-
-		if (typeof this.element.dataset.prop !== "string") {
-			throw new Error(`Failed to resolve source "${source}"`);
-		}
-
-		if (this.element.dataset.prop) {
-			source = `${this.element.dataset.prop}.${source}`;
-		}
-
-		return this.parent && !source.startsWith("@")
-			? this.parent.resolveSource(source)
-			: source;
 	}
 
 	connect(): void {
-		loadingPromise.then(() => {
+		if (this.disconnecting) {
+			this.needsReconnect = true;
+			return;
+		}
+		if (this.connectPromise) {
+			return;
+		}
+		this.connectPromise = loadingPromise.then(() => {
 			this.setupListeners();
 			if (this.validateConfiguration()) {
 				this.connected = true;
@@ -206,6 +294,11 @@ export default class Editable {
 				}
 			}
 		});
+	}
+
+	addEventListener(name: string, listener: (e: any) => void): void {
+		this.domListeners.push({ name, listener });
+		this.element.addEventListener(name, listener);
 	}
 
 	setupListeners(): void {
@@ -257,32 +350,34 @@ export default class Editable {
 			}
 		});
 
-		this.element.addEventListener("cloudcannon-api", async (e: any) => {
-			if (e.target !== this.element) {
-				if (!e.detail.source) {
-					e.detail.source = this.element.dataset.prop;
-				} else {
-					const source = e.detail.source;
-					const [part, ...rest] = source.split(".");
-					const propKey = part.charAt(0).toUpperCase() + part.slice(1);
-					const propPath = this.element.dataset[`prop${propKey}`];
+		this.addEventListener("cloudcannon-api", this.handleApiEvent.bind(this));
+	}
 
-					if (propPath) {
-						rest.unshift(propPath);
-						e.detail.source = rest.join(".");
-					} else if (this.element.dataset.prop) {
-						e.detail.source = `${this.element.dataset.prop}.${source}`;
-					}
+	handleApiEvent(e: any): void {
+		if (e.target !== this.element) {
+			if (!e.detail.source) {
+				e.detail.source = this.element.dataset.prop;
+			} else {
+				const source = e.detail.source;
+				const [part, ...rest] = source.split(".");
+				const propKey = part.charAt(0).toUpperCase() + part.slice(1);
+				const propPath = this.element.dataset[`prop${propKey}`];
+
+				if (propPath) {
+					rest.unshift(propPath);
+					e.detail.source = rest.join(".");
+				} else if (this.element.dataset.prop) {
+					e.detail.source = `${this.element.dataset.prop}.${source}`;
 				}
 			}
+		}
 
-			const { absolute } = this.parseSource(e.detail.source);
-			if (!this.parent || absolute) {
-				if (this.executeApiCall(e.detail)) {
-					e.stopPropagation();
-				}
+		const { absolute } = this.parseSource(e.detail.source);
+		if (!this.parent || absolute) {
+			if (this.executeApiCall(e.detail)) {
+				e.stopPropagation();
 			}
-		});
+		}
 	}
 
 	executeApiCall(options: any): boolean {
@@ -324,6 +419,7 @@ export default class Editable {
 						options: {
 							disable_reorder: true,
 							disable_remove: true,
+							disable_add: true,
 						},
 					});
 					return true;
@@ -332,9 +428,10 @@ export default class Editable {
 					`Failed to resolve source for API call: ${options.source}`,
 				);
 			}
+
 			switch (options.action) {
 				case "edit":
-					file?.data.edit({ slug: source });
+					file?.data.edit({ slug: source, position: options.position });
 					break;
 				case "set":
 					if (source?.endsWith("@content")) {
@@ -358,8 +455,9 @@ export default class Editable {
 					break;
 				case "move-array-item":
 					file?.data.moveArrayItem({
-						slug: source,
-						index: options.fromIndex,
+						fromSlug: options.fromSlug ?? source,
+						fromIndex: options.fromIndex,
+						toSlug: source,
 						toIndex: options.toIndex,
 					});
 					break;

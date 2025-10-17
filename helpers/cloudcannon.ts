@@ -53,4 +53,22 @@ export const addEditableSnippetRenderer = (
 export const getEditableComponentRenderers = () => window.cc_components ?? {};
 export const getEditableSnippetRenderers = () => window.cc_snippets ?? {};
 
+export const realizeAPIValue = async (value: unknown): Promise<unknown> => {
+	if (_cloudcannon.isAPICollection(value)) {
+		const items = await value.items();
+		return Promise.all(items.map(realizeAPIValue));
+	}
+	if (_cloudcannon.isAPIFile(value)) {
+		return value.data.get();
+	}
+	if (_cloudcannon.isAPIDataset(value)) {
+		const items = await value.items();
+		if (Array.isArray(items)) {
+			return Promise.all(items.map(realizeAPIValue));
+		}
+		return items.data.get();
+	}
+	return value;
+};
+
 export { _cloudcannon as CloudCannon };
