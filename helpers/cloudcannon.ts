@@ -14,7 +14,7 @@ declare const window: CloudCannonEditorWindow & {
 
 let _cloudcannon: CloudCannonJavaScriptV1API;
 
-const apiLoadedPromise = new Promise<void>((resolve) => {
+export const apiLoadedPromise = new Promise<void>((resolve) => {
 	if (window.CloudCannonAPI) {
 		_cloudcannon = window.CloudCannonAPI.useVersion("v1", true) as any;
 		resolve();
@@ -31,17 +31,6 @@ const apiLoadedPromise = new Promise<void>((resolve) => {
 		);
 	}
 });
-
-export const loadedPromise = Promise.all([
-	apiLoadedPromise,
-	customElements.whenDefined("editable-array-item"),
-	customElements.whenDefined("editable-array"),
-	customElements.whenDefined("editable-text"),
-	customElements.whenDefined("editable-component"),
-	customElements.whenDefined("editable-image"),
-	customElements.whenDefined("editable-source"),
-	customElements.whenDefined("editable-snippet"),
-]);
 
 export const addEditableComponentRenderer = (
 	key: string,
