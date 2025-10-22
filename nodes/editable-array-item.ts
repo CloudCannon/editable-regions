@@ -48,16 +48,26 @@ export default class EditableArrayItem extends EditableComponent {
 		return true;
 	}
 
-	onHover(e: DragEvent): void {
+	isValidDropzone(e: DragEvent): boolean {
 		const source = this.parent?.contextBase?.filePath;
 		if (!source || !e.dataTransfer) {
-			return;
+			return false;
 		}
 
+		const dragType = this.getDragType();
+
 		if (
-			!e.dataTransfer?.types.includes(source) &&
-			!e.dataTransfer.types.includes(this.getDragType())
+			!e.dataTransfer?.types.includes(source.toLowerCase()) &&
+			(!dragType || !e.dataTransfer.types.includes(dragType))
 		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	onHover(e: DragEvent): void {
+		if (!this.isValidDropzone(e)) {
 			return;
 		}
 
@@ -67,7 +77,7 @@ export default class EditableArrayItem extends EditableComponent {
 		this.element.style.boxShadow = this.getDraggingBoxShadow(e);
 	}
 
-	getDragType(): string {
+	getDragType(): string | undefined {
 		if (this.inputConfig?.options?.structures?.values?.length) {
 			return "cc:structure";
 		}
@@ -82,6 +92,9 @@ export default class EditableArrayItem extends EditableComponent {
 			this.value,
 			this.inputConfig,
 		);
+		if (type === "array" || type === "object") {
+			return undefined;
+		}
 		return `cc:${type}`;
 	}
 
@@ -320,7 +333,9 @@ export default class EditableArrayItem extends EditableComponent {
 				const payload = JSON.stringify(data);
 				e.dataTransfer?.setData(source, payload);
 				const dragType = this.getDragType();
-				e.dataTransfer?.setData(dragType, payload);
+				if (dragType) {
+					e.dataTransfer?.setData(dragType, payload);
+				}
 			});
 
 			this.updateControls();
@@ -356,6 +371,9 @@ export default class EditableArrayItem extends EditableComponent {
 		this.element.ondragover = this.onHover.bind(this);
 
 		this.element.ondragleave = (e: DragEvent): void => {
+			if (!this.isValidDropzone(e)) {
+				return;
+			}
 			e.stopPropagation();
 
 			this.element.classList.remove("dragover");
@@ -377,7 +395,9 @@ export default class EditableArrayItem extends EditableComponent {
 
 			const dragType = this.getDragType();
 			const sameArrayData = e.dataTransfer.getData(source);
-			const otherArrayData = e.dataTransfer.getData(dragType);
+			const otherArrayData = dragType
+				? e.dataTransfer.getData(dragType)
+				: undefined;
 
 			const position = this.getDragPosition(e);
 			let newIndex =
@@ -386,7 +406,7 @@ export default class EditableArrayItem extends EditableComponent {
 					: Number(this.element.dataset.prop);
 
 			if (sameArrayData) {
-				const { index: fromIndex, sourceId } = JSON.parse(otherArrayData);
+				const { index: fromIndex, sourceId } = JSON.parse(sameArrayData);
 
 				if (fromIndex < newIndex) {
 					newIndex -= 1;
