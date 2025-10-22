@@ -185,26 +185,10 @@ export default class EditableComponent extends Editable {
 							}
 						}
 					} else if (hasEditable(targetChild)) {
-						for (let i = 0; i < this.listeners.length; i++) {
-							const listener = this.listeners[i];
-							if (listener.editable.element === targetChild) {
-								targetChild.editable.pushValue(this.value, listener, {
-									...this.contexts,
-									__base_context: this.contextBase ?? {},
-								});
-							}
-						}
+						this.updateEditable(renderChild, targetChild);
 					}
 				} else if (hasEditable(targetChild)) {
-					for (let i = 0; i < this.listeners.length; i++) {
-						const listener = this.listeners[i];
-						if (listener.editable.element === targetChild) {
-							targetChild.editable.pushValue(this.value, listener, {
-								...this.contexts,
-								__base_context: this.contextBase ?? {},
-							});
-						}
-					}
+					this.updateEditable(renderChild, targetChild);
 				}
 			} else if (renderChild && targetChild) {
 				if (
@@ -224,6 +208,49 @@ export default class EditableComponent extends Editable {
 
 			targetChild = nextTargetChild;
 			renderChild = nextRenderChild;
+		}
+	}
+
+	updateEditable(
+		renderChild: HTMLElement,
+		targetChild: HTMLElement & { editable: Editable },
+	) {
+		for (const attribute of renderChild.attributes) {
+			if (attribute.name !== "class") {
+				targetChild.setAttribute(attribute.name, attribute.value);
+			}
+		}
+		for (const attribute of targetChild.attributes) {
+			if (
+				!renderChild.hasAttribute(attribute.name) &&
+				attribute.name !== "class" &&
+				attribute.name !== "contenteditable"
+			) {
+				targetChild.removeAttribute(attribute.name);
+			}
+		}
+
+		for (const className of renderChild.classList) {
+			targetChild.classList.add(className);
+		}
+
+		for (const className of targetChild.classList) {
+			if (
+				!renderChild.classList.contains(className) &&
+				!className.includes("ProseMirror")
+			) {
+				targetChild.classList.remove(className);
+			}
+		}
+
+		for (let i = 0; i < this.listeners.length; i++) {
+			const listener = this.listeners[i];
+			if (listener.editable.element === targetChild) {
+				targetChild.editable.pushValue(this.value, listener, {
+					...this.contexts,
+					__base_context: this.contextBase ?? {},
+				});
+			}
 		}
 	}
 
