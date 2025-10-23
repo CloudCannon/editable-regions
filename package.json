@@ -54,7 +54,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
-		"@cloudcannon/javascript-api": "0.0.9",
+		"@cloudcannon/javascript-api": "0.0.10",
 		"@types/js-beautify": "1.14.3",
 		"@types/react": "18.3.12",
 		"@types/react-dom": "18.3.1",
