@@ -255,6 +255,9 @@ export default class Editable {
 	}
 
 	async disconnect(): Promise<void> {
+		if (this.disconnecting) {
+			return;
+		}
 		this.disconnecting = true;
 
 		if (this.connectPromise) {
