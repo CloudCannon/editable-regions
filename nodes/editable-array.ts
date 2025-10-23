@@ -234,13 +234,6 @@ export default class EditableArray extends Editable {
 			} else {
 				this.element.appendChild(matchingChild);
 			}
-
-			matchingChild.editable.parent = this;
-			matchingChild.editable.pushValue(
-				value,
-				{ path: `${i}`, editable: matchingChild.editable },
-				{ __base_context: this.contextBase ?? {} },
-			);
 		});
 
 		children.forEach((child, i) => {
