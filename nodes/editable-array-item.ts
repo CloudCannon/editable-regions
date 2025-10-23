@@ -381,6 +381,10 @@ export default class EditableArrayItem extends EditableComponent {
 		};
 
 		this.element.ondrop = (e: DragEvent): void => {
+			if (!this.isValidDropzone(e)) {
+				return;
+			}
+
 			this.element.classList.remove("dragover");
 			this.element.style.boxShadow = "";
 
@@ -428,7 +432,7 @@ export default class EditableArrayItem extends EditableComponent {
 					JSON.parse(otherArrayData);
 				if (dragType === "cc:structure") {
 					if (!this.inputConfig?.options?.structures?.values) {
-						throw new Error("No structures found");
+						return;
 					}
 
 					const targetStructure = CloudCannon.findStructure(
@@ -436,11 +440,11 @@ export default class EditableArrayItem extends EditableComponent {
 						this.value,
 					);
 					if (!targetStructure) {
-						throw new Error("No target structure found");
+						return;
 					}
 
 					if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
-						throw new Error("Structures do not match");
+						return;
 					}
 				}
 
