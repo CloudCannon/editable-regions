@@ -4,7 +4,7 @@ import {
 	hasEditableArrayItem,
 	isEditableArrayItem,
 } from "../helpers/checks.js";
-import { CloudCannon } from "../helpers/cloudcannon.js";
+import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.js";
 import EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
@@ -48,25 +48,36 @@ export default class EditableArrayItem extends EditableComponent {
 		return true;
 	}
 
-	onHover(e: DragEvent): void {
-		const source = this.parent?.resolveSource();
+	isValidDropzone(e: DragEvent): boolean {
+		const source = this.parent?.contextBase?.filePath;
 		if (!source || !e.dataTransfer) {
-			return;
+			return false;
 		}
 
+		const dragType = this.getDragType();
+
 		if (
-			!e.dataTransfer?.types.includes(source) &&
-			!e.dataTransfer.types.includes(this.getDragType())
+			!e.dataTransfer?.types.includes(source.toLowerCase()) &&
+			(!dragType || !e.dataTransfer.types.includes(dragType))
 		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	onHover(e: DragEvent): void {
+		if (!this.isValidDropzone(e)) {
 			return;
 		}
 
 		e.preventDefault();
+		e.stopPropagation();
 		this.element.classList.add("dragover");
 		this.element.style.boxShadow = this.getDraggingBoxShadow(e);
 	}
 
-	getDragType(): string {
+	getDragType(): string | undefined {
 		if (this.inputConfig?.options?.structures?.values?.length) {
 			return "cc:structure";
 		}
@@ -76,7 +87,14 @@ export default class EditableArrayItem extends EditableComponent {
 			return `cc:${currentArraySubtype}`;
 		}
 
-		const type = CloudCannon.getInputType(this.resolveSource(), this.value);
+		const type = CloudCannon.getInputType(
+			this.contextBase?.filePath,
+			this.value,
+			this.inputConfig,
+		);
+		if (type === "array" || type === "object") {
+			return undefined;
+		}
 		return `cc:${type}`;
 	}
 
@@ -131,12 +149,13 @@ export default class EditableArrayItem extends EditableComponent {
 		return isBefore ? "before" : "after";
 	}
 
-	dispatchArrayMove(fromIndex: number, toIndex: number) {
+	dispatchArrayMove(fromIndex: number, toIndex: number, fromSlug?: string) {
 		this.element.dispatchEvent(
 			new CustomEvent("cloudcannon-api", {
 				bubbles: true,
 				detail: {
 					action: "move-array-item",
+					fromSlug,
 					fromIndex,
 					toIndex,
 				},
@@ -157,13 +176,14 @@ export default class EditableArrayItem extends EditableComponent {
 		);
 	}
 
-	dispatchArrayAdd(newIndex: number, value: unknown) {
+	dispatchArrayAdd(newIndex: number, value: unknown, sourceIndex?: number) {
 		this.element.dispatchEvent(
 			new CustomEvent("cloudcannon-api", {
 				bubbles: true,
 				detail: {
 					action: "add-array-item",
 					newIndex,
+					sourceIndex,
 					value,
 				},
 			}),
@@ -217,6 +237,34 @@ export default class EditableArrayItem extends EditableComponent {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
 
+			this.controlsElement.addEventListener("add", () => {
+				const fromIndex = Number(this.element.dataset.prop);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				this.dispatchArrayAdd(
+					reversed ? fromIndex - 1 : fromIndex + 1,
+					undefined,
+					fromIndex,
+				);
+			});
+
+			this.controlsElement.addEventListener("duplicate", async () => {
+				const value = await realizeAPIValue(this.value);
+				const fromIndex = Number(this.element.dataset.prop);
+				const arrayDirection = this.parent?.arrayDirection ?? "column";
+				const reversed = arrayDirection.endsWith("reverse");
+
+				this.dispatchArrayAdd(
+					reversed ? fromIndex - 1 : fromIndex + 1,
+					value,
+					fromIndex,
+				);
+
+				this.controlsElement?.removeAttribute("open");
+				this.element.after(this.element.cloneNode(true));
+			});
+
 			this.controlsElement.addEventListener("move-backward", () => {
 				const fromIndex = Number(this.element.dataset.prop);
 				const arrayDirection = this.parent?.arrayDirection ?? "column";
@@ -253,7 +301,7 @@ export default class EditableArrayItem extends EditableComponent {
 			});
 
 			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
-				const source = this.parent?.resolveSource();
+				const source = this.parent?.contextBase?.filePath;
 				if (!source || !e.dataTransfer || !this.element.dataset.prop) {
 					return;
 				}
@@ -265,7 +313,6 @@ export default class EditableArrayItem extends EditableComponent {
 
 				e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
 				e.dataTransfer.effectAllowed = "move";
-				e.dataTransfer?.setData(source, this.element.dataset.prop);
 
 				const id = Math.random().toString(36).slice(2);
 				this.element.id = id;
@@ -283,7 +330,12 @@ export default class EditableArrayItem extends EditableComponent {
 					);
 				}
 
-				e.dataTransfer?.setData(this.getDragType(), JSON.stringify(data));
+				const payload = JSON.stringify(data);
+				e.dataTransfer?.setData(source, payload);
+				const dragType = this.getDragType();
+				if (dragType) {
+					e.dataTransfer?.setData(dragType, payload);
+				}
 			});
 
 			this.updateControls();
@@ -302,6 +354,8 @@ export default class EditableArrayItem extends EditableComponent {
 					(inputConfig as any)?.options?.disable_reorder ?? false;
 				this.controlsElement.disableRemove =
 					(inputConfig as any)?.options?.disable_remove ?? false;
+				this.controlsElement.disableAdd =
+					(inputConfig as any)?.options?.disable_add ?? false;
 
 				this.inputConfig = inputConfig;
 				this.element.append(this.controlsElement);
@@ -317,6 +371,9 @@ export default class EditableArrayItem extends EditableComponent {
 		this.element.ondragover = this.onHover.bind(this);
 
 		this.element.ondragleave = (e: DragEvent): void => {
+			if (!this.isValidDropzone(e)) {
+				return;
+			}
 			e.stopPropagation();
 
 			this.element.classList.remove("dragover");
@@ -324,6 +381,10 @@ export default class EditableArrayItem extends EditableComponent {
 		};
 
 		this.element.ondrop = (e: DragEvent): void => {
+			if (!this.isValidDropzone(e)) {
+				return;
+			}
+
 			this.element.classList.remove("dragover");
 			this.element.style.boxShadow = "";
 
@@ -331,14 +392,16 @@ export default class EditableArrayItem extends EditableComponent {
 				return;
 			}
 
-			const source = this.parent?.resolveSource();
+			const source = this.parent?.contextBase?.filePath;
 			if (!source) {
 				throw new Error("Source not found");
 			}
 
 			const dragType = this.getDragType();
 			const sameArrayData = e.dataTransfer.getData(source);
-			const otherArrayData = e.dataTransfer.getData(dragType);
+			const otherArrayData = dragType
+				? e.dataTransfer.getData(dragType)
+				: undefined;
 
 			const position = this.getDragPosition(e);
 			let newIndex =
@@ -347,20 +410,14 @@ export default class EditableArrayItem extends EditableComponent {
 					: Number(this.element.dataset.prop);
 
 			if (sameArrayData) {
-				const fromIndex = Number(sameArrayData);
+				const { index: fromIndex, sourceId } = JSON.parse(sameArrayData);
+
 				if (fromIndex < newIndex) {
 					newIndex -= 1;
 				}
 
-				e.preventDefault();
-				e.stopPropagation();
-				e.dataTransfer.dropEffect = "move";
-
 				if (fromIndex !== newIndex) {
-					this.dispatchArrayMove(fromIndex, newIndex);
-					const sourceElement = this.parent?.element.querySelector(
-						`[data-prop="${fromIndex}"]`,
-					);
+					const sourceElement = document.getElementById(sourceId);
 					if (sourceElement) {
 						if (position === "after") {
 							this.element.after(sourceElement);
@@ -368,13 +425,14 @@ export default class EditableArrayItem extends EditableComponent {
 							this.element.before(sourceElement);
 						}
 					}
+					this.dispatchArrayMove(fromIndex, newIndex);
 				}
 			} else if (otherArrayData) {
 				const { index, sourceId, value, structure } =
 					JSON.parse(otherArrayData);
 				if (dragType === "cc:structure") {
 					if (!this.inputConfig?.options?.structures?.values) {
-						throw new Error("No structures found");
+						return;
 					}
 
 					const targetStructure = CloudCannon.findStructure(
@@ -382,41 +440,35 @@ export default class EditableArrayItem extends EditableComponent {
 						this.value,
 					);
 					if (!targetStructure) {
-						throw new Error("No target structure found");
+						return;
 					}
 
 					if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
-						throw new Error("Structures do not match");
+						return;
 					}
 				}
 
 				const sourceElement = document.getElementById(sourceId);
 				if (sourceElement && hasEditableArrayItem(sourceElement)) {
-					if (Array.isArray(sourceElement.editable.parent?.value)) {
-						sourceElement.editable.parent.value = structuredClone(
-							sourceElement.editable.parent.value,
-						);
-						sourceElement.editable.parent.value.splice(index, 1);
+					const parentValue = this.parent?.value;
+					if (Array.isArray(parentValue)) {
+						parentValue.splice(newIndex, 0, value);
 					}
-					sourceElement.editable.dispatchArrayRemove(index);
+					sourceElement.dataset.prop = `${newIndex}`;
+					const fromSlug = sourceElement.editable.parent?.contextBase?.fullPath;
 					if (position === "after") {
 						this.element.after(sourceElement);
 					} else {
 						this.element.before(sourceElement);
 					}
-					sourceElement.editable.parent?.update();
-				}
-				if (Array.isArray(this.parent?.value)) {
-					this.parent.value = structuredClone(this.parent.value);
-					this.parent.value.splice(newIndex, 0, value);
-				}
-				this.dispatchArrayAdd(newIndex, value);
-				this.parent?.update();
 
-				e.preventDefault();
-				e.stopPropagation();
-				e.dataTransfer.dropEffect = "move";
+					this.dispatchArrayMove(index, newIndex, fromSlug);
+				}
 			}
+
+			e.preventDefault();
+			e.stopPropagation();
+			e.dataTransfer.dropEffect = "move";
 		};
 
 		if (this.value !== undefined) {

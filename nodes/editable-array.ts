@@ -31,6 +31,9 @@ export default class EditableArray extends Editable {
 		| null
 		| undefined = undefined;
 
+	private updatePromise: Promise<void> | undefined;
+	private needsReupdate = false;
+
 	validateConfiguration(): boolean {
 		const prop = this.element.dataset.prop;
 		if (typeof prop !== "string") {
@@ -65,7 +68,22 @@ export default class EditableArray extends Editable {
 		return value;
 	}
 
-	async update(): Promise<void> {
+	update(): Promise<void> {
+		if (this.updatePromise) {
+			this.needsReupdate = true;
+			return this.updatePromise;
+		}
+		this.updatePromise = this._update().then(() => {
+			this.updatePromise = undefined;
+			if (this.needsReupdate) {
+				this.needsReupdate = false;
+				return this.update();
+			}
+		});
+		return this.updatePromise;
+	}
+
+	private async _update(): Promise<void> {
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
@@ -119,7 +137,11 @@ export default class EditableArray extends Editable {
 				}
 				child.dataset.prop = `${i}`;
 				child.dataset.length = `${children.length}`;
-				child.editable?.pushValue(value[i]);
+				child.editable?.pushValue(
+					value,
+					{ path: `${i}`, editable: child.editable },
+					{ __base_context: this.contextBase ?? {} },
+				);
 			}
 			return;
 		}
@@ -155,7 +177,12 @@ export default class EditableArray extends Editable {
 		if (equal && children.length === dataKeys?.length) {
 			children.forEach((child, index) => {
 				child.dataset.prop = `${index}`;
-				child.editable.pushValue(value[index]);
+				child.dataset.length = `${children.length}`;
+				child.editable.pushValue(
+					value,
+					{ path: `${index}`, editable: child.editable },
+					{ __base_context: this.contextBase ?? {} },
+				);
 			});
 			return;
 		}
@@ -209,7 +236,11 @@ export default class EditableArray extends Editable {
 			}
 
 			matchingChild.editable.parent = this;
-			matchingChild.editable.pushValue(value[i]);
+			matchingChild.editable.pushValue(
+				value,
+				{ path: `${i}`, editable: matchingChild.editable },
+				{ __base_context: this.contextBase ?? {} },
+			);
 		});
 
 		children.forEach((child, i) => {

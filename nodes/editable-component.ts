@@ -11,30 +11,15 @@ import "../components/ui/editable-region-error-card.js";
 import "../components/ui/editable-component-controls.js";
 import type EditableComponentControls from "../components/ui/editable-component-controls.js";
 import {
-	CloudCannon,
 	getEditableComponentRenderers,
+	realizeAPIValue,
 } from "../helpers/cloudcannon.js";
-
-const realizeAPIValue = async (value: unknown): Promise<unknown> => {
-	if (CloudCannon.isAPICollection(value)) {
-		const items = await value.items();
-		return Promise.all(items.map(realizeAPIValue));
-	}
-	if (CloudCannon.isAPIFile(value)) {
-		return value.data.get();
-	}
-	if (CloudCannon.isAPIDataset(value)) {
-		const items = await value.items();
-		if (Array.isArray(items)) {
-			return Promise.all(items.map(realizeAPIValue));
-		}
-		return items.data.get();
-	}
-	return value;
-};
 
 export default class EditableComponent extends Editable {
 	protected controlsElement?: EditableComponentControls;
+
+	private updatePromise: Promise<void> | undefined;
+	private needsReupdate = false;
 
 	getComponents() {
 		return getEditableComponentRenderers();
@@ -67,7 +52,22 @@ export default class EditableComponent extends Editable {
 		return true;
 	}
 
-	async update(): Promise<void> {
+	update(): Promise<void> {
+		if (this.updatePromise) {
+			this.needsReupdate = true;
+			return this.updatePromise;
+		}
+		this.updatePromise = this._update().then(() => {
+			this.updatePromise = undefined;
+			if (this.needsReupdate) {
+				this.needsReupdate = false;
+				return this.update();
+			}
+		});
+		return this.updatePromise;
+	}
+
+	async _update(): Promise<void> {
 		this.element.classList.remove("errored");
 
 		const key = this.element.dataset.component;
@@ -178,24 +178,17 @@ export default class EditableComponent extends Editable {
 							const listener = this.listeners[i];
 							if (listener.editable.element === targetChild) {
 								listener.editable.element = renderChild;
-								renderChild.editable.pushValue(this.value, listener);
+								renderChild.editable.pushValue(this.value, listener, {
+									...this.contexts,
+									__base_context: this.contextBase ?? {},
+								});
 							}
 						}
 					} else if (hasEditable(targetChild)) {
-						for (let i = 0; i < this.listeners.length; i++) {
-							const listener = this.listeners[i];
-							if (listener.editable.element === targetChild) {
-								targetChild.editable.pushValue(this.value, listener);
-							}
-						}
+						this.updateEditable(renderChild, targetChild);
 					}
 				} else if (hasEditable(targetChild)) {
-					for (let i = 0; i < this.listeners.length; i++) {
-						const listener = this.listeners[i];
-						if (listener.editable.element === targetChild) {
-							targetChild.editable.pushValue(this.value, listener);
-						}
-					}
+					this.updateEditable(renderChild, targetChild);
 				}
 			} else if (renderChild && targetChild) {
 				if (
@@ -218,11 +211,66 @@ export default class EditableComponent extends Editable {
 		}
 	}
 
-	dispatchEdit(source?: string) {
+	updateEditable(
+		renderChild: HTMLElement,
+		targetChild: HTMLElement & { editable: Editable },
+	) {
+		for (const attribute of renderChild.attributes) {
+			if (attribute.name !== "class") {
+				targetChild.setAttribute(attribute.name, attribute.value);
+			}
+		}
+		for (const attribute of targetChild.attributes) {
+			if (
+				!renderChild.hasAttribute(attribute.name) &&
+				attribute.name !== "class" &&
+				attribute.name !== "contenteditable"
+			) {
+				targetChild.removeAttribute(attribute.name);
+			}
+		}
+
+		for (const className of renderChild.classList) {
+			targetChild.classList.add(className);
+		}
+
+		for (const className of targetChild.classList) {
+			if (
+				!renderChild.classList.contains(className) &&
+				!className.includes("ProseMirror")
+			) {
+				targetChild.classList.remove(className);
+			}
+		}
+
+		for (let i = 0; i < this.listeners.length; i++) {
+			const listener = this.listeners[i];
+			if (listener.editable.element === targetChild) {
+				targetChild.editable.pushValue(this.value, listener, {
+					...this.contexts,
+					__base_context: this.contextBase ?? {},
+				});
+			}
+		}
+	}
+
+	dispatchEdit(source?: string, originalEvent?: MouseEvent) {
+		const rect = this.element.getBoundingClientRect();
 		this.element.dispatchEvent(
 			new CustomEvent("cloudcannon-api", {
 				bubbles: true,
-				detail: { action: "edit", source },
+				detail: {
+					action: "edit",
+					source,
+					position: {
+						x: originalEvent?.clientX ?? 0,
+						y: originalEvent?.clientY ?? 0,
+						left: rect.left,
+						width: rect.width,
+						top: rect.top,
+						height: rect.height,
+					},
+				},
 			}),
 		);
 	}

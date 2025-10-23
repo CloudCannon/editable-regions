@@ -48,6 +48,14 @@ export const hasEditableArrayItem = <T extends object>(
 	return "editable" in el && el.editable instanceof EditableArrayItem;
 };
 
+export const isEditableWebcomponent = (el: unknown): boolean => {
+	if (!(el instanceof HTMLElement)) {
+		return false;
+	}
+
+	return TAG_NAMES.includes(el.tagName);
+};
+
 export const isEditableElement = (el: unknown): boolean => {
 	if (!(el instanceof HTMLElement)) {
 		return false;

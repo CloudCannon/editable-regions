@@ -1,5 +1,5 @@
 import {
-	type Editable,
+	Editable,
 	EditableArray,
 	EditableArrayItem,
 	EditableComponent,
@@ -7,7 +7,7 @@ import {
 	EditableSource,
 	EditableText,
 } from "../nodes";
-import { hasEditable } from "./checks";
+import { hasEditable, isEditableWebcomponent } from "./checks";
 
 const editableMap: Record<string, typeof Editable | undefined> = {
 	array: EditableArray,
@@ -34,17 +34,21 @@ export const hydrateDataEditableRegions = (root: Element) => {
 	if (
 		root instanceof HTMLElement &&
 		root.dataset.editable &&
-		!("editable" in root)
+		!isEditableWebcomponent(root)
 	) {
-		const Editable = editableMap[root.dataset.editable];
-		if (Editable) {
-			const editable = new Editable(root);
-			editable.connect();
+		if ("editable" in root && root.editable instanceof Editable) {
+			root.editable.connect();
+		} else {
+			const Editable = editableMap[root.dataset.editable];
+			if (Editable) {
+				const editable = new Editable(root);
+				editable.connect();
+			}
 		}
 	}
 
 	root.querySelectorAll("[data-editable]").forEach((element) => {
-		if (!(element instanceof HTMLElement) || "editable" in element) {
+		if (!(element instanceof HTMLElement) || isEditableWebcomponent(element)) {
 			return;
 		}
 
@@ -64,8 +68,11 @@ export const hydrateDataEditableRegions = (root: Element) => {
 			return;
 		}
 
-		const editable = new Editable(element);
-
-		editable.connect();
+		if ("editable" in element && element.editable instanceof Editable) {
+			element.editable.connect();
+		} else {
+			const editable = new Editable(element);
+			editable.connect();
+		}
 	});
 };

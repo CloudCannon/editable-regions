@@ -139,10 +139,4 @@ export default class EditableSnippet extends EditableComponent {
 	validateConfiguration(): boolean {
 		return true;
 	}
-
-	resolveSource(source?: string): string | undefined {
-		return this.parent
-			? `${this.parent.resolveSource()}.@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`
-			: `@snippet[${this.element.getAttribute("data-cms-snippet-id")}].${source}`;
-	}
 }

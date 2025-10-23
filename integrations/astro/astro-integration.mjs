@@ -1,4 +1,5 @@
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SUPPORTED_VIRTUAL_MODULES = [
 	"actions",
@@ -57,15 +58,10 @@ export default () => {
 								if (typeof __dirname !== "undefined") {
 									dir = __dirname;
 								} else {
-									dir = dirname(import.meta.url);
+									dir = dirname(fileURLToPath(import.meta.url));
 								}
 
-								const path = join(dir, "modules", `${type}.js`).replace(
-									"file:",
-									"",
-								);
-
-								return path;
+								return join(dir, "modules", `${type}.js`);
 							}
 						},
 
