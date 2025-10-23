@@ -22,19 +22,23 @@ export interface EditableContext {
 	dataset?: CloudCannonJavaScriptV1APIDataset;
 }
 
-export interface APIListener {
+export interface DOMListener {
+	fn: (e: any) => void;
+	event: string;
+}
+
+export interface APIListener extends DOMListener {
+	event: "change" | "delete";
 	obj:
 		| CloudCannonJavaScriptV1APIFile
 		| CloudCannonJavaScriptV1APICollection
 		| CloudCannonJavaScriptV1APIDataset;
-	fn: () => void;
-	event: "change" | "delete";
 }
 
 export default class Editable {
 	APIListeners: APIListener[] = [];
 	listeners: EditableListener[] = [];
-	domListeners: any[] = [];
+	domListeners: DOMListener[] = [];
 	value: unknown = undefined;
 	parent: Editable | null = null;
 	element: HTMLElement;
@@ -261,8 +265,8 @@ export default class Editable {
 			obj.removeEventListener(event, fn),
 		);
 		this.APIListeners = [];
-		this.domListeners.forEach(({ name, listener }) => {
-			this.element.removeEventListener(name, listener);
+		this.domListeners.forEach(({ event, fn }) => {
+			this.element.removeEventListener(event, fn);
 		});
 		this.domListeners = [];
 		this.connected = false;
@@ -296,9 +300,9 @@ export default class Editable {
 		});
 	}
 
-	addEventListener(name: string, listener: (e: any) => void): void {
-		this.domListeners.push({ name, listener });
-		this.element.addEventListener(name, listener);
+	addEventListener(event: string, fn: (e: any) => void): void {
+		this.domListeners.push({ event, fn });
+		this.element.addEventListener(event, fn);
 	}
 
 	setupListeners(): void {
