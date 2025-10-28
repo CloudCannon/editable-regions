@@ -1,6 +1,5 @@
 import {
 	areEqualEditables,
-	areEqualNodes,
 	hasEditable,
 	hasEditableText,
 	isEditableElement,
@@ -192,12 +191,13 @@ export default class EditableComponent extends Editable {
 				}
 			} else if (renderChild && targetChild) {
 				if (
-					!areEqualNodes(targetChild, renderChild) ||
+					renderChild.nodeName !== targetChild.nodeName ||
 					isEditableElement(renderChild) ||
 					isEditableElement(targetChild)
 				) {
 					targetChild.replaceWith(renderChild);
 				} else {
+					this.updateNode(targetChild, renderChild);
 					this.updateTree(targetChild, renderChild);
 				}
 			} else if (renderChild) {
@@ -208,6 +208,19 @@ export default class EditableComponent extends Editable {
 
 			targetChild = nextTargetChild;
 			renderChild = nextRenderChild;
+		}
+	}
+
+	updateNode(targetChild: ChildNode, renderChild: ChildNode) {
+		if (targetChild instanceof Element && renderChild instanceof Element) {
+			for (const attribute of renderChild.attributes) {
+				targetChild.setAttribute(attribute.name, attribute.value);
+			}
+			for (const attribute of targetChild.attributes) {
+				if (!renderChild.hasAttribute(attribute.name)) {
+					targetChild.removeAttribute(attribute.name);
+				}
+			}
 		}
 	}
 

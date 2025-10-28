@@ -100,35 +100,3 @@ export const isEditableArrayItem = (el?: Element | null): boolean => {
 		(el instanceof HTMLElement && el.dataset.editable === "array-item")
 	);
 };
-
-export const areEqualNodes = (a: ChildNode, b: ChildNode) => {
-	if (a.nodeName !== b.nodeName) {
-		return false;
-	}
-
-	if (a instanceof Element && b instanceof Element) {
-		if (a.className !== b.className) {
-			return false;
-		}
-
-		if (a.id !== b.id) {
-			return false;
-		}
-
-		if (a.attributes.length !== b.attributes.length) {
-			return false;
-		}
-
-		for (let i = 0; i < a.attributes.length; i++) {
-			if (
-				a.attributes[i].name !== b.attributes[i].name ||
-				a.attributes[i].value !== b.attributes[i].value
-			) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-	return a.isEqualNode(b);
-};
