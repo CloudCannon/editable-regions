@@ -27,8 +27,8 @@ export interface DOMListener {
 	event: string;
 }
 
-export interface APIListener extends DOMListener {
-	event: "change" | "delete";
+export interface APIListener {
+	fn: (e: any) => void;
 	obj:
 		| CloudCannonJavaScriptV1APIFile
 		| CloudCannonJavaScriptV1APICollection
@@ -118,10 +118,7 @@ export default class Editable {
 				value = await value.items();
 			} else if (CloudCannon.isAPIFile(value)) {
 				context.file = value;
-				if (key === "@content") {
-					context.isContent = true;
-					value = await value.content.get();
-				} else {
+				if (key !== "@content") {
 					value = await value.data.get();
 				}
 			} else if (CloudCannon.isAPIDataset(value)) {
@@ -135,8 +132,13 @@ export default class Editable {
 				}
 			}
 
-			if (value && typeof value === "object" && key in value) {
+			if (key === "@content" && CloudCannon.isAPIFile(value)) {
+				context.isContent = true;
+				value = await value.content.get();
+			} else if (value && typeof value === "object" && key in value) {
 				value = (value as any)[key];
+			} else {
+				value = undefined;
 			}
 
 			context.fullPath = context.fullPath ? `${context.fullPath}.${key}` : key;
@@ -227,6 +229,13 @@ export default class Editable {
 	}
 
 	registerListener(listener: EditableListener): void {
+		if (this.value !== undefined) {
+			listener.editable.pushValue(this.value, listener, {
+				...this.contexts,
+				__base_context: this.contextBase ?? {},
+			});
+		}
+
 		if (
 			this.listeners.find(
 				({ editable: other, key }) =>
@@ -234,13 +243,6 @@ export default class Editable {
 			)
 		) {
 			return;
-		}
-
-		if (this.value !== undefined) {
-			listener.editable.pushValue(this.value, listener, {
-				...this.contexts,
-				__base_context: this.contextBase ?? {},
-			});
 		}
 
 		this.listeners.push(listener);
@@ -253,6 +255,9 @@ export default class Editable {
 	}
 
 	async disconnect(): Promise<void> {
+		if (this.disconnecting) {
+			return;
+		}
 		this.disconnecting = true;
 
 		if (this.connectPromise) {
@@ -261,9 +266,10 @@ export default class Editable {
 
 		this.parent?.deregisterListener(this);
 		this.parent = null;
-		this.APIListeners.forEach(({ obj, fn, event }) =>
-			obj.removeEventListener(event, fn),
-		);
+		this.APIListeners.forEach(({ obj, fn }) => {
+			obj.removeEventListener("change", fn);
+			obj.removeEventListener("delete", fn);
+		});
 		this.APIListeners = [];
 		this.domListeners.forEach(({ event, fn }) => {
 			this.element.removeEventListener(event, fn);
@@ -347,9 +353,9 @@ export default class Editable {
 				this.APIListeners.push({
 					obj,
 					fn: handleAPIChange,
-					event: "change",
 				});
 				obj.addEventListener("change", handleAPIChange);
+				obj.addEventListener("delete", handleAPIChange);
 				handleAPIChange();
 			}
 		});

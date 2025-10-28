@@ -7,7 +7,7 @@ import type EditableArrayItemComponent from "../components/editable-array-item-c
 import { hasEditableArrayItem, isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type EditableArrayItem from "./editable-array-item.js";
-import Editable from "./editable.js";
+import Editable, { type EditableListener } from "./editable.js";
 
 const arrayDirectionValues = [
 	"row",
@@ -33,6 +33,60 @@ export default class EditableArray extends Editable {
 
 	private updatePromise: Promise<void> | undefined;
 	private needsReupdate = false;
+
+	async registerListener(listener: EditableListener): Promise<void> {
+		if (!this.value) {
+			return;
+		}
+
+		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
+		if (CloudCannon.isAPICollection(this.value)) {
+			value = await this.value.items();
+		} else if (CloudCannon.isAPIDataset(this.value)) {
+			const items = await this.value.items();
+			if (Array.isArray(items)) {
+				value = items;
+			} else {
+				const data = await items.data.get();
+				value = Array.isArray(data) ? data : [];
+			}
+		} else if (Array.isArray(this.value)) {
+			value = this.value;
+		} else {
+			value = [];
+		}
+
+		if (!listener.path) {
+			let index = 0;
+			for (const child of this.element.querySelectorAll(
+				"editable-array-item,[data-editable='array-item']",
+			)) {
+				let parent = child.parentElement;
+				while (parent instanceof HTMLElement && !isEditableElement(parent)) {
+					parent = parent.parentElement;
+				}
+
+				if (parent !== this.element) {
+					continue;
+				}
+
+				if (child === listener.editable.element) {
+					listener.path = `${index}`;
+					break;
+				}
+
+				index += 1;
+			}
+		}
+
+		if (listener.path) {
+			listener.editable.pushValue(value, listener, {
+				__base_context: this.contextBase ?? {},
+			});
+		}
+	}
+
+	deregisterListener(_target: Editable): void {}
 
 	validateConfiguration(): boolean {
 		const prop = this.element.dataset.prop;
@@ -101,21 +155,17 @@ export default class EditableArray extends Editable {
 			value = [];
 		}
 
-		const children: (HTMLElement & { editable: EditableArrayItem })[] = [];
+		const children: (HTMLElement & { editable?: EditableArrayItem })[] = [];
 
 		for (const child of this.element.querySelectorAll(
 			"editable-array-item,[data-editable='array-item']",
 		)) {
-			if (!hasEditableArrayItem(child)) {
-				continue;
-			}
-
 			let parent = child.parentElement;
 			while (parent instanceof HTMLElement && !isEditableElement(parent)) {
 				parent = parent.parentElement;
 			}
 
-			if (!parent || ("editable" in parent && parent.editable !== this)) {
+			if (parent !== this.element) {
 				continue;
 			}
 
@@ -127,13 +177,26 @@ export default class EditableArray extends Editable {
 				children.pop()?.remove();
 			}
 
+			const firstChild = children[0];
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
 				if (!child) {
-					child = children[0].cloneNode(true) as HTMLElement & {
-						editable: EditableArrayItem;
-					};
+					if (this.element.dataset.component) {
+						child = document.createElement(
+							"editable-array-item",
+						) as EditableArrayItemComponent;
+					} else if (firstChild) {
+						child = children[0].cloneNode(true) as HTMLElement & {
+							editable?: EditableArrayItem;
+						};
+					} else {
+						child = document.createElement("array-placeholder");
+					}
 					this.element.appendChild(child);
+				}
+
+				if (this.element.dataset.component) {
+					child.dataset.component = this.element.dataset.component;
 				}
 				child.dataset.prop = `${i}`;
 				child.dataset.length = `${children.length}`;
@@ -178,7 +241,7 @@ export default class EditableArray extends Editable {
 			children.forEach((child, index) => {
 				child.dataset.prop = `${index}`;
 				child.dataset.length = `${children.length}`;
-				child.editable.pushValue(
+				child.editable?.pushValue(
 					value,
 					{ path: `${index}`, editable: child.editable },
 					{ __base_context: this.contextBase ?? {} },
@@ -216,8 +279,10 @@ export default class EditableArray extends Editable {
 					) as EditableArrayItemComponent;
 					matchingChild.dataset.id = key;
 
-					if (componentKeys[i]) {
-						matchingChild.dataset.component = componentKeys[i];
+					const componentKey =
+						componentKeys[i] || this.element.dataset.component;
+					if (componentKey) {
+						matchingChild.dataset.component = componentKey;
 					}
 				}
 			} else {
@@ -235,12 +300,14 @@ export default class EditableArray extends Editable {
 				this.element.appendChild(matchingChild);
 			}
 
-			matchingChild.editable.parent = this;
-			matchingChild.editable.pushValue(
-				value,
-				{ path: `${i}`, editable: matchingChild.editable },
-				{ __base_context: this.contextBase ?? {} },
-			);
+			if (matchingChild.editable) {
+				matchingChild.editable.parent = this;
+				matchingChild.editable.pushValue(
+					value,
+					{ path: `${i}`, editable: matchingChild.editable },
+					{ __base_context: this.contextBase ?? {} },
+				);
+			}
 		});
 
 		children.forEach((child, i) => {
