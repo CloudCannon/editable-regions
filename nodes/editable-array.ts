@@ -56,10 +56,7 @@ export default class EditableArray extends Editable {
 			value = [];
 		}
 
-		let childIndex: number | undefined = undefined;
-		if (listener.path) {
-			childIndex = Number(listener.path);
-		} else {
+		if (!listener.path) {
 			let index = 0;
 			for (const child of this.element.querySelectorAll(
 				"editable-array-item,[data-editable='array-item']",
@@ -70,16 +67,19 @@ export default class EditableArray extends Editable {
 				}
 
 				if (parent !== this.element) {
-					index += 1;
 					continue;
 				}
 
-				childIndex = index;
-				break;
+				if (child === listener.editable.element) {
+					listener.path = `${index}`;
+					break;
+				}
+
+				index += 1;
 			}
 		}
 
-		if (typeof childIndex === "number" && !Number.isNaN(childIndex)) {
+		if (listener.path) {
 			listener.editable.pushValue(value, listener, {
 				__base_context: this.contextBase ?? {},
 			});
