@@ -478,6 +478,11 @@ export default class EditableArrayItem extends EditableComponent {
 
 	setupListeners(): void {
 		super.setupListeners();
-		this.parent?.registerListener({ editable: this });
+		if (!this.element.dataset.prop) {
+			this.parent?.registerListener({
+				editable: this,
+				path: this.element.dataset.prop,
+			});
+		}
 	}
 }
