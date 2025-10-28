@@ -195,9 +195,11 @@ export default class EditableArray extends Editable {
 					this.element.appendChild(child);
 				}
 
+				if (this.element.dataset.component) {
+					child.dataset.component = this.element.dataset.component;
+				}
 				child.dataset.prop = `${i}`;
 				child.dataset.length = `${children.length}`;
-				child.dataset.component = this.element.dataset.component;
 				child.editable?.pushValue(
 					value,
 					{ path: `${i}`, editable: child.editable },
