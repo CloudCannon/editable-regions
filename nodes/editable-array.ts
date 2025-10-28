@@ -177,16 +177,27 @@ export default class EditableArray extends Editable {
 				children.pop()?.remove();
 			}
 
+			const firstChild = children[0];
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
 				if (!child) {
-					child = children[0].cloneNode(true) as HTMLElement & {
-						editable?: EditableArrayItem;
-					};
+					if (this.element.dataset.component) {
+						child = document.createElement(
+							"editable-array-item",
+						) as EditableArrayItemComponent;
+					} else if (firstChild) {
+						child = children[0].cloneNode(true) as HTMLElement & {
+							editable?: EditableArrayItem;
+						};
+					} else {
+						child = document.createElement("array-placeholder");
+					}
 					this.element.appendChild(child);
 				}
+
 				child.dataset.prop = `${i}`;
 				child.dataset.length = `${children.length}`;
+				child.dataset.component = this.element.dataset.component;
 				child.editable?.pushValue(
 					value,
 					{ path: `${i}`, editable: child.editable },
@@ -266,8 +277,10 @@ export default class EditableArray extends Editable {
 					) as EditableArrayItemComponent;
 					matchingChild.dataset.id = key;
 
-					if (componentKeys[i]) {
-						matchingChild.dataset.component = componentKeys[i];
+					const componentKey =
+						componentKeys[i] || this.element.dataset.component;
+					if (componentKey) {
+						matchingChild.dataset.component = componentKey;
 					}
 				}
 			} else {
