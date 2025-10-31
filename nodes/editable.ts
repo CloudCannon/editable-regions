@@ -286,6 +286,10 @@ export default class Editable {
 	}
 
 	connect(): void {
+		if (!this.validateConfiguration()) {
+			return;
+		}
+
 		if (this.disconnecting) {
 			this.needsReconnect = true;
 			return;
@@ -295,13 +299,11 @@ export default class Editable {
 		}
 		this.connectPromise = loadingPromise.then(() => {
 			this.setupListeners();
-			if (this.validateConfiguration()) {
-				this.connected = true;
-				if (!this.mounted && this.shouldMount()) {
-					this.mounted = true;
-					this.mount();
-					this.update();
-				}
+			this.connected = true;
+			if (!this.mounted && this.shouldMount()) {
+				this.mounted = true;
+				this.mount();
+				this.update();
 			}
 		});
 	}

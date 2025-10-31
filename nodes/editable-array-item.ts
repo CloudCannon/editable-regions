@@ -2,10 +2,12 @@ import "../components/ui/editable-array-item-controls.js";
 import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
 import {
 	hasEditableArrayItem,
+	isEditableArray,
 	isEditableArrayItem,
+	isEditableElement,
 } from "../helpers/checks.js";
 import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.js";
-import EditableArray from "./editable-array.js";
+import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
 export default class EditableArrayItem extends EditableComponent {
@@ -14,32 +16,25 @@ export default class EditableArrayItem extends EditableComponent {
 	protected controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
+	private structureStrings: string[] = [];
 
 	shouldMount(): boolean {
 		return this.value !== undefined;
 	}
 
 	validateConfiguration(): boolean {
-		const key = this.element.dataset.component;
-		if (key) {
-			const component = this.getComponents()[key];
-			if (!component) {
-				this.element.classList.add("errored");
-				const error = document.createElement("editable-region-error-card");
-				error.setAttribute("heading", "Failed to render component");
-				error.setAttribute("message", `Couldn't find component '${key}'`);
-				this.element.replaceChildren(error);
-				return false;
-			}
+		let parentElement = this.element.parentElement;
+		while (parentElement && !isEditableElement(parentElement)) {
+			parentElement = parentElement.parentElement;
 		}
 
-		if (!this.parent || !(this.parent instanceof EditableArray)) {
+		if (!parentElement || !isEditableArray(parentElement)) {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array item");
 			error.setAttribute(
 				"message",
-				"Parent array editable not found. Array items must be a descendant of an array editable.",
+				"Array item editable regions must be nested inside an array editable region but this element has no parent editable region. Please check that this element is inside an array editable region.",
 			);
 			this.element.replaceChildren(error);
 			return false;
@@ -54,13 +49,36 @@ export default class EditableArrayItem extends EditableComponent {
 			return false;
 		}
 
+		if (e.dataTransfer?.types.includes(source.toLowerCase())) {
+			return true;
+		}
+
 		const dragType = this.getDragType();
 
-		if (
-			!e.dataTransfer?.types.includes(source.toLowerCase()) &&
-			(!dragType || !e.dataTransfer.types.includes(dragType))
-		) {
+		if (!dragType || !e.dataTransfer.types.includes(dragType)) {
 			return false;
+		}
+
+		if (dragType === "cc:structure") {
+			if (this.structureStrings.length === 0) {
+				return false;
+			}
+
+			const structureString = e.dataTransfer.types
+				.find((type) => type.startsWith("structure:"))
+				?.replace(/^structure:/, "");
+
+			if (!structureString) {
+				return false;
+			}
+
+			const targetStructure = this.structureStrings.find(
+				(targetValue: unknown) => structureString === targetValue,
+			);
+
+			if (!targetStructure) {
+				return false;
+			}
 		}
 
 		return true;
@@ -75,6 +93,47 @@ export default class EditableArrayItem extends EditableComponent {
 		e.stopPropagation();
 		this.element.classList.add("dragover");
 		this.element.style.boxShadow = this.getDraggingBoxShadow(e);
+	}
+
+	onDragStart(e: DragEvent): void {
+		const source = this.parent?.contextBase?.filePath;
+		if (!source || !e.dataTransfer || !this.element.dataset.prop) {
+			return;
+		}
+
+		const clientRect = this.element.getBoundingClientRect();
+
+		e.stopPropagation();
+		this.element.classList.add("dragging");
+
+		e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
+		e.dataTransfer.effectAllowed = "move";
+
+		const id = Math.random().toString(36).slice(2);
+		this.element.id = id;
+
+		const data = {
+			index: this.element.dataset.prop,
+			sourceId: id,
+			value: this.value,
+		};
+
+		if (this.inputConfig?.options?.structures?.values?.length > 0) {
+			const structure = CloudCannon.findStructure(
+				this.inputConfig?.options?.structures,
+				this.value,
+			);
+			if (structure) {
+				e.dataTransfer.setData(`structure:${JSON.stringify(structure)}`, "");
+			}
+		}
+
+		const payload = JSON.stringify(data);
+		e.dataTransfer?.setData(source, payload);
+		const dragType = this.getDragType();
+		if (dragType) {
+			e.dataTransfer?.setData(dragType, payload);
+		}
 	}
 
 	getDragType(): string | undefined {
@@ -300,43 +359,9 @@ export default class EditableArrayItem extends EditableComponent {
 				this.element.remove();
 			});
 
-			this.controlsElement.addEventListener("dragstart", (e: DragEvent) => {
-				const source = this.parent?.contextBase?.filePath;
-				if (!source || !e.dataTransfer || !this.element.dataset.prop) {
-					return;
-				}
-
-				const clientRect = this.element.getBoundingClientRect();
-
-				e.stopPropagation();
-				this.element.classList.add("dragging");
-
-				e.dataTransfer.setDragImage(this.element, clientRect.width - 35, 35);
-				e.dataTransfer.effectAllowed = "move";
-
-				const id = Math.random().toString(36).slice(2);
-				this.element.id = id;
-
-				const data: Record<string, any> = {
-					index: this.element.dataset.prop,
-					sourceId: id,
-					value: this.value,
-				};
-
-				if (this.inputConfig?.options?.structures?.values?.length > 0) {
-					data.structure = CloudCannon.findStructure(
-						this.inputConfig?.options?.structures,
-						this.value,
-					);
-				}
-
-				const payload = JSON.stringify(data);
-				e.dataTransfer?.setData(source, payload);
-				const dragType = this.getDragType();
-				if (dragType) {
-					e.dataTransfer?.setData(dragType, payload);
-				}
-			});
+			this.controlsElement.addEventListener("dragstart", (e: DragEvent) =>
+				this.onDragStart(e),
+			);
 
 			this.updateControls();
 
@@ -358,6 +383,12 @@ export default class EditableArrayItem extends EditableComponent {
 					(inputConfig as any)?.options?.disable_add ?? false;
 
 				this.inputConfig = inputConfig;
+				if (this.inputConfig?.options?.structures?.values?.length > 0) {
+					this.structureStrings =
+						this.inputConfig.options.structures.values.map((value: unknown) =>
+							JSON.stringify(value).toLowerCase(),
+						);
+				}
 				this.element.append(this.controlsElement);
 			});
 		}
@@ -428,25 +459,7 @@ export default class EditableArrayItem extends EditableComponent {
 					this.dispatchArrayMove(fromIndex, newIndex);
 				}
 			} else if (otherArrayData) {
-				const { index, sourceId, value, structure } =
-					JSON.parse(otherArrayData);
-				if (dragType === "cc:structure") {
-					if (!this.inputConfig?.options?.structures?.values) {
-						return;
-					}
-
-					const targetStructure = CloudCannon.findStructure(
-						this.inputConfig.options.structures,
-						this.value,
-					);
-					if (!targetStructure) {
-						return;
-					}
-
-					if (JSON.stringify(structure) !== JSON.stringify(targetStructure)) {
-						return;
-					}
-				}
+				const { index, sourceId, value } = JSON.parse(otherArrayData);
 
 				const sourceElement = document.getElementById(sourceId);
 				if (sourceElement && hasEditableArrayItem(sourceElement)) {

@@ -42,7 +42,7 @@ export default class EditableComponent extends Editable {
 			error.setAttribute("heading", "Failed to render component");
 			error.setAttribute(
 				"message",
-				"Component key(data-component) not provided",
+				"Component editable regions require a 'data-component' HTML attribute but none was provided. Please check that this element has a valid 'data-component' attribute.",
 			);
 			this.element.replaceChildren(error);
 			return false;

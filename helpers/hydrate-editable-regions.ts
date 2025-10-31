@@ -52,7 +52,10 @@ export const hydrateDataEditableRegions = (root: Element) => {
 			return;
 		}
 
-		if (!element.dataset.editable || element.dataset.cloudcannonIgnore) {
+		if (
+			typeof element.dataset.editable !== "string" ||
+			typeof element.dataset.cloudcannonIgnore === "string"
+		) {
 			return;
 		}
 
@@ -62,7 +65,17 @@ export const hydrateDataEditableRegions = (root: Element) => {
 			error.setAttribute("heading", "Failed to render editable region");
 			error.setAttribute(
 				"message",
-				`Unrecognized editable type: "${element.dataset.editable}". The supported types are: ${Object.keys(editableMap).join(", ")}`,
+				`This element has an invalid editable type for the 'data-editable' HTML attribute. The supported editable types are ${Object.keys(
+					editableMap,
+				)
+					.map((type) => `"${type}"`)
+					.join(
+						", ",
+					)} but instead received the type "${element.dataset.editable}". Please make sure that this element has a valid "data-editable" attribute.`,
+			);
+			error.setAttribute(
+				"hint",
+				"If this is intentional you can use the 'data-cloudcannon-ignore' attribute to exclude this element from editable regions.",
 			);
 			element.replaceWith(error);
 			return;

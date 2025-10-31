@@ -100,3 +100,10 @@ export const isEditableArrayItem = (el?: Element | null): boolean => {
 		(el instanceof HTMLElement && el.dataset.editable === "array-item")
 	);
 };
+
+export const isEditableArray = (el?: Element | null): boolean => {
+	return (
+		el?.tagName === "EDITABLE-ARRAY" ||
+		(el instanceof HTMLElement && el.dataset.editable === "array")
+	);
+};
