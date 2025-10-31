@@ -11,11 +11,14 @@ export default class EditableImage extends Editable {
 	configuredAlt = false;
 	configuredTitle = false;
 
-	displayError(heading: string, message: string) {
+	displayError(heading: string, message: string, hint?: string) {
 		this.element.classList.add("errored");
 		const error = document.createElement("editable-region-error-card");
 		error.setAttribute("heading", heading);
 		error.setAttribute("message", message);
+		if (hint) {
+			error.setAttribute("hint", hint);
+		}
 		if (this.imageEl) {
 			this.imageEl?.replaceWith(error);
 		} else {
@@ -32,7 +35,7 @@ export default class EditableImage extends Editable {
 		if (!(child instanceof HTMLImageElement)) {
 			this.displayError(
 				"Failed to render image editable region",
-				"Image editable region requires an image element as its child.",
+				"Image editable regions must contain a child HTML element of type 'img'. Please check that this element has a child 'img' element.",
 			);
 			return false;
 		}
@@ -47,7 +50,7 @@ export default class EditableImage extends Editable {
 		) {
 			this.displayError(
 				"Failed to render image editable region",
-				"Atleast one of data-prop, data-prop-src, data-prop-alt, or data-prop-title is required.",
+				"Image editable regions require atleast one valid 'data-prop-*' HTML attribute. The valid attributes are 'data-prop', 'data-prop-src', 'data-prop-alt', and 'data-prop-title'. Please check that this element has atleast one of these attributes.",
 			);
 			return false;
 		}
@@ -58,7 +61,10 @@ export default class EditableImage extends Editable {
 		if (typeof value !== "object") {
 			this.displayError(
 				"Failed to render image editable region",
-				`Illegal value type: ${typeof value}. Supported types are object.`,
+				`Image editable regions expect to receive a value of type "object" but instead received a value of type '${typeof value}'.`,
+				this.contextBase?.fullPath
+					? `This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`
+					: `This may mean that the 'data-prop' attribute is incorrectly set for this element.`,
 			);
 			return;
 		}
@@ -67,32 +73,30 @@ export default class EditableImage extends Editable {
 			return value;
 		}
 
-		if ("src" in value && typeof value.src !== "string" && value.src !== null) {
-			this.displayError(
-				"Failed to render image editable region",
-				`Illegal value type for "src": ${typeof value.src}. Supported types are string.`,
-			);
-			return;
-		}
+		for (const key of ["src", "alt", "title"]) {
+			if (
+				key in value &&
+				typeof value[key as keyof typeof value] !== "string" &&
+				value[key as keyof typeof value] !== null
+			) {
+				let hint: string;
+				if (this.contexts[key]?.fullPath) {
+					hint = `This may mean that the 'data-prop-${key}' attribute is incorrectly set for this element, the full 'data-prop-${key}' path was '${this.contexts[key]?.fullPath}'.`;
+				} else if (typeof this.element.dataset[key] === "string") {
+					hint = `This may mean that the 'data-prop-${key}' attribute is incorrectly set for this element.`;
+				} else if (this.contextBase?.fullPath) {
+					hint = `This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`;
+				} else {
+					hint = `This may mean that the 'data-prop' attribute is incorrectly set for this element.`;
+				}
 
-		if ("alt" in value && typeof value.alt !== "string" && value.alt !== null) {
-			this.displayError(
-				"Failed to render image editable region",
-				`Illegal value type for "alt": ${typeof value.alt}. Supported types are string.`,
-			);
-			return;
-		}
-
-		if (
-			"title" in value &&
-			typeof value.title !== "string" &&
-			value.title !== null
-		) {
-			this.displayError(
-				"Failed to render image editable region",
-				`Illegal value type for "title": ${typeof value.title}. Supported types are string.`,
-			);
-			return;
+				this.displayError(
+					"Failed to render image editable region",
+					`Image editable regions expect the "${key}" key to have a value of type "string" but instead it was a value of type '${typeof value[key as keyof typeof value]}'.`,
+					hint,
+				);
+				return;
+			}
 		}
 
 		const unexpectedKey = Object.keys(value).find(
@@ -100,9 +104,21 @@ export default class EditableImage extends Editable {
 		);
 
 		if (unexpectedKey) {
+			let hint: string | undefined;
+			const capitalizedUnexpectedKey =
+				unexpectedKey.charAt(0).toUpperCase() + unexpectedKey.slice(1);
+
+			if (this.element.dataset[`prop${capitalizedUnexpectedKey}`]) {
+				hint = `Try removing the 'data-prop-${unexpectedKey}' HTML attribute from this element.`;
+			} else if (this.contextBase?.fullPath) {
+				hint = `This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`;
+			} else {
+				hint = `This may mean that the 'data-prop' attribute is incorrectly set for this element.`;
+			}
 			this.displayError(
 				"Failed to render image editable region",
-				`Unexpected key "${unexpectedKey}" in image editable region. Supported keys are "src", "alt", and "title".`,
+				`Image editable region received an unexpected value key "${unexpectedKey}". The supported values are "src", "alt", and "title". Please check that your data is correctly formatted.`,
+				hint,
 			);
 			return;
 		}

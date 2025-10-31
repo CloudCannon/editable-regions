@@ -15,7 +15,10 @@ export default class EditableText extends Editable {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render text editable region");
-			error.setAttribute("message", "Missing required attribute data-prop");
+			error.setAttribute(
+				"message",
+				"Text editable regions require a 'data-prop' HTML attribute but none was provided. Please check that this element has a valid 'data-prop' attribute.",
+			);
 			this.element.replaceChildren(error);
 			return false;
 		}
@@ -30,7 +33,7 @@ export default class EditableText extends Editable {
 			error.setAttribute("heading", "Failed to render text editable region");
 			error.setAttribute(
 				"message",
-				`Unsupported element type: "${elementType}". Supported element types are span, text, and block.`,
+				`Text editable region received an invalid type for the 'data-type' HTML attribute. The provided element type was '${elementType}' but the supported element types are 'span', 'text', and 'block'. Please set the 'data-type' attribute to one of the supported types.`,
 			);
 			this.element.replaceChildren(error);
 			return false;
@@ -45,8 +48,19 @@ export default class EditableText extends Editable {
 			error.setAttribute("heading", "Failed to render text editable region");
 			error.setAttribute(
 				"message",
-				`Illegal value type: ${typeof value}. Supported types are string.`,
+				`Text editable regions expect to receive a value of type "string" but instead received a value of type '${typeof value}'.`,
 			);
+			if (this.contextBase?.fullPath) {
+				error.setAttribute(
+					"hint",
+					`This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`,
+				);
+			} else {
+				error.setAttribute(
+					"hint",
+					`This may mean that the 'data-prop' attribute is incorrectly set for this element.`,
+				);
+			}
 			this.element.replaceChildren(error);
 			return;
 		}

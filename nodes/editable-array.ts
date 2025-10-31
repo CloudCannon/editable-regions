@@ -4,7 +4,7 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
-import { hasEditableArrayItem, isEditableElement } from "../helpers/checks.js";
+import { isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type EditableArrayItem from "./editable-array-item.js";
 import Editable, { type EditableListener } from "./editable.js";
@@ -94,7 +94,10 @@ export default class EditableArray extends Editable {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array editable");
-			error.setAttribute("message", "Missing required attribute data-prop");
+			error.setAttribute(
+				"message",
+				"Array editable regions require a 'data-prop' HTML attribute but none was provided. Please check that this element has a valid 'data-prop' attribute.",
+			);
 			this.element.replaceChildren(error);
 			return false;
 		}
@@ -114,8 +117,19 @@ export default class EditableArray extends Editable {
 			error.setAttribute("heading", "Failed to render array editable");
 			error.setAttribute(
 				"message",
-				`Illegal value type: ${typeof value}. Supported types are array.`,
+				`Array editable regions expect to receive a value of type "array" but instead received a value of type '${typeof value}'.`,
 			);
+			if (this.contextBase?.fullPath) {
+				error.setAttribute(
+					"hint",
+					`This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`,
+				);
+			} else {
+				error.setAttribute(
+					"hint",
+					`This may mean that the 'data-prop' attribute is incorrectly set for this element.`,
+				);
+			}
 			this.element.replaceChildren(error);
 			return;
 		}

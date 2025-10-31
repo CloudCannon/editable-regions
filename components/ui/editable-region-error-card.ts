@@ -65,6 +65,14 @@ export default class EditableRegionErrorCard extends HTMLElement {
 				body.appendChild(stack);
 			}
 		}
+
+		if (this.hasAttribute("hint")) {
+			const hint = document.createElement("p");
+			hint.className = "hint";
+			hint.innerHTML = this.getAttribute("hint") ?? "";
+
+			body.appendChild(hint);
+		}
 	}
 }
 

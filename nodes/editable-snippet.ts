@@ -51,6 +51,7 @@ export default class EditableSnippet extends EditableComponent {
 		const { snippets, source } = this.parseSource(options.source);
 
 		if (options.action === "get-input-config") {
+			// TODO: This should actually load the input config, including the snippet in the cascade
 			return false;
 		}
 
