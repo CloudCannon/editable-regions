@@ -4,10 +4,12 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
+import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import type EditableArrayItem from "./editable-array-item.js";
 import Editable, { type EditableListener } from "./editable.js";
+import "../components/ui/editable-region-button.js";
 
 const arrayDirectionValues = [
 	"row",
@@ -33,6 +35,7 @@ export default class EditableArray extends Editable {
 
 	private updatePromise: Promise<void> | undefined;
 	private needsReupdate = false;
+	private addButton?: EditableRegionButton;
 
 	async registerListener(listener: EditableListener): Promise<void> {
 		if (!this.value) {
@@ -172,7 +175,7 @@ export default class EditableArray extends Editable {
 		const children: (HTMLElement & { editable?: EditableArrayItem })[] = [];
 
 		for (const child of this.element.querySelectorAll(
-			"editable-array-item,[data-editable='array-item']",
+			"editable-array-item,[data-editable='array-item'],array-placeholder",
 		)) {
 			let parent = child.parentElement;
 			while (parent instanceof HTMLElement && !isEditableElement(parent)) {
@@ -186,12 +189,33 @@ export default class EditableArray extends Editable {
 			children.push(child as any);
 		}
 
+		if (
+			children.length === 0 &&
+			!this.element.dataset.component &&
+			!this.element.dataset.componentKey
+		) {
+			const error = document.createElement("editable-region-error-card");
+			error.setAttribute("heading", "Failed to render array editable region");
+			error.setAttribute(
+				"message",
+				"Array editable regions with no child array items must have either a 'data-component' attribute or a 'data-component-key' attribute. Please add an item to this array then save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
+			);
+			this.element.replaceChildren(error);
+			return;
+		}
+
 		if (!this.element.dataset.idKey) {
 			while (children.length > value.length) {
 				children.pop()?.remove();
 			}
 
-			const firstChild = children[0];
+			if (value.length === 0 && this.addButton) {
+				this.element.appendChild(this.addButton);
+				return;
+			}
+
+			this.addButton?.remove();
+
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
 				if (!child) {
@@ -199,12 +223,11 @@ export default class EditableArray extends Editable {
 						child = document.createElement(
 							"editable-array-item",
 						) as EditableArrayItemComponent;
-					} else if (firstChild) {
+					} else {
+						// Empty arrays should be caught by the error case above so children[0] should always exist
 						child = children[0].cloneNode(true) as HTMLElement & {
 							editable?: EditableArrayItem;
 						};
-					} else {
-						child = document.createElement("array-placeholder");
 					}
 					this.element.appendChild(child);
 				}
@@ -240,9 +263,12 @@ export default class EditableArray extends Editable {
 			}
 
 			if (data && typeof data === "object" && componentKey) {
-				componentKeys.push(String((data as any)[componentKey]));
-			} else {
-				componentKeys.push(null);
+				const component = (data as any)[componentKey];
+				if (typeof component !== "undefined" && component !== null) {
+					componentKeys.push(String((data as any)[componentKey]));
+				} else {
+					componentKeys.push(null);
+				}
 			}
 		}
 
@@ -261,6 +287,12 @@ export default class EditableArray extends Editable {
 					{ __base_context: this.contextBase ?? {} },
 				);
 			});
+
+			if (dataKeys.length === 0 && this.addButton) {
+				this.element.appendChild(this.addButton);
+			} else {
+				this.addButton?.remove();
+			}
 			return;
 		}
 
@@ -278,6 +310,8 @@ export default class EditableArray extends Editable {
 			}
 			const placeholder = placeholders[i];
 			const existingElement = children[i];
+			const componentKey = componentKeys[i] || this.element.dataset.component;
+
 			const matchingChildIndex = children.findIndex(
 				(child, i) => child.dataset.id === key && !moved[i],
 			);
@@ -287,17 +321,38 @@ export default class EditableArray extends Editable {
 				const clone = children.find((child) => child.dataset.id === key);
 				if (clone) {
 					matchingChild = clone.cloneNode(true) as any;
-				} else {
+				} else if (componentKey) {
 					matchingChild = document.createElement(
 						"editable-array-item",
 					) as EditableArrayItemComponent;
 					matchingChild.dataset.id = key;
-
-					const componentKey =
-						componentKeys[i] || this.element.dataset.component;
-					if (componentKey) {
-						matchingChild.dataset.component = componentKey;
+					matchingChild.dataset.component = componentKey;
+				} else {
+					const error = document.createElement("editable-region-error-card");
+					error.setAttribute("heading", "Failed to render array item");
+					if (typeof this.element.dataset.componentKey === "string") {
+						error.setAttribute(
+							"message",
+							"Array editable region has no child with a matching 'data-id' value for this element and the value has no key matching the 'data-component-key' attribute. Please check that the 'data-component-key' attribute for this element is correct and that each element has an entry for that key, or provide a fallback 'data-component' attribute.",
+						);
+						error.setAttribute(
+							"hint",
+							`This may mean that the value for 'data-component-key' is incorrect or that your array data is incorrectly formatted.
+							The current value for 'data-component-key' is '${this.element.dataset.componentKey}' and the current value for 'data-id' is '${key}'.
+							`,
+						);
+					} else {
+						error.setAttribute(
+							"message",
+							"Array editable region has no child with a matching 'data-id' value for this element and no 'data-component' or 'data-component-key' attribute. Please save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
+						);
+						error.setAttribute(
+							"hint",
+							`The full value of "data-id" for this item is "${key}"`,
+						);
 					}
+					matchingChild = document.createElement("array-placeholder");
+					matchingChild.append(error);
 				}
 			} else {
 				moved[matchingChildIndex] = true;
@@ -329,6 +384,12 @@ export default class EditableArray extends Editable {
 				child.remove();
 			}
 		});
+
+		if (dataKeys.length === 0 && this.addButton) {
+			this.element.appendChild(this.addButton);
+		} else {
+			this.addButton?.remove();
+		}
 	}
 
 	calculateArrayDirection(): ArrayDirection {
@@ -349,5 +410,21 @@ export default class EditableArray extends Editable {
 
 	mount(): void {
 		this.arrayDirection = this.calculateArrayDirection();
+
+		this.addButton = document.createElement("editable-region-button");
+		this.addButton.setAttribute("icon", "add");
+		this.addButton.setAttribute("text", "Add Item");
+		this.addButton.addEventListener("button-click", () => {
+			this.element.dispatchEvent(
+				new CustomEvent("cloudcannon-api", {
+					bubbles: true,
+					detail: {
+						source: this.element.dataset.prop,
+						action: "add-array-item",
+						newIndex: 0,
+					},
+				}),
+			);
+		});
 	}
 }
