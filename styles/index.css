@@ -7,7 +7,7 @@
 
 editable-array-item-controls,
 editable-component-controls {
-    transition: opacity var(--ccve-transition-duration) ease;
+	transition: opacity var(--ccve-transition-duration) ease;
 }
 
 editable-array-item,
@@ -21,82 +21,81 @@ editable-snippet,
 [data-editable="component"],
 [data-editable="image"],
 [data-editable="source"] {
-    transition: outline var(--ccve-transition-duration) ease;
+	transition: outline var(--ccve-transition-duration) ease;
 
-    outline-offset: calc(var(--ccve-editable-outline-width) * -1);
-    outline: var(--ccve-editable-outline-width) solid transparent;
+	outline-offset: calc(var(--ccve-editable-outline-width) * -1);
+	outline: var(--ccve-editable-outline-width) solid transparent;
 
-    &>editable-array-item-controls,
-    &>editable-component-controls {
-        opacity: 0;
-        pointer-events: none;
-        display: none;
+	& > editable-array-item-controls,
+	& > editable-component-controls {
+		opacity: 0;
+		pointer-events: none;
+		display: none;
 
-        &:hover,
-        &[open="true"] {
-            opacity: 1;
-            pointer-events: auto;
-            display: flex;
-        }
-    }
+		&:hover,
+		&[open="true"] {
+			opacity: 1;
+			pointer-events: auto;
+			display: flex;
+		}
+	}
 
-    &.errored {
-        outline: none !important;
-        cursor: default !important;
-    }
+	&.errored {
+		outline: none !important;
+		cursor: default !important;
+	}
 
-    &.dragover * {
-        opacity: 0.8;
-    }
+	&.dragover * {
+		opacity: 0.8;
+	}
 }
 
 .cms-region-highlighted {
+	editable-array-item,
+	editable-text,
+	editable-component,
+	editable-image,
+	editable-source,
+	editable-snippet,
+	[data-editable="array-item"],
+	[data-editable="text"],
+	[data-editable="component"],
+	[data-editable="image"],
+	[data-editable="source"] {
+		outline: var(--ccve-editable-outline-width) solid var(--ccve-color-sol);
 
-    editable-array-item,
-    editable-text,
-    editable-component,
-    editable-image,
-    editable-source,
-    editable-snippet,
-    [data-editable="array-item"],
-    [data-editable="text"],
-    [data-editable="component"],
-    [data-editable="image"],
-    [data-editable="source"] {
-        outline: var(--ccve-editable-outline-width) solid var(--ccve-color-sol);
+		&:hover {
+			outline: var(--ccve-editable-outline-width) solid
+				var(--ccve-color-emerald);
 
-        &:hover {
-            outline: var(--ccve-editable-outline-width) solid var(--ccve-color-emerald);
-
-            &>editable-array-item-controls,
-            &>editable-component-controls {
-                opacity: 1;
-                pointer-events: auto;
-                display: flex;
-            }
-        }
-    }
+			& > editable-array-item-controls,
+			& > editable-component-controls {
+				opacity: 1;
+				pointer-events: auto;
+				display: flex;
+			}
+		}
+	}
 }
 
 .dragging {
+	& editable-array-item,
+	& editable-text,
+	& editable-component,
+	& editable-image,
+	& editable-source,
+	& editable-snippet,
+	& [data-editable="array-item"],
+	& [data-editable="text"],
+	& [data-editable="component"],
+	& [data-editable="image"],
+	& [data-editable="source"] {
+		transition: none;
+		outline: none;
 
-    & editable-array-item,
-    & editable-text,
-    & editable-component,
-    & editable-image,
-    & editable-source,
-    & editable-snippet,
-    & [data-editable="array-item"],
-    & [data-editable="text"],
-    & [data-editable="component"],
-    & [data-editable="image"],
-    & [data-editable="source"] {
-        transition: none;
-        outline: none;
-
-        &:hover {
-            transition: none;
-            outline: none;
-        }
-    }
+		&:hover {
+			transition: none;
+			outline: none;
+		}
+	}
 }

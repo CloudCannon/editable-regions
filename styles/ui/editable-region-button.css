@@ -1,33 +1,36 @@
 button {
-    all: initial;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    text-decoration: none;
-    text-align: center;
-    box-sizing: border-box;
+	all: initial;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	text-decoration: none;
+	text-align: center;
+	box-sizing: border-box;
 
-    font-size: 16px;
-    font-weight: bold;
-    font-family: var(--ccrt-font-family);
-    line-height: 1.4;
-    color: var(--ccrt-color-cc-blue);
-    --cc-icon-fill: var(--ccrt-color-cc-blue);
+	font-size: 16px;
+	font-weight: bold;
+	font-family: var(--ccrt-font-family);
+	line-height: 1.4;
+	color: var(--ccrt-color-cc-blue);
+	--cc-icon-fill: var(--ccrt-color-cc-blue);
 
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 
-    border: var(--ccrt-border-width) solid var(--ccrt-color-alto);
-    border-radius: var(--ccrt-border-radius);
+	border: var(--ccrt-border-width) solid var(--ccrt-color-alto);
+	border-radius: var(--ccrt-border-radius);
 
-    padding: 0 var(--ccrt-gap);
-    height: 48px;
-
+	padding: 0 var(--ccrt-gap);
+	height: 48px;
 }
 
 button:hover {
-    background-color: rgba(226, 234, 250);
-    border-color: color-mix(in srgb, var(--ccrt-color-cc-blue) 80%, var(--ccrt-color-carbon));
-    cursor: pointer;
+	background-color: rgba(226, 234, 250);
+	border-color: color-mix(
+		in srgb,
+		var(--ccrt-color-cc-blue) 80%,
+		var(--ccrt-color-carbon)
+	);
+	cursor: pointer;
 }

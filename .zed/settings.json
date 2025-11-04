@@ -24,6 +24,14 @@
 				"source.fixAll.biome": true,
 				"source.organizeImports.biome": true
 			}
+		},
+		"CSS": {
+      "language_servers": ["biome", "..."],
+      "formatter": {
+				"language_server": {
+					"name": "biome"
+				}
+			}
 		}
 	}
 }

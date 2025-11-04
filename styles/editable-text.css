@@ -1,8 +1,8 @@
 editable-text {
-    display: inline-block;
+	display: inline-block;
 }
 
 editable-text,
 [data-editable="text"] {
-    min-width: 10px;
+	min-width: 10px;
 }
