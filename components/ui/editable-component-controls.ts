@@ -7,6 +7,16 @@ export default class EditableComponentControls extends HTMLElement {
 
 	private editButton?: HTMLButtonElement;
 
+	toggleContextMenu() {
+		if (this.contextMenu?.classList.contains("open")) {
+			this.contextMenu?.classList.remove("open");
+			this.removeAttribute("open");
+		} else if (this.contextMenu && this.contextMenu.childElementCount > 0) {
+			this.contextMenu?.classList.add("open");
+			this.setAttribute("open", "true");
+		}
+	}
+
 	render(shadow: ShadowRoot): void {
 		const style = document.createElement("style");
 		style.textContent = styleContent;
@@ -21,18 +31,23 @@ export default class EditableComponentControls extends HTMLElement {
 		shadow.appendChild(this.contextMenu);
 
 		this.editButton = document.createElement("button");
+		this.editButton.type = "button";
 		this.editButton.innerHTML = '<cc-icon name="edit"></cc-icon>';
 		this.editButton.onclick = () => {
 			this.dispatchEvent(new CustomEvent("edit", { detail: this }));
 		};
 		this.buttonRow.append(this.editButton);
 
-		this.onclick = () => {
+		this.onclick = (e) => {
+			e.preventDefault();
 			this.contextMenu?.classList.remove("open");
 			this.removeAttribute("open");
 		};
 
-		this.onblur = () => {
+		this.onblur = (e) => {
+			if ((e.relatedTarget as HTMLElement)?.tagName === "A") {
+				return;
+			}
 			this.contextMenu?.classList.remove("open");
 			this.removeAttribute("open");
 		};

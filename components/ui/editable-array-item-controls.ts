@@ -92,15 +92,11 @@ export default class EditableArrayItemControls extends EditableComponentControls
 		super.render(shadow);
 
 		this.dragHandle = document.createElement("button");
+		this.dragHandle.type = "button";
 		this.dragHandle.onclick = (e) => {
 			e.stopPropagation();
-			if (this.contextMenu?.classList.contains("open")) {
-				this.contextMenu?.classList.remove("open");
-				this.removeAttribute("open");
-			} else if (this.contextMenu && this.contextMenu.childElementCount > 0) {
-				this.contextMenu?.classList.add("open");
-				this.setAttribute("open", "true");
-			}
+			e.preventDefault();
+			this.toggleContextMenu();
 		};
 		this.dragHandle.ondragstart = () => {
 			this.contextMenu?.classList.remove("open");
