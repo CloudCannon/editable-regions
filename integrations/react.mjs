@@ -12,21 +12,21 @@ import { addEditableComponentRenderer } from "../dist/helpers/cloudcannon.js";
  * @returns {void}
  */
 export const registerReactComponent = (key, component) => {
-  /**
-   * Wrapper function that renders the React component to an HTMLElement.
-   *
-   * @param {any} props - Props to pass to the React component
-   * @returns {HTMLElement} The rendered component as an HTMLElement
-   */
-  const wrappedComponent = (props) => {
-    const reactNode = createElement(component, props, null);
-    const rootEl = document.createElement("div");
-    const root = createRoot(rootEl);
+	/**
+	 * Wrapper function that renders the React component to an HTMLElement.
+	 *
+	 * @param {any} props - Props to pass to the React component
+	 * @returns {HTMLElement} The rendered component as an HTMLElement
+	 */
+	const wrappedComponent = (props) => {
+		const reactNode = createElement(component, props, null);
+		const rootEl = document.createElement("div");
+		const root = createRoot(rootEl);
 
-    flushSync(() => root.render(reactNode));
+		flushSync(() => root.render(reactNode));
 
-    return rootEl;
-  };
+		return rootEl;
+	};
 
-  addEditableComponentRenderer(key, wrappedComponent);
+	addEditableComponentRenderer(key, wrappedComponent);
 };

@@ -1,58 +1,57 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-	"vcs": {
-		"enabled": true,
-		"clientKind": "git",
-		"useIgnoreFile": true
-	},
-	"files": {
-		"ignoreUnknown": false,
-		"ignore": [
-			".zed/**",
-			".backstage/**",
-			".github/**",
-			"package.json",
-			"package-lock.json",
-			"CHANGELOG.md"
-		]
-	},
-	"formatter": {
-		"enabled": true,
-		"indentStyle": "tab"
-	},
-	"organizeImports": {
-		"enabled": true
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"style": {
-				"noParameterAssign": "off",
-				"noInferrableTypes": "off"
-			},
-			"complexity": {
-				"useArrowFunction": "off",
-				"noForEach": "off"
-			},
-			"correctness": {
-				"noVoidTypeReturn": "off"
-			},
-			"suspicious": {
-				"noExplicitAny": "off",
-				"noControlCharactersInRegex": "off",
-				"noShadowRestrictedNames": "off",
-				"noImplicitAnyLet": "warn"
-			},
-			"performance": {
-				"noDelete": "off",
-				"noAccumulatingSpread": "warn"
-			}
-		}
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "double"
-		}
-	}
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "ignore": [
+      ".zed/**",
+      ".backstage/**",
+      ".github/**",
+      "package-lock.json",
+      "CHANGELOG.md"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "tab"
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noParameterAssign": "off",
+        "noInferrableTypes": "off"
+      },
+      "complexity": {
+        "useArrowFunction": "off",
+        "noForEach": "off"
+      },
+      "correctness": {
+        "noVoidTypeReturn": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noControlCharactersInRegex": "off",
+        "noShadowRestrictedNames": "off",
+        "noImplicitAnyLet": "warn"
+      },
+      "performance": {
+        "noDelete": "off",
+        "noAccumulatingSpread": "warn"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  }
 }
