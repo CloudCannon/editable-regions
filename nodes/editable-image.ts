@@ -185,7 +185,9 @@ export default class EditableImage extends Editable {
 			!!this.element.dataset.propTitle || !!this.element.dataset.prop;
 
 		this.loadInputConfig().then(() => {
-			this.imageEl?.addEventListener("click", () => {
+			this.imageEl?.addEventListener("click", (e) => {
+				e.preventDefault();
+
 				if (!this.value) {
 					throw new Error("Value is not defined");
 				}

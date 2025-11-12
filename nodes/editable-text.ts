@@ -80,6 +80,8 @@ export default class EditableText extends Editable {
 	}
 
 	mount(): void {
+		this.element.addEventListener("click", (e) => e.preventDefault());
+
 		this.element.addEventListener("blur", () => {
 			this.focused = false;
 			this.element.dispatchEvent(
