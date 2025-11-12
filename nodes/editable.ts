@@ -319,9 +319,12 @@ export default class Editable {
 		let parentEditable: Editable | undefined;
 		let parent = this.element.parentElement;
 		while (parent) {
-			if (hasEditable(parent)) {
+			if (hasEditable(parent) && !parentEditable) {
 				parentEditable = parent.editable;
-				break;
+			}
+
+			if (parent.tagName === "A") {
+				parent.draggable = false;
 			}
 			parent = parent.parentElement;
 		}
