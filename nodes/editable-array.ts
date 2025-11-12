@@ -29,6 +29,7 @@ export default class EditableArray extends Editable {
 	value:
 		| CloudCannonJavaScriptV1APICollection
 		| CloudCannonJavaScriptV1APIDataset
+		| CloudCannonJavaScriptV1APIFile
 		| unknown[]
 		| null
 		| undefined = undefined;
@@ -42,6 +43,7 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
+		const __base_context = { ...this.contextBase };
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
@@ -51,8 +53,13 @@ export default class EditableArray extends Editable {
 				value = items;
 			} else {
 				const data = await items.data.get();
+				__base_context.file = items;
 				value = Array.isArray(data) ? data : [];
 			}
+		} else if (CloudCannon.isAPIFile(this.value)) {
+			const data = await this.value.data.get();
+			__base_context.file = this.value;
+			value = Array.isArray(data) ? data : [];
 		} else if (Array.isArray(this.value)) {
 			value = this.value;
 		} else {
@@ -84,7 +91,7 @@ export default class EditableArray extends Editable {
 
 		if (listener.path) {
 			listener.editable.pushValue(value, listener, {
-				__base_context: this.contextBase ?? {},
+				__base_context,
 			});
 		}
 	}
@@ -113,7 +120,8 @@ export default class EditableArray extends Editable {
 			!Array.isArray(value) &&
 			value !== null &&
 			!CloudCannon.isAPICollection(value) &&
-			!CloudCannon.isAPIDataset(value)
+			!CloudCannon.isAPIDataset(value) &&
+			!CloudCannon.isAPIFile(value)
 		) {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");
@@ -156,6 +164,7 @@ export default class EditableArray extends Editable {
 
 	private async _update(): Promise<void> {
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
+		const __base_context = { ...this.contextBase };
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
 		} else if (CloudCannon.isAPIDataset(this.value)) {
@@ -164,8 +173,13 @@ export default class EditableArray extends Editable {
 				value = items;
 			} else {
 				const data = await items.data.get();
+				__base_context.file = items;
 				value = Array.isArray(data) ? data : [];
 			}
+		} else if (CloudCannon.isAPIFile(this.value)) {
+			const data = await this.value.data.get();
+			__base_context.file = this.value;
+			value = Array.isArray(data) ? data : [];
 		} else if (Array.isArray(this.value)) {
 			value = this.value;
 		} else {
@@ -240,7 +254,7 @@ export default class EditableArray extends Editable {
 				child.editable?.pushValue(
 					value,
 					{ path: `${i}`, editable: child.editable },
-					{ __base_context: this.contextBase ?? {} },
+					{ __base_context },
 				);
 			}
 			return;
@@ -284,7 +298,7 @@ export default class EditableArray extends Editable {
 				child.editable?.pushValue(
 					value,
 					{ path: `${index}`, editable: child.editable },
-					{ __base_context: this.contextBase ?? {} },
+					{ __base_context },
 				);
 			});
 
@@ -374,7 +388,7 @@ export default class EditableArray extends Editable {
 				matchingChild.editable.pushValue(
 					value,
 					{ path: `${i}`, editable: matchingChild.editable },
-					{ __base_context: this.contextBase ?? {} },
+					{ __base_context },
 				);
 			}
 		});

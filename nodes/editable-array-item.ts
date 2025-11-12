@@ -44,11 +44,11 @@ export default class EditableArrayItem extends EditableComponent {
 	}
 
 	isValidDropzone(e: DragEvent): boolean {
-		const source = this.parent?.contextBase?.filePath;
-		if (!source || !e.dataTransfer) {
+		if (!e.dataTransfer) {
 			return false;
 		}
 
+		const source = this.parent?.contextBase?.fullPath ?? "@currentFile";
 		if (e.dataTransfer?.types.includes(source.toLowerCase())) {
 			return true;
 		}
@@ -96,11 +96,11 @@ export default class EditableArrayItem extends EditableComponent {
 	}
 
 	onDragStart(e: DragEvent): void {
-		const source = this.parent?.contextBase?.filePath;
-		if (!source || !e.dataTransfer || !this.element.dataset.prop) {
+		if (!e.dataTransfer || !this.element.dataset.prop) {
 			return;
 		}
 
+		const source = this.parent?.contextBase?.fullPath ?? "@currentFile";
 		const clientRect = this.element.getBoundingClientRect();
 
 		e.stopPropagation();
@@ -423,11 +423,7 @@ export default class EditableArrayItem extends EditableComponent {
 				return;
 			}
 
-			const source = this.parent?.contextBase?.filePath;
-			if (!source) {
-				throw new Error("Source not found");
-			}
-
+			const source = this.parent?.contextBase?.fullPath ?? "@currentFile";
 			const dragType = this.getDragType();
 			const sameArrayData = e.dataTransfer.getData(source);
 			const otherArrayData = dragType
