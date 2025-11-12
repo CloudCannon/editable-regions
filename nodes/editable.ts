@@ -88,14 +88,16 @@ export default class Editable {
 	}
 
 	async lookupPathAndContext(
-		path: string,
-		obj: unknown,
+		path?: string,
+		obj?: unknown,
 		contexts: { [key: string]: EditableContext } = {},
 	): Promise<{ value: any; context: EditableContext }> {
 		if (!path) {
 			return {
 				value: obj,
-				context: {},
+				context: {
+					...contexts.__base_context,
+				},
 			};
 		}
 
@@ -166,9 +168,9 @@ export default class Editable {
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
 
-		const { value: resolvedValue, context: newContext } = path
-			? await this.lookupPathAndContext(path, value, contexts)
-			: { value, context: {} };
+		const { value: resolvedValue, context: newContext } =
+			await this.lookupPathAndContext(path, value, contexts);
+
 		if (!key) {
 			this.propsBase = resolvedValue;
 			this.contextBase = newContext;
@@ -331,7 +333,7 @@ export default class Editable {
 				return;
 			}
 
-			const { collection, file, dataset, source, absolute } =
+			const { collection, file, dataset, source, absolute, currentFile } =
 				this.parseSource(propPath);
 
 			const listener = {
@@ -349,8 +351,15 @@ export default class Editable {
 			// Any single data path should only be able to refer to a single absolute API object
 			const obj = collection || dataset || file;
 			if (obj) {
+				const fullPath = collection
+					? `@collections[${collection.collectionKey}]`
+					: dataset
+						? `@data[${dataset.datasetKey}]`
+						: currentFile
+							? undefined
+							: `@file[${file?.path}]`;
 				const handleAPIChange = () => {
-					this.pushValue(obj, listener);
+					this.pushValue(obj, listener, { __base_context: { fullPath } });
 				};
 				this.APIListeners.push({
 					obj,
@@ -425,22 +434,6 @@ export default class Editable {
 		}
 
 		filePromise.then((file) => {
-			if (typeof source !== "string") {
-				if (options.action === "get-input-config") {
-					options.callback({
-						options: {
-							disable_reorder: true,
-							disable_remove: true,
-							disable_add: true,
-						},
-					});
-					return true;
-				}
-				throw new Error(
-					`Failed to resolve source for API call: ${options.source}`,
-				);
-			}
-
 			switch (options.action) {
 				case "edit":
 					file?.data.edit({ slug: source, position: options.position });
@@ -474,7 +467,17 @@ export default class Editable {
 					});
 					break;
 				case "get-input-config":
-					file?.getInputConfig({ slug: source }).then(options.callback);
+					if (!file) {
+						options.callback({
+							options: {
+								disable_reorder: true,
+								disable_remove: true,
+								disable_add: true,
+							},
+						});
+					} else {
+						file?.getInputConfig({ slug: source }).then(options.callback);
+					}
 					break;
 			}
 		});
@@ -521,6 +524,7 @@ export default class Editable {
 		let file: CloudCannonJavaScriptV1APIFile | undefined;
 		let dataset: CloudCannonJavaScriptV1APIDataset | undefined;
 		let absolute = false;
+		let currentFile = false;
 
 		const collectionMatch = source?.match(
 			/^@collections\[(?<key>[^\]]+)\](\.(?<rest>.+))?$/,
@@ -550,6 +554,7 @@ export default class Editable {
 					absolute = true;
 				} else {
 					file = CloudCannon.currentFile();
+					currentFile = true;
 				}
 			}
 		}
@@ -566,10 +571,11 @@ export default class Editable {
 		return {
 			collection,
 			file,
-			source,
+			source: source ?? "",
 			absolute,
 			snippets,
 			dataset,
+			currentFile,
 		};
 	}
 }
