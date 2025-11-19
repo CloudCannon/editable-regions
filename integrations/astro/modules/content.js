@@ -1,4 +1,4 @@
-import { CloudCannon } from "../../../helpers/cloudcannon";
+import { CloudCannon } from "../../../helpers/cloudcannon.mjs";
 
 /**
  * @param {string} collectionKey

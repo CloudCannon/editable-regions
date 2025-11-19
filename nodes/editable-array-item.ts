@@ -6,7 +6,7 @@ import {
 	isEditableArrayItem,
 	isEditableElement,
 } from "../helpers/checks.js";
-import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.js";
+import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.mjs";
 import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 

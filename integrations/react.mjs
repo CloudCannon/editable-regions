@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { addEditableComponentRenderer } from "../helpers/cloudcannon";
+import { addEditableComponentRenderer } from "../helpers/cloudcannon.mjs";
 
 /**
  * Registers a React component with the CloudCannon component system.

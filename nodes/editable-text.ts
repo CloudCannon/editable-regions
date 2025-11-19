@@ -1,4 +1,4 @@
-import { CloudCannon } from "../helpers/cloudcannon.js";
+import { CloudCannon } from "../helpers/cloudcannon.mjs";
 import Editable from "./editable.js";
 
 type EditableFocusEvent = CustomEvent<number>;

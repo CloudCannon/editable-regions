@@ -6,7 +6,7 @@ export { default as EditableImageComponent } from "./editable-image-component.js
 export { default as EditableSourceComponent } from "./editable-source-component.js";
 export { default as EditableSnippetComponent } from "./editable-snippet-component.js";
 
-import { apiLoadedPromise } from "../helpers/cloudcannon.js";
+import { apiLoadedPromise } from "../helpers/cloudcannon.mjs";
 import {
 	dehydrateDataEditableRegions,
 	hydrateDataEditableRegions,

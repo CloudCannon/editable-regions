@@ -6,7 +6,7 @@ import type {
 import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
 import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
-import { CloudCannon } from "../helpers/cloudcannon.js";
+import { CloudCannon } from "../helpers/cloudcannon.mjs";
 import type EditableArrayItem from "./editable-array-item.js";
 import Editable, { type EditableListener } from "./editable.js";
 import "../components/ui/editable-region-button.js";

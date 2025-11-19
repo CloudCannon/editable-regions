@@ -12,7 +12,7 @@ import type EditableComponentControls from "../components/ui/editable-component-
 import {
 	getEditableComponentRenderers,
 	realizeAPIValue,
-} from "../helpers/cloudcannon.js";
+} from "../helpers/cloudcannon.mjs";
 
 export default class EditableComponent extends Editable {
 	protected controlsElement?: EditableComponentControls;
