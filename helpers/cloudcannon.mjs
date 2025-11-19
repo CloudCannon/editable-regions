@@ -26,14 +26,18 @@ let _cloudcannon;
  */
 export const apiLoadedPromise = new Promise((resolve) => {
 	if (extendedWindow.CloudCannonAPI) {
-		_cloudcannon = /** @type {any} */ (extendedWindow.CloudCannonAPI.useVersion("v1", true));
+		_cloudcannon = /** @type {any} */ (
+			extendedWindow.CloudCannonAPI.useVersion("v1", true)
+		);
 		resolve();
 	} else {
 		document.addEventListener(
 			"cloudcannon:load",
 			() => {
 				if (extendedWindow.CloudCannonAPI) {
-					_cloudcannon = /** @type {any} */ (extendedWindow.CloudCannonAPI.useVersion("v1", true));
+					_cloudcannon = /** @type {any} */ (
+						extendedWindow.CloudCannonAPI.useVersion("v1", true)
+					);
 				}
 				return resolve();
 			},
@@ -70,13 +74,15 @@ export const addEditableSnippetRenderer = (key, renderer) => {
  * Get all registered editable component renderers
  * @returns {Record<string, ComponentRenderer>}
  */
-export const getEditableComponentRenderers = () => extendedWindow.cc_components ?? {};
+export const getEditableComponentRenderers = () =>
+	extendedWindow.cc_components ?? {};
 
 /**
  * Get all registered editable snippet renderers
  * @returns {Record<string, ComponentRenderer>}
  */
-export const getEditableSnippetRenderers = () => extendedWindow.cc_snippets ?? {};
+export const getEditableSnippetRenderers = () =>
+	extendedWindow.cc_snippets ?? {};
 
 /**
  * Realize API values by converting CloudCannon API objects to their data representations
