@@ -32,3 +32,6 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Integration tests
+        run: bash run-integration-tests.sh

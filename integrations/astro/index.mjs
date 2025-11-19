@@ -2,7 +2,7 @@ import {
 	renderSlotToString,
 	renderToString,
 } from "astro/runtime/server/index.js";
-import { addEditableComponentRenderer } from "../../helpers/cloudcannon";
+import { addEditableComponentRenderer } from "../../helpers/cloudcannon.mjs";
 
 /**
  * Queue of React components waiting to be rendered
@@ -86,7 +86,7 @@ export const registerAstroComponent = (key, component) => {
 				true,
 				["encrypt", "decrypt"],
 			);
-		} catch (err) {
+		} catch (_err) {
 			console.warn(
 				"[CloudCannon] Could not generate a key for Astro component. This may cause issues with Astro components that use server-islands",
 			);

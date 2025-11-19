@@ -3,3 +3,10 @@ build
 npm-debug.log
 .env
 .DS_Store
+
+#Integration tests
+.next
+next-env.d.ts
+dist
+.astro
+test/integrations/**/package-lock.json

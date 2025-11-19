@@ -1,6 +1,6 @@
 import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
 import { html as beautifyHtml } from "js-beautify";
-import { CloudCannon } from "../helpers/cloudcannon.js";
+import { CloudCannon } from "../helpers/cloudcannon.mjs";
 import EditableText from "./editable-text.js";
 
 const INDENTATION_REGEX = /^([ \t]+)[^\s]/gm;

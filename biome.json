@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.6/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -7,22 +7,24 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"ignore": [
-			".zed/**",
-			".backstage/**",
-			".github/**",
-			"package.json",
-			"package-lock.json",
-			"CHANGELOG.md"
+		"includes": [
+			"components/**",
+			"helpers/**",
+			"integrations/**",
+			"components/**",
+			"nodes/**",
+			"styles/**",
+			"test/**",
+			"types/**",
+			"!test/integrations",
+			"!**/*.astro"
 		]
 	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"organizeImports": {
-		"enabled": true
-	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -33,7 +35,8 @@
 			},
 			"complexity": {
 				"useArrowFunction": "off",
-				"noForEach": "off"
+				"noForEach": "off",
+				"noImportantStyles": "off"
 			},
 			"correctness": {
 				"noVoidTypeReturn": "off"
@@ -42,7 +45,8 @@
 				"noExplicitAny": "off",
 				"noControlCharactersInRegex": "off",
 				"noShadowRestrictedNames": "off",
-				"noImplicitAnyLet": "warn"
+				"noImplicitAnyLet": "warn",
+				"useIterableCallbackReturn": "off"
 			},
 			"performance": {
 				"noDelete": "off",

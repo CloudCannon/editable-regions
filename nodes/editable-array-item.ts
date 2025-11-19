@@ -6,7 +6,7 @@ import {
 	isEditableArrayItem,
 	isEditableElement,
 } from "../helpers/checks.js";
-import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.js";
+import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.mjs";
 import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
@@ -292,7 +292,7 @@ export default class EditableArrayItem extends EditableComponent {
 			this.controlsElement = document.createElement(
 				"editable-array-item-controls",
 			);
-			this.controlsElement.addEventListener("edit", (e: any) => {
+			this.controlsElement.addEventListener("edit", (_e: any) => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
 

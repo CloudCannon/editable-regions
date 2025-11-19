@@ -4,7 +4,7 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import { hasEditable } from "../helpers/checks";
-import { CloudCannon } from "../helpers/cloudcannon";
+import { CloudCannon } from "../helpers/cloudcannon.mjs";
 import { loadingPromise } from "../helpers/loading";
 
 export interface EditableListener {

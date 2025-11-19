@@ -12,7 +12,7 @@ import type EditableComponentControls from "../components/ui/editable-component-
 import {
 	getEditableComponentRenderers,
 	realizeAPIValue,
-} from "../helpers/cloudcannon.js";
+} from "../helpers/cloudcannon.mjs";
 
 export default class EditableComponent extends Editable {
 	protected controlsElement?: EditableComponentControls;
@@ -332,7 +332,7 @@ export default class EditableComponent extends Editable {
 				this.controlsElement = document.createElement(
 					"editable-component-controls",
 				);
-				this.controlsElement.addEventListener("edit", (e: any) => {
+				this.controlsElement.addEventListener("edit", (_e: any) => {
 					this.dispatchEdit(editPath);
 				});
 				this.element.append(this.controlsElement);
