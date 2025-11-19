@@ -21,6 +21,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Integration tests
+        run: bash run-integration-tests.sh
+
   publish-github-release:
     name: Publish to GitHub
     runs-on: ubuntu-24.04
