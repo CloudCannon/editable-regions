@@ -1,6 +1,6 @@
 import { getEditableSnippetRenderers } from "../helpers/cloudcannon.mjs";
-import EditableComponent from "./editable-component.js";
 import Editable from "./editable.js";
+import EditableComponent from "./editable-component.js";
 
 export default class EditableSnippet extends EditableComponent {
 	getComponents() {

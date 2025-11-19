@@ -292,7 +292,7 @@ export default class EditableArrayItem extends EditableComponent {
 			this.controlsElement = document.createElement(
 				"editable-array-item-controls",
 			);
-			this.controlsElement.addEventListener("edit", (e: any) => {
+			this.controlsElement.addEventListener("edit", (_e: any) => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
 

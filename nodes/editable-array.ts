@@ -7,8 +7,8 @@ import type EditableArrayItemComponent from "../components/editable-array-item-c
 import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.mjs";
-import type EditableArrayItem from "./editable-array-item.js";
 import Editable, { type EditableListener } from "./editable.js";
+import type EditableArrayItem from "./editable-array-item.js";
 import "../components/ui/editable-region-button.js";
 
 const arrayDirectionValues = [

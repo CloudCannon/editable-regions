@@ -332,7 +332,7 @@ export default class EditableComponent extends Editable {
 				this.controlsElement = document.createElement(
 					"editable-component-controls",
 				);
-				this.controlsElement.addEventListener("edit", (e: any) => {
+				this.controlsElement.addEventListener("edit", (_e: any) => {
 					this.dispatchEdit(editPath);
 				});
 				this.element.append(this.controlsElement);

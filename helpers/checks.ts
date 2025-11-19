@@ -1,6 +1,6 @@
+import Editable from "../nodes/editable.js";
 import EditableArrayItem from "../nodes/editable-array-item.js";
 import EditableText from "../nodes/editable-text.js";
-import Editable from "../nodes/editable.js";
 
 const TAG_NAMES = [
 	"EDITABLE-TEXT",

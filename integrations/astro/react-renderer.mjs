@@ -24,7 +24,7 @@ addFrameworkRenderer({
 			try {
 				const reactNode = Component(props);
 				return { html: renderToStaticMarkup(reactNode) };
-			} catch (err) {
+			} catch (_err) {
 				const id = queueForClientSideRender((node) => {
 					const reactNode = createElement(Component, props, null);
 					const root = createRoot(node);

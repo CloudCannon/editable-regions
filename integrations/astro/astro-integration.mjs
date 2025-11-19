@@ -88,7 +88,7 @@ export default () => {
 												default:
 													contents += `export const ${key} = ${JSON.stringify(process.env[key] ?? "")};\n`;
 											}
-										} catch (e) {
+										} catch (_e) {
 											//Error intentionally ignored
 										}
 									},
