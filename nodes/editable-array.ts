@@ -218,7 +218,9 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
-		if (!this.element.dataset.idKey) {
+		const key = this.element.dataset.idKey ?? this.element.dataset.componentKey;
+
+		if (!key) {
 			while (children.length > value.length) {
 				children.pop()?.remove();
 			}
@@ -260,7 +262,6 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
-		const key = this.element.dataset.idKey;
 		const componentKey = this.element.dataset.componentKey;
 		const dataKeys: (string | null)[] = [];
 		const componentKeys: (string | null)[] = [];
@@ -287,14 +288,22 @@ export default class EditableArray extends Editable {
 		}
 
 		const childKeys = children.map((element) => {
-			return element.dataset.id;
+			return element.dataset.id ?? element.dataset.component;
 		});
 
 		const equal = dataKeys?.every((key, i) => key === childKeys[i]);
 		if (equal && children.length === dataKeys?.length) {
 			children.forEach((child, index) => {
+				const componentKey =
+					componentKeys[index] || this.element.dataset.component;
+
+				child.dataset.id = String(childKeys[index]);
 				child.dataset.prop = `${index}`;
 				child.dataset.length = `${children.length}`;
+				if (componentKey) {
+					child.dataset.component = componentKey;
+				}
+
 				child.editable?.pushValue(
 					value,
 					{ path: `${index}`, editable: child.editable },
@@ -339,12 +348,10 @@ export default class EditableArray extends Editable {
 					matchingChild = document.createElement(
 						"editable-array-item",
 					) as EditableArrayItemComponent;
-					matchingChild.dataset.id = key;
-					matchingChild.dataset.component = componentKey;
 				} else {
 					const error = document.createElement("editable-region-error-card");
 					error.setAttribute("heading", "Failed to render array item");
-					if (typeof this.element.dataset.componentKey === "string") {
+					if (typeof componentKey === "string") {
 						error.setAttribute(
 							"message",
 							"Array editable region has no child with a matching 'data-id' value for this element and the value has no key matching the 'data-component-key' attribute. Please check that the 'data-component-key' attribute for this element is correct and that each element has an entry for that key, or provide a fallback 'data-component' attribute.",
@@ -352,7 +359,7 @@ export default class EditableArray extends Editable {
 						error.setAttribute(
 							"hint",
 							`This may mean that the value for 'data-component-key' is incorrect or that your array data is incorrectly formatted.
-							The current value for 'data-component-key' is '${this.element.dataset.componentKey}' and the current value for 'data-id' is '${key}'.
+							The current value for 'data-component-key' is '${componentKey}' and the current value for 'data-id' is '${key}'.
 							`,
 						);
 					} else {
@@ -374,6 +381,11 @@ export default class EditableArray extends Editable {
 
 			matchingChild.dataset.id = String(key);
 			matchingChild.dataset.prop = `${i}`;
+			matchingChild.dataset.length = `${dataKeys.length}`;
+
+			if (componentKey) {
+				matchingChild.dataset.component = componentKey;
+			}
 
 			if (existingElement === matchingChild) {
 				placeholder.remove();
