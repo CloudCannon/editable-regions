@@ -1,5 +1,12 @@
 editable-array-item {
 	display: block;
+	/*
+    In Chrome 143.0.7499.41 setting display: block sometimes causes text elements to not be rendered.
+    But in Firefox, not setting display: block causes the positioning of the controls element to be wrong.
+    If you want to remove this line (either because Chrome has fixed it or because you're fixing the positioning logic)
+    make sure you test against [this ticket](https://www.notion.so/cloudcannon/Text-elements-in-editable-regions-in-Chrome-sometimes-don-t-render-2beb2cf63b238067bdbdfc5efb2b2ead).
+    */
+	will-change: contents;
 }
 
 editable-array-item,
