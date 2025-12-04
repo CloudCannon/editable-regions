@@ -22,11 +22,13 @@ export default class EditableRegionButton extends HTMLElement {
 		button.innerHTML = `<cc-icon name='${this.getAttribute("icon")}'></cc-icon>${this.getAttribute("text")}`;
 		shadow.appendChild(button);
 
-		button.addEventListener("click", (e) => {
-			this.dispatchEvent(
-				new CustomEvent("button-click", { detail: { originalEvent: e } }),
-			);
-		});
+		button.addEventListener("click", (e) => this.triggerClick(e));
+	}
+
+	triggerClick(e?: MouseEvent) {
+		this.dispatchEvent(
+			new CustomEvent("button-click", { detail: { originalEvent: e } }),
+		);
 	}
 }
 
