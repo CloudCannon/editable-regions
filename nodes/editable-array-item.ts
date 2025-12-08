@@ -13,7 +13,7 @@ import EditableComponent from "./editable-component.js";
 export default class EditableArrayItem extends EditableComponent {
 	parent: EditableArray | null = null;
 
-	protected controlsElement?: EditableArrayItemControls;
+	protected declare controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 	private structureStrings: string[] = [];

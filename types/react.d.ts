@@ -1,41 +1,32 @@
 /// <reference path="./cloudcannon.d.ts" />
 
 import type { HTMLAttributes, RefAttributes } from "react";
-import type {
-	EditableArrayComponent,
-	EditableArrayItemComponent,
-	EditableComponentComponent,
-	EditableSourceComponent,
-	EditableTextComponent,
-} from "../components";
 
-declare module "@cloudcannon/editable-regions/react" {
-	export function registerReactComponent(key: string, component: unknown): void;
-}
+export function registerReactComponent(key: string, component: unknown): void;
 
 declare global {
 	namespace React.JSX {
 		interface IntrinsicElements {
-			"editable-component": RefAttributes<EditableComponentComponent> &
-				Omit<HTMLAttributes<EditableComponentComponent>, "className"> & {
+			"editable-component": RefAttributes<HTMLElement> &
+				Omit<HTMLAttributes<HTMLElement>, "className"> & {
 					class?: string;
 					"data-prop": string;
 					"data-component": string;
 				};
-			"editable-text": RefAttributes<EditableTextComponent> &
-				Omit<HTMLAttributes<EditableTextComponent>, "className"> & {
+			"editable-text": RefAttributes<HTMLElement> &
+				Omit<HTMLAttributes<HTMLElement>, "className"> & {
 					class?: string;
 					"data-prop": string;
 					"data-type"?: "block" | "text" | "span";
 				};
-			"editable-source": RefAttributes<EditableSourceComponent> &
-				Omit<HTMLAttributes<EditableSourceComponent>, "className"> & {
+			"editable-source": RefAttributes<HTMLElement> &
+				Omit<HTMLAttributes<HTMLElement>, "className"> & {
 					class?: string;
 					"data-path": string;
 					"data-key": string;
 				};
-			"editable-array": RefAttributes<EditableArrayComponent> &
-				Omit<HTMLAttributes<EditableArrayComponent>, "className"> & {
+			"editable-array": RefAttributes<HTMLElement> &
+				Omit<HTMLAttributes<HTMLElement>, "className"> & {
 					class?: string;
 					"data-prop": string;
 					"data-id-key"?: string;
@@ -47,8 +38,8 @@ declare global {
 						| "column-reverse"
 						| "row-reverse";
 				};
-			"editable-array-item": RefAttributes<EditableArrayItemComponent> &
-				Omit<HTMLAttributes<EditableArrayItemComponent>, "className"> & {
+			"editable-array-item": RefAttributes<HTMLElement> &
+				Omit<HTMLAttributes<HTMLElement>, "className"> & {
 					class?: string;
 					"data-id"?: string;
 					"data-component"?: string;
