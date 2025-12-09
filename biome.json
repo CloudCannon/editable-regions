@@ -17,7 +17,8 @@
 			"test/**",
 			"types/**",
 			"!test/integrations",
-			"!**/*.astro"
+			"!**/*.astro",
+			"!**/*.d.mts"
 		]
 	},
 	"formatter": {
