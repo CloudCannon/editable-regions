@@ -522,6 +522,28 @@ export default class Editable {
 		});
 	}
 
+	matchSourcePart(type: "collections" | "data" | "file", source?: string) {
+		if (!source) {
+			return;
+		}
+
+		if (!source.startsWith(`@${type}`)) {
+			return;
+		}
+
+		const argsPart = source.slice(type.length + 1);
+		const brackets = argsPart.match(/^\[+/);
+		if (!brackets) {
+			return;
+		}
+		const bracketsLength = brackets[0].length;
+		return argsPart.match(
+			new RegExp(
+				`^\\[{${bracketsLength}}(?<key>.+?)\\]{${bracketsLength}}(\\.(?<rest>.+))?$`,
+			),
+		)?.groups;
+	}
+
 	parseSource(source?: string) {
 		let collection: CloudCannonJavaScriptV1APICollection | undefined;
 		let file: CloudCannonJavaScriptV1APIFile | undefined;
@@ -529,29 +551,23 @@ export default class Editable {
 		let absolute = false;
 		let currentFile = false;
 
-		const collectionMatch = source?.match(
-			/^@collections\[(?<key>[^\]]+)\](\.(?<rest>.+))?$/,
-		);
-		if (collectionMatch?.groups) {
-			const { key, rest } = collectionMatch.groups;
+		const collectionMatch = this.matchSourcePart("collections", source);
+		if (collectionMatch) {
+			const { key, rest } = collectionMatch;
 			collection = CloudCannon.collection(key);
 			source = rest;
 			absolute = true;
 		} else {
-			const fileMatch = source?.match(
-				/^@file\[(?<path>[^\]]+)\]\.(?<rest>.+)$/,
-			);
-			if (fileMatch?.groups) {
-				const { path, rest } = fileMatch.groups;
-				file = CloudCannon.file(path);
+			const fileMatch = this.matchSourcePart("file", source);
+			if (fileMatch) {
+				const { key, rest } = fileMatch;
+				file = CloudCannon.file(key);
 				source = rest;
 				absolute = true;
 			} else {
-				const dataMatch = source?.match(
-					/^@data\[(?<key>[^\]]+)\](\.(?<rest>.+))?$/,
-				);
-				if (dataMatch?.groups) {
-					const { key, rest } = dataMatch.groups;
+				const dataMatch = this.matchSourcePart("data", source);
+				if (dataMatch) {
+					const { key, rest } = dataMatch;
 					dataset = CloudCannon.dataset(key);
 					source = rest;
 					absolute = true;

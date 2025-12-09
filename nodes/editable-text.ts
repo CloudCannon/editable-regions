@@ -7,7 +7,8 @@ export default class EditableText extends Editable {
 	editor?: any;
 	focused = false;
 	focusIndex = 0;
-	value: string | null | undefined;
+
+	declare value: string | null | undefined;
 
 	validateConfiguration(): boolean {
 		const prop = this.element.dataset.prop;

@@ -186,6 +186,44 @@ export default class EditableArray extends Editable {
 			value = [];
 		}
 
+		const templates: {
+			keyed: Record<
+				string,
+				HTMLElement & {
+					editable?: EditableArrayItem;
+				}
+			>;
+			unkeyed?: HTMLElement & {
+				editable?: EditableArrayItem;
+			};
+		} = { keyed: {} };
+
+		for (let i = 0; i < this.element.children.length; i += 1) {
+			const childEl = this.element.children[i];
+			if (
+				childEl instanceof HTMLTemplateElement &&
+				typeof childEl.dataset.cloudcannonIgnore !== "string"
+			) {
+				const key = childEl.dataset.id;
+				const content = childEl.content;
+				let templateEl: HTMLElement;
+				if (content.childElementCount === 1) {
+					templateEl = content.children[0] as HTMLElement;
+				} else {
+					templateEl = document.createElement(
+						"editable-array-item",
+					) as HTMLElement;
+					templateEl.append(content.cloneNode(true));
+				}
+
+				if (typeof key === "string") {
+					templates.keyed[key] = templateEl;
+				} else {
+					templates.unkeyed = templateEl;
+				}
+			}
+		}
+
 		const children: (HTMLElement & { editable?: EditableArrayItem })[] = [];
 
 		for (const child of this.element.querySelectorAll(
@@ -206,7 +244,9 @@ export default class EditableArray extends Editable {
 		if (
 			children.length === 0 &&
 			!this.element.dataset.component &&
-			!this.element.dataset.componentKey
+			!this.element.dataset.componentKey &&
+			!templates.unkeyed &&
+			Object.keys(templates.keyed).length === 0
 		) {
 			const error = document.createElement("editable-region-error-card");
 			error.setAttribute("heading", "Failed to render array editable region");
@@ -218,7 +258,9 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
-		if (!this.element.dataset.idKey) {
+		const key = this.element.dataset.idKey ?? this.element.dataset.componentKey;
+
+		if (!key) {
 			while (children.length > value.length) {
 				children.pop()?.remove();
 			}
@@ -233,7 +275,12 @@ export default class EditableArray extends Editable {
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
 				if (!child) {
-					if (this.element.dataset.component) {
+					if (templates.unkeyed) {
+						child = templates.unkeyed.cloneNode(true) as HTMLElement & {
+							editable?: EditableArrayItem;
+						};
+						child.dataset.editable = "array-item";
+					} else if (this.element.dataset.component) {
 						child = document.createElement(
 							"editable-array-item",
 						) as EditableArrayItemComponent;
@@ -260,7 +307,6 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
-		const key = this.element.dataset.idKey;
 		const componentKey = this.element.dataset.componentKey;
 		const dataKeys: (string | null)[] = [];
 		const componentKeys: (string | null)[] = [];
@@ -287,14 +333,22 @@ export default class EditableArray extends Editable {
 		}
 
 		const childKeys = children.map((element) => {
-			return element.dataset.id;
+			return element.dataset.id ?? element.dataset.component;
 		});
 
 		const equal = dataKeys?.every((key, i) => key === childKeys[i]);
 		if (equal && children.length === dataKeys?.length) {
 			children.forEach((child, index) => {
+				const componentKey =
+					componentKeys[index] || this.element.dataset.component;
+
+				child.dataset.id = String(childKeys[index]);
 				child.dataset.prop = `${index}`;
 				child.dataset.length = `${children.length}`;
+				if (componentKey) {
+					child.dataset.component = componentKey;
+				}
+
 				child.editable?.pushValue(
 					value,
 					{ path: `${index}`, editable: child.editable },
@@ -324,6 +378,7 @@ export default class EditableArray extends Editable {
 			}
 			const placeholder = placeholders[i];
 			const existingElement = children[i];
+			const templateElement = templates.keyed[key] ?? templates.unkeyed;
 			const componentKey = componentKeys[i] || this.element.dataset.component;
 
 			const matchingChildIndex = children.findIndex(
@@ -333,18 +388,19 @@ export default class EditableArray extends Editable {
 			let matchingChild = children[matchingChildIndex];
 			if (!matchingChild) {
 				const clone = children.find((child) => child.dataset.id === key);
-				if (clone) {
-					matchingChild = clone.cloneNode(true) as any;
+				if (templateElement) {
+					matchingChild = templateElement.cloneNode(true) as any;
+					matchingChild.dataset.editable = "array-item";
 				} else if (componentKey) {
 					matchingChild = document.createElement(
 						"editable-array-item",
 					) as EditableArrayItemComponent;
-					matchingChild.dataset.id = key;
-					matchingChild.dataset.component = componentKey;
+				} else if (clone) {
+					matchingChild = clone.cloneNode(true) as any;
 				} else {
 					const error = document.createElement("editable-region-error-card");
 					error.setAttribute("heading", "Failed to render array item");
-					if (typeof this.element.dataset.componentKey === "string") {
+					if (typeof componentKey === "string") {
 						error.setAttribute(
 							"message",
 							"Array editable region has no child with a matching 'data-id' value for this element and the value has no key matching the 'data-component-key' attribute. Please check that the 'data-component-key' attribute for this element is correct and that each element has an entry for that key, or provide a fallback 'data-component' attribute.",
@@ -352,7 +408,7 @@ export default class EditableArray extends Editable {
 						error.setAttribute(
 							"hint",
 							`This may mean that the value for 'data-component-key' is incorrect or that your array data is incorrectly formatted.
-							The current value for 'data-component-key' is '${this.element.dataset.componentKey}' and the current value for 'data-id' is '${key}'.
+							The current value for 'data-component-key' is '${componentKey}' and the current value for 'data-id' is '${key}'.
 							`,
 						);
 					} else {
@@ -374,6 +430,11 @@ export default class EditableArray extends Editable {
 
 			matchingChild.dataset.id = String(key);
 			matchingChild.dataset.prop = `${i}`;
+			matchingChild.dataset.length = `${dataKeys.length}`;
+
+			if (componentKey) {
+				matchingChild.dataset.component = componentKey;
+			}
 
 			if (existingElement === matchingChild) {
 				placeholder.remove();
