@@ -177,10 +177,15 @@ export default class EditableComponent extends Editable {
 							const listener = this.listeners[i];
 							if (listener.editable.element === targetChild) {
 								listener.editable.element = renderChild;
-								renderChild.editable.pushValue(this.value, listener, {
-									...this.contexts,
-									__base_context: this.contextBase ?? {},
-								});
+								renderChild.editable.pushValue(
+									this.value,
+									this.specialProps,
+									listener,
+									{
+										...this.contexts,
+										__base_context: this.contextBase ?? {},
+									},
+								);
 							}
 						}
 					} else if (hasEditable(targetChild)) {
@@ -259,10 +264,15 @@ export default class EditableComponent extends Editable {
 		for (let i = 0; i < this.listeners.length; i++) {
 			const listener = this.listeners[i];
 			if (listener.editable.element === targetChild) {
-				targetChild.editable.pushValue(this.value, listener, {
-					...this.contexts,
-					__base_context: this.contextBase ?? {},
-				});
+				targetChild.editable.pushValue(
+					this.value,
+					this.specialProps,
+					listener,
+					{
+						...this.contexts,
+						__base_context: this.contextBase ?? {},
+					},
+				);
 			}
 		}
 	}

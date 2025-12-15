@@ -45,9 +45,15 @@ export default class EditableSource extends EditableText {
 
 		this.file = CloudCannon.file(this.element.dataset.path);
 		this.file.addEventListener("change", () => {
-			this.file?.get().then(this.pushValue.bind(this));
+			this.file
+				?.get()
+				.then((source) =>
+					this.pushValue(source, {}, { path: "", editable: this }),
+				);
 		});
-		this.file.get().then(this.pushValue.bind(this));
+		this.file.get().then((source) => {
+			this.pushValue(source, {}, { path: "", editable: this });
+		});
 	}
 
 	validateConfiguration(): boolean {

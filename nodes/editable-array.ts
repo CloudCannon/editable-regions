@@ -43,7 +43,9 @@ export default class EditableArray extends Editable {
 			return;
 		}
 
-		const __base_context = { ...this.contextBase };
+		const __base_context = {
+			...this.contextBase,
+		};
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
@@ -90,7 +92,7 @@ export default class EditableArray extends Editable {
 		}
 
 		if (listener.path) {
-			listener.editable.pushValue(value, listener, {
+			listener.editable.pushValue(value, this.specialProps, listener, {
 				__base_context,
 			});
 		}
@@ -164,7 +166,9 @@ export default class EditableArray extends Editable {
 
 	private async _update(): Promise<void> {
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
-		const __base_context = { ...this.contextBase };
+		const __base_context = {
+			...this.contextBase,
+		};
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
 		} else if (CloudCannon.isAPIDataset(this.value)) {
@@ -300,6 +304,7 @@ export default class EditableArray extends Editable {
 				child.dataset.length = `${children.length}`;
 				child.editable?.pushValue(
 					value,
+					this.specialProps,
 					{ path: `${i}`, editable: child.editable },
 					{ __base_context },
 				);
@@ -351,6 +356,7 @@ export default class EditableArray extends Editable {
 
 				child.editable?.pushValue(
 					value,
+					this.specialProps,
 					{ path: `${index}`, editable: child.editable },
 					{ __base_context },
 				);
@@ -448,6 +454,7 @@ export default class EditableArray extends Editable {
 				matchingChild.editable.parent = this;
 				matchingChild.editable.pushValue(
 					value,
+					this.specialProps,
 					{ path: `${i}`, editable: matchingChild.editable },
 					{ __base_context },
 				);
@@ -501,5 +508,16 @@ export default class EditableArray extends Editable {
 				}),
 			);
 		});
+	}
+
+	getSpecialProps(
+		incomingSpecialProps: Record<string, unknown> = {},
+	): Record<string, unknown> {
+		return {
+			...super.getSpecialProps(incomingSpecialProps),
+			"@length": Array.isArray(this.propsBase)
+				? this.propsBase.length
+				: undefined,
+		};
 	}
 }

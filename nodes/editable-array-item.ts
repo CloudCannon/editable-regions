@@ -485,12 +485,12 @@ export default class EditableArrayItem extends EditableComponent {
 		}
 	}
 
-	setupListeners(): void {
-		super.setupListeners();
-		if (!this.element.dataset.prop) {
-			this.parent?.registerListener({
-				editable: this,
-			});
-		}
+	getSpecialProps(
+		incomingSpecialProps: Record<string, unknown> = {},
+	): Record<string, unknown> {
+		return {
+			...super.getSpecialProps(incomingSpecialProps),
+			"@index": Number(this.element.dataset.prop),
+		};
 	}
 }

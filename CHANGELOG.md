@@ -7,6 +7,7 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
-## Unreleased
+## 0.0.10
 
-* Base release
+* Added the `@length` special prop to array editable regions.
+* Added the `@index` special prop to array-item editable regions.
