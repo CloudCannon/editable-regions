@@ -9,6 +9,7 @@
 
 ## 0.0.10
 
+* Component editable regions now display an error when the component key cannot be found within 4 seconds.
 * Added support for passing literal values to editable regions, using `data-literal-*` attributes.
 * Added the `@length` special prop to array editable regions.
 * Added the `@index` special prop to array-item editable regions.
