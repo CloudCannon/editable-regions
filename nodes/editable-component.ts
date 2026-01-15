@@ -73,9 +73,40 @@ export default class EditableComponent extends Editable {
 		if (!key) {
 			return super.update();
 		}
-		const component = this.getComponents()?.[key];
+
+		let component = this.getComponents()?.[key];
+		for (let i = 0; !component && i < 20; i++) {
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			component = this.getComponents()?.[key];
+		}
+
 		if (!component) {
-			return super.update();
+			this.element.classList.add("errored");
+			const error = document.createElement("editable-region-error-card");
+			error.setAttribute("heading", "Failed to render component");
+			error.setAttribute(
+				"message",
+				`Failed to find a registered component with the key "${key}". This may mean that the provided "data-component" attribute is incorrect or that the component hasn't been registered.`,
+			);
+
+			const caseMatch = Object.keys(this.getComponents()).find(
+				(k) => k.toLowerCase() === key.toLowerCase(),
+			);
+
+			if (Object.keys(this.getComponents()).length === 0) {
+				error.setAttribute(
+					"hint",
+					"There are no registered components currently available. Please check that you've included your registration script and that it's running correctly.",
+				);
+			} else if (caseMatch) {
+				error.setAttribute(
+					"hint",
+					`The component key "${key}" is not case-sensitive. Did you mean "${caseMatch}"?`,
+				);
+			}
+
+			this.element.replaceChildren(error);
+			return;
 		}
 
 		const value = await realizeAPIValue(this.value);
