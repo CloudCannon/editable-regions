@@ -194,7 +194,6 @@ export default class Editable {
 
 		if (specialPropsBase?.path) {
 			newValue = structuredClone(this.specialProps[specialPropsBase.path]);
-			console.log({ newValue });
 		}
 
 		if (Object.entries(this.props).length > 0) {
