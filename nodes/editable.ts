@@ -47,6 +47,8 @@ export default class Editable {
 	disconnecting = false;
 	needsReconnect = false;
 
+	specialPropListeners: EditableListener[] = [];
+	specialProps: Record<string, unknown> = {};
 	propsBase: unknown;
 	contextBase?: EditableContext;
 	props: Record<string, unknown> = {};
@@ -150,7 +152,10 @@ export default class Editable {
 					: key;
 			}
 		}
-		return { value, context: context ?? {} };
+		return {
+			value,
+			context: context ?? {},
+		};
 	}
 
 	shouldUpdate(_value: unknown) {
@@ -163,43 +168,80 @@ export default class Editable {
 
 	async getNewValue(
 		value: unknown,
+		specialProps: Record<string, unknown>,
 		listener?: EditableListener,
 		contexts?: { [key: string]: EditableContext },
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
 
-		const { value: resolvedValue, context: newContext } =
-			await this.lookupPathAndContext(path, value, contexts);
+		if (typeof path === "string") {
+			const { value: resolvedValue, context: newContext } =
+				await this.lookupPathAndContext(path, value, contexts);
 
-		if (!key) {
-			this.propsBase = resolvedValue;
-			this.contextBase = newContext;
-		} else {
-			this.props[key] = resolvedValue;
-			this.contexts[key] = newContext;
+			if (!key) {
+				this.propsBase = resolvedValue;
+				this.contextBase = newContext;
+			} else {
+				this.props[key] = resolvedValue;
+				this.contexts[key] = newContext;
+			}
 		}
 
-		if (Object.entries(this.props).length === 0) {
-			return this.validateValue(this.propsBase);
+		this.specialProps = this.getSpecialProps(specialProps);
+
+		let newValue = this.propsBase;
+		const specialPropsBase = this.specialPropListeners.find(({ key }) => !key);
+
+		if (specialPropsBase?.path) {
+			newValue = structuredClone(this.specialProps[specialPropsBase.path]);
 		}
 
-		const newValue = Object.entries(this.props).reduce(
-			(acc, [key, val]) => {
-				(acc as any)[key] = structuredClone(val);
-				return acc;
-			},
-			structuredClone(this.propsBase ?? {}),
+		if (Object.entries(this.props).length > 0) {
+			newValue = Object.entries(this.props).reduce(
+				(acc, [key, val]) => {
+					(acc as any)[key] = structuredClone(val);
+					return acc;
+				},
+				newValue && typeof newValue === "object"
+					? structuredClone(newValue)
+					: {},
+			);
+		}
+
+		const filteredSpecialPropsListener = this.specialPropListeners.filter(
+			({ key }) => !!key,
 		);
+		if (filteredSpecialPropsListener.length > 0) {
+			newValue = filteredSpecialPropsListener.reduce(
+				(acc, { key, path }) => {
+					if (key && path) {
+						(acc as any)[key] = structuredClone(this.specialProps[path]);
+					}
+					return acc;
+				},
+				structuredClone(
+					newValue && typeof newValue === "object"
+						? structuredClone(newValue)
+						: {},
+				),
+			);
+		}
 
 		return this.validateValue(newValue);
 	}
 
 	async pushValue(
 		value: unknown,
+		specialProps: Record<string, unknown>,
 		listener?: EditableListener,
 		contexts?: { [key: string]: EditableContext },
 	): Promise<void> {
-		const newValue = await this.getNewValue(value, listener, contexts);
+		const newValue = await this.getNewValue(
+			value,
+			specialProps,
+			listener,
+			contexts,
+		);
 
 		if (typeof newValue === "undefined" || !this.shouldUpdate(newValue)) {
 			return;
@@ -219,7 +261,7 @@ export default class Editable {
 
 	update(): void {
 		this.listeners.forEach((listener) =>
-			listener.editable.pushValue(this.value, listener, {
+			listener.editable.pushValue(this.value, this.specialProps, listener, {
 				...this.contexts,
 				__base_context: this.contextBase ?? {},
 			}),
@@ -232,7 +274,7 @@ export default class Editable {
 
 	registerListener(listener: EditableListener): void {
 		if (this.value !== undefined) {
-			listener.editable.pushValue(this.value, listener, {
+			listener.editable.pushValue(this.value, this.specialProps, listener, {
 				...this.contexts,
 				__base_context: this.contextBase ?? {},
 			});
@@ -277,6 +319,7 @@ export default class Editable {
 			this.element.removeEventListener(event, fn);
 		});
 		this.domListeners = [];
+		this.specialPropListeners = [];
 		this.connected = false;
 		this.connectPromise = undefined;
 		this.disconnecting = false;
@@ -329,6 +372,7 @@ export default class Editable {
 			parent = parent.parentElement;
 		}
 
+		let hasParentListener = false;
 		this.parent = parentEditable || null;
 
 		Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
@@ -346,7 +390,13 @@ export default class Editable {
 				path: source,
 			};
 
+			if (!absolute && source.startsWith("@") && source !== "@content") {
+				this.specialPropListeners.push(listener);
+				return;
+			}
+
 			if (!absolute && parentEditable) {
+				hasParentListener = true;
 				parentEditable.registerListener(listener);
 				return;
 			}
@@ -362,7 +412,9 @@ export default class Editable {
 							? undefined
 							: `@file[${file?.path}]`;
 				const handleAPIChange = () => {
-					this.pushValue(obj, listener, { __base_context: { fullPath } });
+					this.pushValue(obj, {}, listener, {
+						__base_context: { fullPath },
+					});
 				};
 				this.APIListeners.push({
 					obj,
@@ -373,6 +425,10 @@ export default class Editable {
 				handleAPIChange();
 			}
 		});
+
+		if (this.parent && !hasParentListener) {
+			this.parent.registerListener({ editable: this });
+		}
 
 		this.addEventListener("cloudcannon-api", this.handleApiEvent.bind(this));
 	}
@@ -595,6 +651,15 @@ export default class Editable {
 			snippets,
 			dataset,
 			currentFile,
+		};
+	}
+
+	getSpecialProps(
+		incomingSpecialProps: Record<string, unknown> = {},
+	): Record<string, unknown> {
+		return {
+			...this.specialProps,
+			...incomingSpecialProps,
 		};
 	}
 }

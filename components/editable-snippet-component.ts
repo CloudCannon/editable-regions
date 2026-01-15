@@ -9,7 +9,7 @@ export default class EditableSnippetComponent extends HTMLElement {
 	}
 
 	set snippetData(value: unknown) {
-		this.editable.pushValue(value);
+		this.editable.pushValue(value, {}, { path: "", editable: this.editable });
 	}
 
 	connectedCallback(): void {
