@@ -166,6 +166,32 @@ export default class Editable {
 		return this.value !== undefined;
 	}
 
+	getLiteralProps() {
+		let literalPropsBase: unknown;
+		const literalProps: Record<string, unknown> = {};
+		Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
+			if (!propName.startsWith("literal") || typeof propPath !== "string") {
+				return;
+			}
+
+			const key =
+				propName === "prop" ? undefined : propName.substring(7).toLowerCase();
+			let value = propPath;
+			try {
+				value = JSON.parse(value);
+			} catch (_error) {
+				// Error intentionally ignored
+			}
+
+			if (key) {
+				literalProps[key] = value;
+			} else {
+				literalPropsBase = value;
+			}
+		});
+		return { literalPropsBase, literalProps };
+	}
+
 	async getNewValue(
 		value: unknown,
 		specialProps: Record<string, unknown>,
@@ -188,12 +214,17 @@ export default class Editable {
 		}
 
 		this.specialProps = this.getSpecialProps(specialProps);
+		const { literalPropsBase, literalProps } = this.getLiteralProps();
 
-		let newValue = this.propsBase;
+		let newValue: unknown;
 		const specialPropsBase = this.specialPropListeners.find(({ key }) => !key);
 
-		if (specialPropsBase?.path) {
+		if (this.propsBase !== undefined) {
+			newValue = this.propsBase;
+		} else if (specialPropsBase?.path) {
 			newValue = structuredClone(this.specialProps[specialPropsBase.path]);
+		} else if (literalPropsBase !== undefined) {
+			newValue = literalPropsBase;
 		}
 
 		if (Object.entries(this.props).length > 0) {
@@ -224,6 +255,18 @@ export default class Editable {
 						? structuredClone(newValue)
 						: {},
 				),
+			);
+		}
+
+		if (Object.entries(literalProps).length > 0) {
+			newValue = Object.entries(literalProps).reduce(
+				(acc, [key, val]) => {
+					(acc as any)[key] = structuredClone(val);
+					return acc;
+				},
+				newValue && typeof newValue === "object"
+					? structuredClone(newValue)
+					: {},
 			);
 		}
 
