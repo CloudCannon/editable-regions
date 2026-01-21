@@ -6,12 +6,10 @@ export { default as EditableSnippetComponent } from "./editable-snippet-componen
 export { default as EditableSourceComponent } from "./editable-source-component.js";
 export { default as EditableTextComponent } from "./editable-text-component.js";
 
-import { apiLoadedPromise } from "../helpers/cloudcannon.mjs";
 import {
 	dehydrateDataEditableRegions,
 	hydrateDataEditableRegions,
 } from "../helpers/hydrate-editable-regions";
-import { completeLoading } from "../helpers/loading.js";
 
 const observer = new MutationObserver((mutations) => {
 	mutations.forEach((mutation) => {
@@ -32,14 +30,3 @@ const observer = new MutationObserver((mutations) => {
 hydrateDataEditableRegions(document.body);
 
 observer.observe(document, { childList: true, subtree: true });
-
-Promise.all([
-	apiLoadedPromise,
-	customElements.whenDefined("editable-array-item"),
-	customElements.whenDefined("editable-array"),
-	customElements.whenDefined("editable-text"),
-	customElements.whenDefined("editable-component"),
-	customElements.whenDefined("editable-image"),
-	customElements.whenDefined("editable-source"),
-	customElements.whenDefined("editable-snippet"),
-]).then(() => completeLoading());
