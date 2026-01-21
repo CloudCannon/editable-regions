@@ -1,0 +1,65 @@
+---
+import {
+  getRelativeLocaleUrl,
+  getAbsoluteLocaleUrl,
+  getRelativeLocaleUrlList,
+  getAbsoluteLocaleUrlList,
+  getPathByLocale,
+} from "astro:i18n";
+import I18nLink from "../components/i18n-link.astro";
+
+// Test URL generation functions
+const relativeUrl = getRelativeLocaleUrl("en", "/about");
+const absoluteUrl = getAbsoluteLocaleUrl("en", "/about");
+const relativeUrlList = getRelativeLocaleUrlList("/about");
+const absoluteUrlList = getAbsoluteLocaleUrlList("/about");
+const pathByLocale = getPathByLocale("en");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:i18n Test Page</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:i18n Module Tests</h1>
+
+    <section>
+      <h2>getRelativeLocaleUrl('en', '/about')</h2>
+      <p>Result: "{relativeUrl}"</p>
+    </section>
+
+    <section>
+      <h2>getAbsoluteLocaleUrl('en', '/about')</h2>
+      <p>Result: "{absoluteUrl}"</p>
+    </section>
+
+    <section>
+      <h2>getRelativeLocaleUrlList('/about')</h2>
+      <p>Result: {JSON.stringify(relativeUrlList)}</p>
+    </section>
+
+    <section>
+      <h2>getAbsoluteLocaleUrlList('/about')</h2>
+      <p>Result: {JSON.stringify(absoluteUrlList)}</p>
+    </section>
+
+    <section>
+      <h2>getPathByLocale('en')</h2>
+      <p>Result: "{pathByLocale}"</p>
+    </section>
+
+    <section>
+      <h2>Editable i18n Component</h2>
+      <div data-editable="component" data-component="i18n-link">
+        <I18nLink title="Editable i18n Link" locale="es" path="/contact">
+          <p data-editable="source" data-path="src/pages/i18n.astro" data-key="i18n-link-content">This is an editable component using astro:i18n.</p>
+        </I18nLink>
+      </div>
+    </section>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+---
+import { isActionError, ActionError } from "astro:actions";
+
+interface Props {
+  title: string;
+  actionName: string;
+}
+
+const { title, actionName } = Astro.props;
+
+// Test the shimmed functions
+const testError = new ActionError({ code: "BAD_REQUEST", message: "Test error" });
+const isError = isActionError(testError);
+---
+
+<script>
+import { actions } from 'astro:actions';
+console.log(actions);
+</script>
+
+<div class="actions-button">
+  <h3>{title}</h3>
+  <p>Action: {actionName}</p>
+  <p>isActionError test: {String(isError)}</p>
+  <button type="button" disabled>
+    {actionName} (shimmed)
+  </button>
+  <slot />
+</div>
+
+<style>
+  .actions-button {
+    border: 2px solid #d9534f;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #f8e8e8;
+  }
+  button {
+    background: #d9534f;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+</style>
