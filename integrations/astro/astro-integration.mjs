@@ -66,7 +66,7 @@ export default () => {
 								}
 
 								if (type === "env" && id.endsWith("/server")) {
-									return join(dir, "modules", `secrets.js`);
+									return join(dir, "modules", "secrets.js");
 								}
 
 								if (!SUPPORTED_VIRTUAL_MODULES.includes(type)) {
