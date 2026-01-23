@@ -66,6 +66,11 @@ export default class EditableComponent extends Editable {
 		return this.updatePromise;
 	}
 
+	santiseComponentOutput(el: HTMLElement): HTMLElement {
+		el.querySelectorAll("noscript").forEach((el) => el.remove());
+		return el;
+	}
+
 	async _update(): Promise<void> {
 		this.element.classList.remove("errored");
 
@@ -118,7 +123,7 @@ export default class EditableComponent extends Editable {
 
 		let rootEl: HTMLElement;
 		try {
-			rootEl = await component(value);
+			rootEl = this.santiseComponentOutput(await component(value));
 		} catch (err: unknown) {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");
