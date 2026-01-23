@@ -1,0 +1,32 @@
+---
+import { PUBLIC_API_URL, PUBLIC_FEATURE_FLAG } from "astro:env/client";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+import { getSecret } from "astro:env/server";
+
+// Test getSecret (shimmed - will log warning)
+const secretValue = getSecret("SECRET_API_KEY");
+---
+
+<div class="env-display">
+  <h3>{title}</h3>
+  <p>PUBLIC_API_URL: {PUBLIC_API_URL}</p>
+  <p>PUBLIC_FEATURE_FLAG: {String(PUBLIC_FEATURE_FLAG)}</p>
+  <p>secretValue: {secretValue}</p>
+  <slot />
+</div>
+
+<style>
+  .env-display {
+    border: 2px solid #17a2b8;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #e8f6f8;
+  }
+</style>
