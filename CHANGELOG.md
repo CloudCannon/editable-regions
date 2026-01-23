@@ -15,3 +15,4 @@
 * Added the `@index` special prop to array-item editable regions.
 * Fixed an issue where some Astro virtual modules were being shimmed unnecessarily, preventing them from functioning on the client.
   * The Astro client router and view transitions will now function alongside the editable regions integration
+* Fixed an issue where noscript tags inside editable components would always be active when viewed in Chrome.
