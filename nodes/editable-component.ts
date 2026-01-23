@@ -19,6 +19,7 @@ export default class EditableComponent extends Editable {
 
 	private updatePromise: Promise<void> | undefined;
 	private needsReupdate = false;
+	private pendingPartialSubtree?: ChildNode | null;
 
 	getComponents() {
 		return getEditableComponentRenderers();
@@ -51,22 +52,36 @@ export default class EditableComponent extends Editable {
 		return true;
 	}
 
-	update(): Promise<void> {
+	update(partialSubtree?: ChildNode | null): Promise<void> {
 		if (this.updatePromise) {
 			this.needsReupdate = true;
+			this.pendingPartialSubtree = partialSubtree;
 			return this.updatePromise;
 		}
-		this.updatePromise = this._update().then(() => {
+		this.updatePromise = this._update(partialSubtree).then(() => {
 			this.updatePromise = undefined;
 			if (this.needsReupdate) {
 				this.needsReupdate = false;
-				return this.update();
+				const savedPartialSubtree = this.pendingPartialSubtree;
+				this.pendingPartialSubtree = undefined;
+				return this.update(savedPartialSubtree);
 			}
 		});
 		return this.updatePromise;
 	}
 
-	async _update(): Promise<void> {
+	async _update(partialSubtree?: ChildNode | null): Promise<void> {
+		if (partialSubtree) {
+			if (this.controlsElement) {
+				this.controlsElement.remove();
+			}
+			this.updateTree(this.element, partialSubtree);
+			if (this.controlsElement) {
+				this.element.appendChild(this.controlsElement);
+			}
+			return;
+		}
+
 		this.element.classList.remove("errored");
 
 		const key = this.element.dataset.component;
@@ -216,6 +231,7 @@ export default class EditableComponent extends Editable {
 										...this.contexts,
 										__base_context: this.contextBase ?? {},
 									},
+									renderChild,
 								);
 							}
 						}
@@ -303,6 +319,7 @@ export default class EditableComponent extends Editable {
 						...this.contexts,
 						__base_context: this.contextBase ?? {},
 					},
+					renderChild,
 				);
 			}
 		}
