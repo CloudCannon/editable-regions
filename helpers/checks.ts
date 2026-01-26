@@ -2,32 +2,11 @@ import Editable from "../nodes/editable.js";
 import EditableArrayItem from "../nodes/editable-array-item.js";
 import EditableText from "../nodes/editable-text.js";
 
-const TAG_NAMES = [
-	"EDITABLE-TEXT",
-	"EDITABLE-COMPONENT",
-	"EDITABLE-ARRAY-ITEM",
-	"EDITABLE-ARRAY",
-	"EDITABLE-IMAGE",
-	"EDITABLE-SOURCE",
-	"EDITABLE-SNIPPET",
-];
-
-const EDITABLE_REGION_TYPES = [
-	"text",
-	"component",
-	"array",
-	"array-item",
-	"image",
-	"source",
-];
-
-const CORRESPONDING_NAME: Record<string, string> = {
-	"EDITABLE-TEXT": "text",
-	"EDITABLE-COMPONENT": "component",
-	"EDITABLE-ARRAY-ITEM": "array-item",
-	"EDITABLE-ARRAY": "array",
-	"EDITABLE-IMAGE": "image",
-	"EDITABLE-SOURCE": "source",
+const getEditableType = (el: HTMLElement): string | undefined => {
+	if (el.tagName.startsWith("EDITABLE-")) {
+		return el.tagName.slice(9).toLowerCase();
+	}
+	return el.dataset.editable;
 };
 
 export const hasEditable = <T extends object>(
@@ -53,7 +32,7 @@ export const isEditableWebcomponent = (el: unknown): boolean => {
 		return false;
 	}
 
-	return TAG_NAMES.includes(el.tagName);
+	return el.tagName.startsWith("EDITABLE-");
 };
 
 export const isEditableElement = (el: unknown): boolean => {
@@ -62,19 +41,13 @@ export const isEditableElement = (el: unknown): boolean => {
 	}
 
 	return (
-		TAG_NAMES.includes(el.tagName) ||
-		(!!el.dataset.editable &&
-			EDITABLE_REGION_TYPES.includes(el.dataset.editable))
+		el.tagName.startsWith("EDITABLE-") ||
+		typeof el.dataset.editable === "string"
 	);
 };
 
 export const areEqualEditables = (a: HTMLElement, b: HTMLElement) => {
-	if (
-		a.tagName !== b.tagName &&
-		a.dataset.editable !== b.dataset.editable &&
-		CORRESPONDING_NAME[a.tagName] !== b.dataset.editable &&
-		CORRESPONDING_NAME[b.tagName] !== a.dataset.editable
-	) {
+	if (getEditableType(a) !== getEditableType(b)) {
 		return false;
 	}
 

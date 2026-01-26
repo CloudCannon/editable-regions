@@ -107,4 +107,14 @@ export const realizeAPIValue = async (value) => {
 	return value;
 };
 
+export const addCustomEditableRegion = (key, region) => {
+	extendedWindow.editableRegionMap ??= {};
+	extendedWindow.editableRegionMap[key] = region;
+	extendedWindow.hydrateDataEditableRegions(document.body);
+};
+
+export const getCustomEditableRegions = () => {
+	return extendedWindow.editableRegionMap ?? {};
+};
+
 export { _cloudcannon as CloudCannon };

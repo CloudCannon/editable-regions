@@ -4,8 +4,13 @@ import type {
 	CloudCannonJavaScriptV1APIFile,
 } from "@cloudcannon/javascript-api";
 import { hasEditable } from "../helpers/checks";
-import { CloudCannon } from "../helpers/cloudcannon.mjs";
-import { loadingPromise } from "../helpers/loading";
+import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.mjs";
+
+declare global {
+	interface HTMLElement {
+		__pendingEditableListeners?: EditableListener[];
+	}
+}
 
 export interface EditableListener {
 	editable: Editable;
@@ -41,6 +46,7 @@ export default class Editable {
 	domListeners: DOMListener[] = [];
 	value: unknown = undefined;
 	parent: Editable | null = null;
+	pendingParentElement: HTMLElement | null = null;
 	element: HTMLElement;
 	mounted = false;
 	connected = false;
@@ -342,6 +348,29 @@ export default class Editable {
 		);
 	}
 
+	private queueListenerOnParent(
+		parentElement: HTMLElement,
+		listener: EditableListener,
+	): void {
+		if (!parentElement.__pendingEditableListeners) {
+			parentElement.__pendingEditableListeners = [];
+		}
+		parentElement.__pendingEditableListeners.push(listener);
+	}
+
+	private replayPendingListeners(): void {
+		const pending = this.element.__pendingEditableListeners;
+		if (!pending || pending.length === 0) {
+			return;
+		}
+		this.element.__pendingEditableListeners = [];
+		for (const listener of pending) {
+			listener.editable.parent = this;
+			listener.editable.pendingParentElement = null;
+			this.registerListener(listener);
+		}
+	}
+
 	async disconnect(): Promise<void> {
 		if (this.disconnecting) {
 			return;
@@ -354,6 +383,15 @@ export default class Editable {
 
 		this.parent?.deregisterListener(this);
 		this.parent = null;
+		if (this.pendingParentElement) {
+			const pending = this.pendingParentElement.__pendingEditableListeners;
+			if (pending) {
+				this.pendingParentElement.__pendingEditableListeners = pending.filter(
+					(listener) => listener.editable !== this,
+				);
+			}
+			this.pendingParentElement = null;
+		}
 		this.APIListeners.forEach(({ obj, fn }) => {
 			obj.removeEventListener("change", fn);
 			obj.removeEventListener("delete", fn);
@@ -386,7 +424,7 @@ export default class Editable {
 		if (this.connectPromise) {
 			return;
 		}
-		this.connectPromise = loadingPromise.then(() => {
+		this.connectPromise = apiLoadedPromise.then(() => {
 			this.setupListeners();
 			this.connected = true;
 			if (!this.mounted && this.shouldMount()) {
@@ -403,11 +441,14 @@ export default class Editable {
 	}
 
 	setupListeners(): void {
-		let parentEditable: Editable | undefined;
+		let parentElement: HTMLElement | null = null;
 		let parent = this.element.parentElement;
 		while (parent) {
-			if (hasEditable(parent) && !parentEditable) {
-				parentEditable = parent.editable;
+			if (
+				parent.tagName.startsWith("EDITABLE-") ||
+				"editable" in parent.dataset
+			) {
+				parentElement ??= parent;
 			}
 
 			if (parent.tagName === "A") {
@@ -417,7 +458,12 @@ export default class Editable {
 		}
 
 		let hasParentListener = false;
-		this.parent = parentEditable || null;
+
+		if (parentElement && hasEditable(parentElement)) {
+			this.parent = parentElement.editable;
+		} else if (parentElement) {
+			this.pendingParentElement = parentElement;
+		}
 
 		Object.entries(this.element.dataset).forEach(([propName, propPath]) => {
 			if (!propName.startsWith("prop") || typeof propPath !== "string") {
@@ -439,9 +485,15 @@ export default class Editable {
 				return;
 			}
 
-			if (!absolute && parentEditable) {
+			if (!absolute && this.parent) {
 				hasParentListener = true;
-				parentEditable.registerListener(listener);
+				this.parent.registerListener(listener);
+				return;
+			}
+
+			if (!absolute && this.pendingParentElement) {
+				hasParentListener = true;
+				this.queueListenerOnParent(this.pendingParentElement, listener);
 				return;
 			}
 
@@ -472,9 +524,12 @@ export default class Editable {
 
 		if (this.parent && !hasParentListener) {
 			this.parent.registerListener({ editable: this });
+		} else if (this.pendingParentElement && !hasParentListener) {
+			this.queueListenerOnParent(this.pendingParentElement, { editable: this });
 		}
 
 		this.addEventListener("cloudcannon-api", this.handleApiEvent.bind(this));
+		this.replayPendingListeners();
 	}
 
 	handleApiEvent(e: any): void {
