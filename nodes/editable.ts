@@ -284,6 +284,7 @@ export default class Editable {
 		specialProps: Record<string, unknown>,
 		listener?: EditableListener,
 		contexts?: { [key: string]: EditableContext },
+		partialSubtree?: ChildNode | null,
 	): Promise<void> {
 		const newValue = await this.getNewValue(
 			value,
@@ -300,15 +301,15 @@ export default class Editable {
 		if (this.connected && !this.mounted) {
 			this.mounted = true;
 			this.mount();
-			return this.update();
+			return this.update(partialSubtree);
 		}
 
 		if (this.mounted) {
-			return this.update();
+			return this.update(partialSubtree);
 		}
 	}
 
-	update(): void {
+	update(_partialSubtree?: ChildNode | null): void {
 		this.listeners.forEach((listener) =>
 			listener.editable.pushValue(this.value, this.specialProps, listener, {
 				...this.contexts,
