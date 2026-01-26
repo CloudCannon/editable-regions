@@ -249,8 +249,8 @@ export default class EditableArrayItem extends EditableComponent {
 		);
 	}
 
-	async update(): Promise<void> {
-		await super.update();
+	async update(partialSubtree?: ChildNode | null): Promise<void> {
+		await super.update(partialSubtree);
 		this.updateControls();
 	}
 
