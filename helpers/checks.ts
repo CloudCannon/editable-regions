@@ -46,7 +46,11 @@ export const isEditableElement = (el: unknown): boolean => {
 	);
 };
 
-export const areEqualEditables = (a: HTMLElement, b: HTMLElement) => {
+export const areEqualEditables = (a: Element, b: Element) => {
+	if (!(a instanceof HTMLElement) || !(b instanceof HTMLElement)) {
+		return false;
+	}
+
 	if (getEditableType(a) !== getEditableType(b)) {
 		return false;
 	}
