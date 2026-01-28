@@ -274,10 +274,9 @@ export default class EditableComponent extends Editable {
 				targetChild?.isEqualNode(renderChild)
 			) {
 				this.updateEditable(renderChild, targetChild);
-      } else {
-        targetChild.replaceWith(renderChild);
+			} else {
+				targetChild.replaceWith(renderChild);
 			}
-
 		}
 	}
 
