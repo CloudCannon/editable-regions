@@ -4,7 +4,7 @@ import path from "node:path"
 import slugify from "slugify"
 import esbuild from "esbuild";
 import { Tokenizer, evalToken, toPromise } from "liquidjs";
-import { createSpreadIncludeTag } from "@cloudcannon/editable-regions/liquid";
+import { createBindIncludeTag } from "@cloudcannon/editable-regions/liquid";
 
 /* pluginOptions 
 {
@@ -28,8 +28,8 @@ export default function (eleventyConfig, pluginOptions) {
   console.log({ eleventyConfig })
   
   if(pluginOptions.liquid){
-    const spreadIncludeTag = createSpreadIncludeTag({ Tokenizer, evalToken, toPromise });
-    eleventyConfig.addLiquidTag('spreadInclude', spreadIncludeTag);
+    const bindIncludeTag = createBindIncludeTag({ Tokenizer, evalToken, toPromise });
+    eleventyConfig.addLiquidTag('bind_include', bindIncludeTag);
   }
 
   console.log({ eleventyConfig })

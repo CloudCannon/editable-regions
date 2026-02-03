@@ -93,9 +93,9 @@ function createSharedLiquidEngine(options){
   
   log('Available files in window.cc_files:', Object.keys(window.cc_files || {}));
 
-  const spreadIncludeTag = createSpreadIncludeTag({ Tokenizer, evalToken, toPromise });
-  sharedLiquidEngine.registerTag('spreadInclude', spreadIncludeTag(sharedLiquidEngine));
-  log('spreadInclude tag registered');
+  const bindIncludeTag = createBindIncludeTag({ Tokenizer, evalToken, toPromise });
+  sharedLiquidEngine.registerTag('bind_include', bindIncludeTag(sharedLiquidEngine));
+  log('bind_include tag registered');
   
   if (customFilters?.length > 0) {
     for (const { name, fn } of customFilters) {
@@ -131,31 +131,31 @@ function createSharedLiquidEngine(options){
 }
 
 /**
- * spreadInclude - Like Astro's {...props} spread for Liquid includes.
- * Usage: {% spreadInclude "path/to/partial", objectToSpread %}
+ * bind_include - Like Astro's {...props} spread for Liquid includes.
+ * Usage: {% bind_include "path/to/partial", objectToSpread %}
  */
-export function createSpreadIncludeTag({ Tokenizer, evalToken, toPromise }) {
+export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
   return (liquidEngine) => ({
     parse(tagToken) {
-      log('spreadInclude parsing tag with args:', tagToken.args);
+      log('bind_include parsing tag with args:', tagToken.args);
       const tokenizer = new Tokenizer(tagToken.args, this.liquid.options.operatorsTrie);
       
       this.pathToken = tokenizer.readValue();
-      if (!this.pathToken) throw new Error('spreadInclude: missing path argument');
-      log('spreadInclude parsed path token:', this.pathToken);
+      if (!this.pathToken) throw new Error('bind_include: missing path argument');
+      log('bind_include parsed path token:', this.pathToken);
       
       tokenizer.skipBlank();
-      if (tokenizer.peek() !== ',') throw new Error('spreadInclude: expected comma separator');
+      if (tokenizer.peek() !== ',') throw new Error('bind_include: expected comma separator');
       tokenizer.advance();
       tokenizer.skipBlank();
       
       this.objectToken = tokenizer.readValue();
-      if (!this.objectToken) throw new Error('spreadInclude: missing object argument');
-      log('spreadInclude parsed object token:', this.objectToken);
+      if (!this.objectToken) throw new Error('bind_include: missing object argument');
+      log('bind_include parsed object token:', this.objectToken);
     },
     
     async render(context) {
-      group('spreadInclude rendering');
+      group('bind_include rendering');
       log('Evaluating path token...');
       const path = await toPromise(evalToken(this.pathToken, context));
       log('Path resolved to:', path);
@@ -166,7 +166,7 @@ export function createSpreadIncludeTag({ Tokenizer, evalToken, toPromise }) {
       
       if (!path || typeof path !== 'string') {
         groupEnd();
-        throw new Error(`spreadInclude: invalid path "${path}"`);
+        throw new Error(`bind_include: invalid path "${path}"`);
       }
       if (!obj || typeof obj !== 'object') {
         log('Object is not valid, returning empty');
