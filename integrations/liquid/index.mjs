@@ -10,19 +10,19 @@ export { setVerbose, log, group, groupEnd } from "./logger.mjs";
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
-/** @type {Object} */
+/** @type {{componentDirs?: string[]}} */
 let liquidEngineConfig = {};
 
-/** @type {{name: string, fn: Function}[]} */
+/** @type {{name: string, fn: any}[]} */
 const customFilters = [];
 
-/** @type {{name: string, fn: Function}[]} */
+/** @type {{name: string, fn: any}[]} */
 const customShortcodes = [];
 
-/** @type {{name: string, fn: Function}[]} */
+/** @type {{name: string, fn: any}[]} */
 const customPairedShortcodes = [];
 
-/** @type {{name: string, factory: Function}[]} */
+/** @type {{name: string, factory: any}[]} */
 const customTags = [];
 
 /** @type {{createShortcodeTag: Function, createPairedShortcodeTag: Function} | null} */
@@ -62,6 +62,7 @@ export function getLiquidEngine(options = {}) {
   if (!sharedLiquidEngine) {
     createSharedLiquidEngine(options);
   }
+  // @ts-expect-error - sharedLiquidEngine is guaranteed to be set by createSharedLiquidEngine
   return sharedLiquidEngine;
 }
 
@@ -96,7 +97,8 @@ export function registerLiquidComponent(key, contents) {
       rootEl.innerHTML = htmlString;
       groupEnd();
       return rootEl;
-    } catch (error) {
+    } catch (err) {
+      const error = /** @type {Error} */ (err);
       console.error(`Error rendering component ${key}:`, error.message);
       log("Full error:", error);
       const errorEl = document.createElement("div");
@@ -115,7 +117,7 @@ export function registerLiquidComponent(key, contents) {
 /**
  * Creates and configures the shared Liquid engine instance.
  *
- * @param {Object} options - Liquid engine options
+ * @param {{componentDirs?: string[]}} options - Liquid engine options
  * @returns {void}
  */
 function createSharedLiquidEngine(options) {
@@ -198,13 +200,21 @@ function createSharedLiquidEngine(options) {
  * Usage: {% bind_include "path/to/partial", objectToSpread %}
  *
  * @param {Object} utils - LiquidJS utilities
- * @param {Function} utils.Tokenizer - LiquidJS Tokenizer class
+ * @param {new (...args: any[]) => any} utils.Tokenizer - LiquidJS Tokenizer class
  * @param {Function} utils.evalToken - Token evaluation function
  * @param {Function} utils.toPromise - Converts generator to promise
  * @returns {Function} Factory that creates the tag implementation
  */
 export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
-  return (liquidEngine) => ({
+  /**
+   * @param {any} liquidEngine - The LiquidJS engine instance
+   * @returns {any} Tag implementation with parse and render methods
+   */
+  const tagFactory = (liquidEngine) => ({
+    /**
+     * Parses the bind_include tag arguments.
+     * @param {any} tagToken - The tag token from LiquidJS parser
+     */
     parse(tagToken) {
       log("bind_include parsing tag with args:", tagToken.args);
       const tokenizer = new Tokenizer(tagToken.args, this.liquid.options.operatorsTrie);
@@ -223,6 +233,10 @@ export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
       log("bind_include parsed object token:", this.objectToken);
     },
     
+    /**
+     * Renders the included template with spread props.
+     * @param {any} context - The LiquidJS render context
+     */
     async render(context) {
       group("bind_include rendering");
       log("Evaluating path token...");
@@ -256,7 +270,8 @@ export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
         log("Rendered result preview:", result?.substring?.(0, 200) || result);
         groupEnd();
         return result;
-      } catch (error) {
+      } catch (err) {
+        const error = /** @type {Error} */ (err);
         log("Error during render:", error.message);
         log("Full error:", error);
         groupEnd();
@@ -266,13 +281,15 @@ export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
       }
     }
   });
+
+  return tagFactory;
 }
 
 /**
  * Registers a custom Liquid filter.
  *
  * @param {string} name - The filter name
- * @param {Function} fn - The filter function
+ * @param {any} fn - The filter function
  * @returns {void}
  */
 export function registerCustomFilter(name, fn) {
@@ -290,7 +307,7 @@ export function registerCustomFilter(name, fn) {
  * Usage in templates: {% shortcodeName arg1, arg2 %}
  *
  * @param {string} name - The shortcode name (used as the tag name)
- * @param {Function} fn - The shortcode function (arg1, arg2, ...) => string
+ * @param {any} fn - The shortcode function (arg1, arg2, ...) => string
  * @returns {void}
  */
 export function registerCustomShortcode(name, fn) {
@@ -309,7 +326,7 @@ export function registerCustomShortcode(name, fn) {
  * Usage in templates: {% shortcodeName arg %}content{% endshortcodeName %}
  *
  * @param {string} name - The shortcode name (used as the tag name)
- * @param {Function} fn - The shortcode function (content, arg1, ...) => string
+ * @param {any} fn - The shortcode function (content, arg1, ...) => string
  * @returns {void}
  */
 export function registerCustomPairedShortcode(name, fn) {
@@ -331,7 +348,7 @@ export function registerCustomPairedShortcode(name, fn) {
  * Usage in templates: {% tagName args %}
  *
  * @param {string} name - The tag name
- * @param {Function} factory - Factory function that receives { Tokenizer, evalToken, toPromise }
+ * @param {any} factory - Factory function that receives { Tokenizer, evalToken, toPromise }
  *                             and returns (liquidEngine) => { parse(), render() }
  * @returns {void}
  */

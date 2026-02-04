@@ -76,7 +76,7 @@ export function urlFilter(url, pathPrefix = "") {
   return normalized;
 }
 
-/** @type {Record<string, Function>} */
+/** @type {Record<string, any>} */
 export const eleventyFilters = {
   slugify: slugifyFilter,
   log: logFilter,

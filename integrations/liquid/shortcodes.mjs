@@ -13,7 +13,7 @@ import { log, group, groupEnd } from "./logger.mjs";
  * Must be called with LiquidJS utilities from the browser module.
  *
  * @param {Object} liquidUtils - LiquidJS utilities
- * @param {Function} liquidUtils.Tokenizer - LiquidJS Tokenizer class
+ * @param {new (...args: any[]) => any} liquidUtils.Tokenizer - LiquidJS Tokenizer class
  * @param {Function} liquidUtils.evalToken - Token evaluation function
  * @param {Function} liquidUtils.toPromise - Converts generator to promise
  * @returns {{createShortcodeTag: Function, createPairedShortcodeTag: Function}}
@@ -26,7 +26,7 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
    *
    * @param {string} argsString - Raw arguments string from tagToken.args
    * @param {Object} operatorsTrie - Liquid options operatorsTrie
-   * @returns {Array} Array of parsed tokens
+   * @returns {any[]} Array of parsed tokens
    */
   function parseArgs(argsString, operatorsTrie) {
     if (!argsString || !argsString.trim()) {
@@ -56,9 +56,9 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
   /**
    * Evaluates parsed tokens against the render context.
    *
-   * @param {Array} tokens - Array of parsed tokens
+   * @param {any[]} tokens - Array of parsed tokens
    * @param {Object} context - LiquidJS render context
-   * @returns {Promise<Array>} Array of evaluated values
+   * @returns {Promise<any[]>} Array of evaluated values
    */
   async function evaluateArgs(tokens, context) {
     const values = [];
@@ -74,16 +74,23 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
    *
    * Usage: {% shortcodeName arg1, arg2, "literal" %}
    *
-   * @param {Function} shortcodeFn - The shortcode function (arg1, arg2, ...) => string
+   * @param {any} shortcodeFn - The shortcode function (arg1, arg2, ...) => string
    * @param {string} shortcodeName - The shortcode name for logging
    * @returns {Object} LiquidJS tag implementation
    */
   function createShortcodeTag(shortcodeFn, shortcodeName) {
-    return {
+    /** @type {any} */
+    const tag = {
+      /**
+       * @param {any} tagToken - The tag token from LiquidJS parser
+       */
       parse(tagToken) {
         this.argTokens = parseArgs(tagToken.args, this.liquid.options.operatorsTrie);
       },
       
+      /**
+       * @param {any} context - The LiquidJS render context
+       */
       async render(context) {
         log("Executing shortcode \"" + shortcodeName + "\"");
         const args = await evaluateArgs(this.argTokens, context);
@@ -93,6 +100,7 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
         return result ?? "";
       }
     };
+    return tag;
   }
   
   /**
@@ -101,13 +109,18 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
    * Usage: {% shortcodeName arg1 %}content{% endshortcodeName %}
    *
    * @param {string} tagName - The shortcode/tag name (needed to find end tag)
-   * @param {Function} shortcodeFn - The shortcode function (content, arg1, ...) => string
+   * @param {any} shortcodeFn - The shortcode function (content, arg1, ...) => string
    * @returns {Object} LiquidJS tag implementation
    */
   function createPairedShortcodeTag(tagName, shortcodeFn) {
     const endTagName = `end${tagName}`;
     
-    return {
+    /** @type {any} */
+    const tag = {
+      /**
+       * @param {any} tagToken - The tag token from LiquidJS parser
+       * @param {any} remainTokens - Remaining tokens to parse
+       */
       parse(tagToken, remainTokens) {
         this.argTokens = parseArgs(tagToken.args, this.liquid.options.operatorsTrie);
         this.templates = [];
@@ -127,6 +140,9 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
         }
       },
       
+      /**
+       * @param {any} context - The LiquidJS render context
+       */
       async render(context) {
         group("Paired shortcode \"" + tagName + "\"");
         log("Inner templates to render:", this.templates.length);
@@ -148,6 +164,7 @@ export function createShortcodeFactories({ Tokenizer, evalToken, toPromise }) {
         return result ?? "";
       }
     };
+    return tag;
   }
   
   return {

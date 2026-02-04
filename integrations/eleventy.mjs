@@ -32,6 +32,13 @@ import { createBindIncludeTag } from "@cloudcannon/editable-regions/liquid";
  */
 
 /**
+ * @typedef {Object} EleventyConfig
+ * @property {function(string, function): void} addLiquidTag - Register a custom Liquid tag
+ * @property {function(string, function): void} on - Register an event handler
+ * @property {{ output: string, input: string, includes: string, data: string }} dir - Directory configuration
+ */
+
+/**
  * Normalize a value to an array.
  *
  * @param {string | string[] | undefined} value - Value to normalize
@@ -47,7 +54,7 @@ function normalizeToArray(value, defaultValue) {
  * Eleventy plugin for CloudCannon editable regions.
  * Registers Liquid tags and builds live-editing client bundle.
  *
- * @param {Object} eleventyConfig - Eleventy configuration object
+ * @param {EleventyConfig} eleventyConfig - Eleventy configuration object
  * @param {PluginOptions} pluginOptions - Plugin configuration options
  * @returns {void}
  */
@@ -69,8 +76,9 @@ export default function (eleventyConfig, pluginOptions) {
       const lastDotIndex = normalized.lastIndexOf(".");
       return normalized.slice(lastDotIndex);
     }))];
+    /** @type {Record<string, import('esbuild').Loader>} */
     const loader = Object.fromEntries(
-      finalExtensions.map(ext => [ext, "text"])
+      finalExtensions.map(ext => [ext, /** @type {const} */ ("text")])
     );
 
     await esbuild.build({
@@ -132,8 +140,8 @@ const createLiveEditingSource = async (pluginOptions) => {
     });
 
     // Register custom filters
-    const customFilters = pluginOptions.liquid.filters;
-    if (customFilters?.length > 0) {
+    const customFilters = pluginOptions.liquid?.filters;
+    if (customFilters?.length) {
       for (const { name, file } of customFilters) {
         const slugifiedFilterName = `${slugify(name, {
           replacement: "_",
@@ -147,8 +155,8 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register custom shortcodes
-    const customShortcodes = pluginOptions.liquid.shortcodes;
-    if (customShortcodes?.length > 0) {
+    const customShortcodes = pluginOptions.liquid?.shortcodes;
+    if (customShortcodes?.length) {
       for (const { name, file } of customShortcodes) {
         const slugifiedShortcodeName = `${slugify(name, {
           replacement: "_",
@@ -162,8 +170,8 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register custom paired shortcodes
-    const customPairedShortcodes = pluginOptions.liquid.pairedShortcodes;
-    if (customPairedShortcodes?.length > 0) {
+    const customPairedShortcodes = pluginOptions.liquid?.pairedShortcodes;
+    if (customPairedShortcodes?.length) {
       for (const { name, file } of customPairedShortcodes) {
         const slugifiedShortcodeName = `${slugify(name, {
           replacement: "_",
@@ -177,8 +185,8 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register custom tags
-    const customTags = pluginOptions.liquid.customTags;
-    if (customTags?.length > 0) {
+    const customTags = pluginOptions.liquid?.customTags;
+    if (customTags?.length) {
       for (const { name, file } of customTags) {
         const slugifiedTagName = `${slugify(name, {
           replacement: "_",
@@ -192,7 +200,7 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register components
-    pluginOptions.liquid.components?.forEach(({name, file}) => {
+    pluginOptions.liquid?.components?.forEach(({name, file}) => {
       const slugifiedComponentName = slugify(name, {
         replacement: "_",
         strict: true

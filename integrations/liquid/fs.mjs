@@ -5,7 +5,7 @@ import { log, warn } from "./logger.mjs";
  *
  * @param {Object} options - Filesystem options
  * @param {string[]} [options.componentDirs] - Component directories to search
- * @returns {Object} LiquidJS-compatible filesystem object
+ * @returns {any} LiquidJS-compatible filesystem object
  */
 export function createInMemoryFs(options = {}) {
   const { componentDirs = ["src/_includes/"] } = options;
@@ -38,7 +38,7 @@ export function createInMemoryFs(options = {}) {
      */
     readFileSync(filePath) {
       log("readFileSync:", filePath);
-      const fileContents = window.cc_files[filePath];
+      const fileContents = window.cc_files?.[filePath];
       
       if (fileContents === undefined) {
         const availableFiles = Object.keys(window.cc_files || {});
@@ -92,7 +92,7 @@ export function createInMemoryFs(options = {}) {
       if (!filePath || typeof filePath !== "string") {
         return false;
       }
-      const fileContents = window.cc_files[filePath];
+      const fileContents = window.cc_files?.[filePath];
       const exists = fileContents !== null && fileContents !== undefined;
       log("existsSync:", filePath, "=", exists);
       return exists;
