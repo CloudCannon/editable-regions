@@ -19,8 +19,8 @@ import { createBindIncludeTag } from "@cloudcannon/editable-regions/liquid";
  * @property {ComponentRegistration[]} [components] - Registered components
  * @property {ComponentRegistration[]} [filters] - Custom Liquid filters
  * @property {ComponentRegistration[]} [shortcodes] - Custom shortcodes
- * @property {ComponentRegistration[]} [pairedShortcodes] - Custom paired shortcodes
- * @property {ComponentRegistration[]} [customTags] - Custom tags
+ * @property {ComponentRegistration[]} [paired_shortcodes] - Custom paired shortcodes
+ * @property {ComponentRegistration[]} [custom_tags] - Custom tags
  */
 
 /**
@@ -170,7 +170,7 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register custom paired shortcodes
-    const customPairedShortcodes = pluginOptions.liquid?.pairedShortcodes;
+    const customPairedShortcodes = pluginOptions.liquid?.paired_shortcodes;
     if (customPairedShortcodes?.length) {
       for (const { name, file } of customPairedShortcodes) {
         const slugifiedShortcodeName = `${slugify(name, {
@@ -185,7 +185,7 @@ const createLiveEditingSource = async (pluginOptions) => {
     }
 
     // Register custom tags
-    const customTags = pluginOptions.liquid?.customTags;
+    const customTags = pluginOptions.liquid?.custom_tags;
     if (customTags?.length) {
       for (const { name, file } of customTags) {
         const slugifiedTagName = `${slugify(name, {
