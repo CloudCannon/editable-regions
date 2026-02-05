@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createBindIncludeTag } from "./liquid/index.mjs";
 import esbuild from "esbuild";
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 import slugify from "slugify";
+import { createBindIncludeTag } from "./liquid/index.mjs";
 
 /**
  * @typedef {Object} ComponentRegistration
