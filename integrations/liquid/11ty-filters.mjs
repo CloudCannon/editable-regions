@@ -13,12 +13,12 @@ import slugify from "slugify";
  * @returns {string} Slugified string
  */
 export function slugifyFilter(value) {
-  // Use the slugify library (matches Eleventy's behavior)
-  return slugify(String(value), {
-    lower: true,
-    strict: true,
-    remove: /[*+~.()'"!:@]/g
-  });
+	// Use the slugify library (matches Eleventy's behavior)
+	return slugify(String(value), {
+		lower: true,
+		strict: true,
+		remove: /[*+~.()'"!:@]/g,
+	});
 }
 
 /**
@@ -29,13 +29,13 @@ export function slugifyFilter(value) {
  * @returns {any} The original value (for chaining)
  */
 export function logFilter(value, prefix = "") {
-  if (prefix) {
-    console.log(`[${prefix}]`, value);
-  } else {
-    console.log(value);
-  }
-  // Return the original value so it can be chained or used in output
-  return value;
+	if (prefix) {
+		console.log(`[${prefix}]`, value);
+	} else {
+		console.log(value);
+	}
+	// Return the original value so it can be chained or used in output
+	return value;
 }
 
 /**
@@ -46,40 +46,39 @@ export function logFilter(value, prefix = "") {
  * @returns {string} Normalized URL
  */
 export function urlFilter(url, pathPrefix = "") {
-  if (!url) {
-    return "";
-  }
-  
-  const urlString = String(url);
-  
-  // If there's a pathPrefix, prepend it
-  if (pathPrefix) {
-    // Ensure pathPrefix starts with / and doesn't end with /
-    const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
-    
-    // If url is absolute (starts with /), prepend pathPrefix
-    if (urlString.startsWith("/")) {
-      return normalizedPrefix + urlString;
-    }
-    // If url is relative, just return it
-    return urlString;
-  }
-  
-  // Basic normalization: ensure single slashes, remove trailing slash (except root)
-  const normalized = urlString.replace(/\/+/g, "/");
-  
-  // Remove trailing slash unless it's the root path
-  if (normalized.length > 1 && normalized.endsWith("/")) {
-    return normalized.slice(0, -1);
-  }
-  
-  return normalized;
+	if (!url) {
+		return "";
+	}
+
+	const urlString = String(url);
+
+	// If there's a pathPrefix, prepend it
+	if (pathPrefix) {
+		// Ensure pathPrefix starts with / and doesn't end with /
+		const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
+
+		// If url is absolute (starts with /), prepend pathPrefix
+		if (urlString.startsWith("/")) {
+			return normalizedPrefix + urlString;
+		}
+		// If url is relative, just return it
+		return urlString;
+	}
+
+	// Basic normalization: ensure single slashes, remove trailing slash (except root)
+	const normalized = urlString.replace(/\/+/g, "/");
+
+	// Remove trailing slash unless it's the root path
+	if (normalized.length > 1 && normalized.endsWith("/")) {
+		return normalized.slice(0, -1);
+	}
+
+	return normalized;
 }
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
-  slugify: slugifyFilter,
-  log: logFilter,
-  url: urlFilter,
+	slugify: slugifyFilter,
+	log: logFilter,
+	url: urlFilter,
 };
-

@@ -20,16 +20,25 @@ declare module "@cloudcannon/editable-regions/liquid" {
 	export function getLiquidEngine(options?: Record<string, any>): Liquid;
 	export function registerLiquidComponent(key: string, contents: string): void;
 
-	export function createBindIncludeTag(
-		utils: LiquidJsUtils,
-	): (liquidEngine: Liquid) => {
+	export function createBindIncludeTag(utils: LiquidJsUtils): (
+		liquidEngine: Liquid,
+	) => {
 		parse(tagToken: any): void;
 		render(context: any): Promise<string>;
 	};
 
-	export function registerCustomFilter(name: string, fn: (...args: any[]) => any): void;
-	export function registerCustomShortcode(name: string, fn: (...args: any[]) => any): void;
-	export function registerCustomPairedShortcode(name: string, fn: (...args: any[]) => any): void;
+	export function registerCustomFilter(
+		name: string,
+		fn: (...args: any[]) => any,
+	): void;
+	export function registerCustomShortcode(
+		name: string,
+		fn: (...args: any[]) => any,
+	): void;
+	export function registerCustomPairedShortcode(
+		name: string,
+		fn: (...args: any[]) => any,
+	): void;
 	export function registerCustomTag(
 		name: string,
 		factory: (utils: LiquidJsUtils) => (liquidEngine: Liquid) => any,
@@ -40,7 +49,10 @@ declare module "@cloudcannon/editable-regions/liquid" {
 declare global {
 	interface Window {
 		/** Registered liquid components keyed by name */
-		cc_components?: Record<string, (props: Record<string, any>) => Promise<HTMLElement>>;
+		cc_components?: Record<
+			string,
+			(props: Record<string, any>) => Promise<HTMLElement>
+		>;
 		/** Liquid template files keyed by path */
 		cc_files?: Record<string, string>;
 	}

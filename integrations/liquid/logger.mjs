@@ -12,10 +12,10 @@ let verboseEnabled = false;
  * @returns {void}
  */
 export function setVerbose(enabled) {
-  verboseEnabled = enabled;
-  if (enabled) {
-    console.log("Live editing verbose logging enabled");
-  }
+	verboseEnabled = enabled;
+	if (enabled) {
+		console.log("Live editing verbose logging enabled");
+	}
 }
 
 /**
@@ -24,7 +24,7 @@ export function setVerbose(enabled) {
  * @returns {boolean}
  */
 export function isVerbose() {
-  return verboseEnabled;
+	return verboseEnabled;
 }
 
 /**
@@ -35,9 +35,9 @@ export function isVerbose() {
  * @returns {void}
  */
 export function log(...args) {
-  if (verboseEnabled) {
-    console.log(...args);
-  }
+	if (verboseEnabled) {
+		console.log(...args);
+	}
 }
 
 /**
@@ -47,7 +47,7 @@ export function log(...args) {
  * @returns {void}
  */
 export function warn(...args) {
-  console.warn(...args);
+	console.warn(...args);
 }
 
 /**
@@ -57,7 +57,7 @@ export function warn(...args) {
  * @returns {void}
  */
 export function error(...args) {
-  console.error(...args);
+	console.error(...args);
 }
 
 /**
@@ -67,9 +67,9 @@ export function error(...args) {
  * @returns {void}
  */
 export function group(label) {
-  if (verboseEnabled) {
-    console.group(label);
-  }
+	if (verboseEnabled) {
+		console.group(label);
+	}
 }
 
 /**
@@ -78,9 +78,9 @@ export function group(label) {
  * @returns {void}
  */
 export function groupEnd() {
-  if (verboseEnabled) {
-    console.groupEnd();
-  }
+	if (verboseEnabled) {
+		console.groupEnd();
+	}
 }
 
 /**
@@ -90,9 +90,9 @@ export function groupEnd() {
  * @returns {void}
  */
 export function time(label) {
-  if (verboseEnabled) {
-    console.time(label);
-  }
+	if (verboseEnabled) {
+		console.time(label);
+	}
 }
 
 /**
@@ -102,8 +102,7 @@ export function time(label) {
  * @returns {void}
  */
 export function timeEnd(label) {
-  if (verboseEnabled) {
-    console.timeEnd(label);
-  }
+	if (verboseEnabled) {
+		console.timeEnd(label);
+	}
 }
-
