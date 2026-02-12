@@ -4,22 +4,7 @@
  * included as they require build-time context.
  */
 
-import slugify from "slugify";
-
-/**
- * Slugifies a string value.
- *
- * @param {any} value - Value to slugify
- * @returns {string} Slugified string
- */
-export function slugifyFilter(value) {
-	// Use the slugify library (matches Eleventy's behavior)
-	return slugify(String(value), {
-		lower: true,
-		strict: true,
-		remove: /[*+~.()'"!:@]/g,
-	});
-}
+import { slugifyFilter } from "./utils.mjs";
 
 /**
  * Logs value to console (pass-through filter).

@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import esbuild from "esbuild";
-import { evalToken, Tokenizer, toPromise } from "liquidjs";
-import slugify from "slugify";
 import { createBindIncludeTag } from "./liquid/index.mjs";
 
 /**
@@ -60,12 +58,7 @@ function normalizeToArray(value, defaultValue) {
  */
 export default function (eleventyConfig, pluginOptions) {
 	if (pluginOptions.liquid) {
-		const bindIncludeTag = createBindIncludeTag({
-			Tokenizer,
-			evalToken,
-			toPromise,
-		});
-		eleventyConfig.addLiquidTag("bind_include", bindIncludeTag);
+		eleventyConfig.addLiquidTag("bind_include", createBindIncludeTag);
 	}
 
 	eleventyConfig.on("eleventy.before", async () => {
@@ -158,14 +151,12 @@ const createLiveEditingSource = async (pluginOptions) => {
 		// Register custom filters
 		const customFilters = pluginOptions.liquid?.filters;
 		if (customFilters?.length) {
+			let filterIdx = 0;
 			for (const { name, file } of customFilters) {
-				const slugifiedFilterName = `${slugify(name, {
-					replacement: "_",
-					strict: true,
-				})}_filter`;
+				const filterName = `custom_filter_${filterIdx++}`;
 				source += `  
-          import ${slugifiedFilterName} from "./${file}";
-          registerCustomFilter("${name}", ${slugifiedFilterName});
+          import ${filterName} from "./${file}";
+          registerCustomFilter("${name}", ${filterName});
         `;
 			}
 		}
@@ -173,14 +164,12 @@ const createLiveEditingSource = async (pluginOptions) => {
 		// Register custom shortcodes
 		const customShortcodes = pluginOptions.liquid?.shortcodes;
 		if (customShortcodes?.length) {
+			let shortcodeIdx = 0;
 			for (const { name, file } of customShortcodes) {
-				const slugifiedShortcodeName = `${slugify(name, {
-					replacement: "_",
-					strict: true,
-				})}_shortcode`;
+				const shortcodeName = `custom_shortcode_${shortcodeIdx++}`;
 				source += `  
-          import ${slugifiedShortcodeName} from "./${file}";
-          registerCustomShortcode("${name}", ${slugifiedShortcodeName});
+          import ${shortcodeName} from "./${file}";
+          registerCustomShortcode("${name}", ${shortcodeName});
         `;
 			}
 		}
@@ -188,14 +177,12 @@ const createLiveEditingSource = async (pluginOptions) => {
 		// Register custom paired shortcodes
 		const customPairedShortcodes = pluginOptions.liquid?.paired_shortcodes;
 		if (customPairedShortcodes?.length) {
+			let pairedIdx = 0;
 			for (const { name, file } of customPairedShortcodes) {
-				const slugifiedShortcodeName = `${slugify(name, {
-					replacement: "_",
-					strict: true,
-				})}_paired_shortcode`;
+				const pairedShortcodeName = `custom_paired_shortcode_${pairedIdx++}`;
 				source += `  
-          import ${slugifiedShortcodeName} from "./${file}";
-          registerCustomPairedShortcode("${name}", ${slugifiedShortcodeName});
+          import ${pairedShortcodeName} from "./${file}";
+          registerCustomPairedShortcode("${name}", ${pairedShortcodeName});
         `;
 			}
 		}
@@ -203,28 +190,24 @@ const createLiveEditingSource = async (pluginOptions) => {
 		// Register custom tags
 		const customTags = pluginOptions.liquid?.custom_tags;
 		if (customTags?.length) {
+			let tagIdx = 0;
 			for (const { name, file } of customTags) {
-				const slugifiedTagName = `${slugify(name, {
-					replacement: "_",
-					strict: true,
-				})}_custom_tag`;
+				const tagName = `custom_tag_${tagIdx++}`;
 				source += `  
-          import ${slugifiedTagName} from "./${file}";
-          registerCustomTag("${name}", ${slugifiedTagName});
+          import ${tagName} from "./${file}";
+          registerCustomTag("${name}", ${tagName});
         `;
 			}
 		}
 
 		// Register components
+		let componentIdx = 0;
 		pluginOptions.liquid?.components?.forEach(({ name, file }) => {
-			const slugifiedComponentName = slugify(name, {
-				replacement: "_",
-				strict: true,
-			});
+			const componentName = `custom_component_${componentIdx++}`;
 
 			source += `
-        import ${slugifiedComponentName} from "./${file}";
-        registerLiquidComponent("${name}", ${slugifiedComponentName});
+        import ${componentName} from "./${file}";
+        registerLiquidComponent("${name}", ${componentName});
       `;
 		});
 	}

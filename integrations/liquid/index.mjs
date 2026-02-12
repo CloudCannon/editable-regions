@@ -2,7 +2,10 @@ import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
 import { eleventyFilters } from "./11ty-filters.mjs";
 import { createInMemoryFs } from "./fs.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
-import { createShortcodeFactories } from "./shortcodes.mjs";
+import {
+	createPairedShortcodeTag,
+	createShortcodeTag,
+} from "./shortcodes.mjs";
 
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
@@ -24,25 +27,6 @@ const customPairedShortcodes = [];
 
 /** @type {{name: string, factory: any}[]} */
 const customTags = [];
-
-/** @type {{createShortcodeTag: Function, createPairedShortcodeTag: Function} | null} */
-let shortcodeFactories = null;
-
-/**
- * Get shortcode factories, initializing if needed.
- *
- * @returns {{createShortcodeTag: Function, createPairedShortcodeTag: Function}}
- */
-function getShortcodeFactories() {
-	if (!shortcodeFactories) {
-		shortcodeFactories = createShortcodeFactories({
-			Tokenizer,
-			evalToken,
-			toPromise,
-		});
-	}
-	return shortcodeFactories;
-}
 
 /**
  * Configure Liquid engine options before it's created.
@@ -171,14 +155,9 @@ function createSharedLiquidEngine(options) {
 		Object.keys(window.cc_files || {}),
 	);
 
-	const bindIncludeTag = createBindIncludeTag({
-		Tokenizer,
-		evalToken,
-		toPromise,
-	});
 	sharedLiquidEngine.registerTag(
 		"bind_include",
-		bindIncludeTag(sharedLiquidEngine),
+		createBindIncludeTag(sharedLiquidEngine),
 	);
 	log("bind_include tag registered");
 
@@ -188,9 +167,6 @@ function createSharedLiquidEngine(options) {
 		}
 		log("Registered", customFilters.length, "custom filters");
 	}
-
-	const { createShortcodeTag, createPairedShortcodeTag } =
-		getShortcodeFactories();
 
 	// Register custom shortcodes
 	if (customShortcodes?.length > 0) {
@@ -210,8 +186,7 @@ function createSharedLiquidEngine(options) {
 
 	// Register custom tags
 	for (const { name, factory } of customTags) {
-		const tagFactory = factory({ Tokenizer, evalToken, toPromise });
-		sharedLiquidEngine.registerTag(name, tagFactory(sharedLiquidEngine));
+		sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
 	}
 	if (customTags.length > 0) {
 		log("Registered", customTags.length, "custom tags");
@@ -219,23 +194,16 @@ function createSharedLiquidEngine(options) {
 }
 
 /**
- * Creates a bind_include tag factory for spreading object props into includes.
+ * Creates a bind_include tag for spreading object props into includes.
  * Like Astro's {...props} spread for Liquid includes.
  *
  * Usage: {% bind_include "path/to/partial", objectToSpread %}
  *
- * @param {Object} utils - LiquidJS utilities
- * @param {new (...args: any[]) => any} utils.Tokenizer - LiquidJS Tokenizer class
- * @param {Function} utils.evalToken - Token evaluation function
- * @param {Function} utils.toPromise - Converts generator to promise
- * @returns {Function} Factory that creates the tag implementation
+ * @param {any} _liquidEngine - The LiquidJS engine instance (provided by LiquidJS, accessed via this.liquid)
+ * @returns {any} Tag implementation with parse and render methods
  */
-export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
-	/**
-	 * @param {any} liquidEngine - The LiquidJS engine instance
-	 * @returns {any} Tag implementation with parse and render methods
-	 */
-	const tagFactory = (liquidEngine) => ({
+export function createBindIncludeTag(_liquidEngine) {
+	return {
 		/**
 		 * Parses the bind_include tag arguments.
 		 * @param {any} tagToken - The tag token from LiquidJS parser
@@ -318,9 +286,7 @@ export function createBindIncludeTag({ Tokenizer, evalToken, toPromise }) {
 				context.pop();
 			}
 		},
-	});
-
-	return tagFactory;
+	};
 }
 
 /**
@@ -353,7 +319,6 @@ export function registerCustomShortcode(name, fn) {
 	customShortcodes.push({ name, fn });
 
 	if (sharedLiquidEngine) {
-		const { createShortcodeTag } = getShortcodeFactories();
 		sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
 	}
 }
@@ -372,7 +337,6 @@ export function registerCustomPairedShortcode(name, fn) {
 	customPairedShortcodes.push({ name, fn });
 
 	if (sharedLiquidEngine) {
-		const { createPairedShortcodeTag } = getShortcodeFactories();
 		sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
 	}
 }
@@ -386,8 +350,7 @@ export function registerCustomPairedShortcode(name, fn) {
  * Usage in templates: {% tagName args %}
  *
  * @param {string} name - The tag name
- * @param {any} factory - Factory function that receives { Tokenizer, evalToken, toPromise }
- *                             and returns (liquidEngine) => { parse(), render() }
+ * @param {any} factory - Factory function (liquidEngine) => { parse(), render() }
  * @returns {void}
  */
 export function registerCustomTag(name, factory) {
@@ -395,7 +358,6 @@ export function registerCustomTag(name, factory) {
 	customTags.push({ name, factory });
 
 	if (sharedLiquidEngine) {
-		const tagFactory = factory({ Tokenizer, evalToken, toPromise });
-		sharedLiquidEngine.registerTag(name, tagFactory(sharedLiquidEngine));
+		sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
 	}
 }

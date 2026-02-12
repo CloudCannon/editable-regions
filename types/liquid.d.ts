@@ -1,12 +1,6 @@
 declare module "@cloudcannon/editable-regions/liquid" {
 	import type { Liquid } from "liquidjs";
 
-	interface LiquidJsUtils {
-		Tokenizer: new (input: string, trie: any) => any;
-		evalToken: (token: any, context: any) => IterableIterator<unknown>;
-		toPromise: <T>(generator: IterableIterator<T> | Generator<T>) => Promise<T>;
-	}
-
 	interface LiquidConfig {
 		componentDirs?: string[];
 	}
@@ -20,9 +14,7 @@ declare module "@cloudcannon/editable-regions/liquid" {
 	export function getLiquidEngine(options?: Record<string, any>): Liquid;
 	export function registerLiquidComponent(key: string, contents: string): void;
 
-	export function createBindIncludeTag(utils: LiquidJsUtils): (
-		liquidEngine: Liquid,
-	) => {
+	export function createBindIncludeTag(liquidEngine: Liquid): {
 		parse(tagToken: any): void;
 		render(context: any): Promise<string>;
 	};
@@ -41,7 +33,7 @@ declare module "@cloudcannon/editable-regions/liquid" {
 	): void;
 	export function registerCustomTag(
 		name: string,
-		factory: (utils: LiquidJsUtils) => (liquidEngine: Liquid) => any,
+		factory: (liquidEngine: Liquid) => any,
 	): void;
 }
 
