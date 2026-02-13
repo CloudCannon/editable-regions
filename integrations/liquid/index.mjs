@@ -74,35 +74,23 @@ export function registerLiquidComponent(key, contents) {
 	const wrappedComponent = async (props) => {
 		group(`Rendering component: ${key}`);
 		log("Props:", props);
-		try {
-			log("Parsing and rendering template...");
-			const htmlString = await liquidEngine.parseAndRender(contents, props);
-			log(
-				"Rendered HTML preview:",
-				htmlString?.substring?.(0, 200) || htmlString,
-			);
-			const rootEl = document.createElement("div");
-			rootEl.innerHTML = htmlString;
-			groupEnd();
-			return rootEl;
-		} catch (err) {
-			const error = /** @type {Error} */ (err);
-			console.error(`Error rendering component ${key}:`, error.message);
-			log("Full error:", error);
-			const errorEl = document.createElement("div");
-			errorEl.innerHTML = `<div style="color: red; padding: 1rem; border: 1px solid red;">Error rendering component: ${error.message}</div>`;
-			groupEnd();
-			return errorEl;
-		}
+		log("Parsing and rendering template...");
+		const htmlString = await liquidEngine.parseAndRender(contents, props);
+		log(
+			"Rendered HTML preview:",
+			htmlString?.substring?.(0, 200) || htmlString,
+		);
+		const rootEl = document.createElement("div");
+		rootEl.innerHTML = htmlString;
+		groupEnd();
+		return rootEl;
 	};
 
 	window.cc_components = window.cc_components || {};
 	window.cc_components[key] = wrappedComponent;
 	log(
-		"Component registered, dispatching event:",
-		`editable-regions:registered-${key}`,
+		`Component registered, ${key}`,
 	);
-	document.dispatchEvent(new CustomEvent(`editable-regions:registered-${key}`));
 }
 
 /**
