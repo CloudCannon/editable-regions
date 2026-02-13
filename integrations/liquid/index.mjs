@@ -88,9 +88,7 @@ export function registerLiquidComponent(key, contents) {
 
 	window.cc_components = window.cc_components || {};
 	window.cc_components[key] = wrappedComponent;
-	log(
-		`Component registered, ${key}`,
-	);
+	log(`Component registered, ${key}`);
 }
 
 /**
