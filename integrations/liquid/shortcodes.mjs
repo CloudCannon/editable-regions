@@ -84,7 +84,7 @@ export function createShortcodeTag(shortcodeFn, shortcodeName) {
 		 * @param {any} context - The LiquidJS render context
 		 */
 		async render(context) {
-			log('Executing shortcode "' + shortcodeName + '"');
+			log(`Executing shortcode "${shortcodeName}"`);
 			const args = await evaluateArgs(this.argTokens, context);
 			log("Shortcode args:", args);
 			const result = await shortcodeFn(...args);
@@ -139,7 +139,7 @@ export function createPairedShortcodeTag(tagName, shortcodeFn) {
 		 * @param {any} context - The LiquidJS render context
 		 */
 		async render(context) {
-			group('Paired shortcode "' + tagName + '"');
+			group(`Paired shortcode "${tagName}"`);
 			log("Inner templates to render:", this.templates.length);
 
 			// Render the content between the tags

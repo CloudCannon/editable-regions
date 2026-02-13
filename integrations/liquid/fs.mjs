@@ -8,7 +8,7 @@ import { log, warn } from "./logger.mjs";
  * @returns {any} LiquidJS-compatible filesystem object
  */
 export function createInMemoryFs(options = {}) {
-	const { componentDirs = ["src/_includes/"] } = options;
+	const { componentDirs = ["_includes/"] } = options;
 
 	// Normalize all directories to have trailing slashes
 	const normalizedDirs = componentDirs.map((dir) =>

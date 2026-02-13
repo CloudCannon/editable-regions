@@ -2,10 +2,7 @@ import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
 import { eleventyFilters } from "./11ty-filters.mjs";
 import { createInMemoryFs } from "./fs.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
-import {
-	createPairedShortcodeTag,
-	createShortcodeTag,
-} from "./shortcodes.mjs";
+import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
@@ -119,8 +116,9 @@ function createSharedLiquidEngine(options) {
 	const mergedOptions = { ...liquidEngineConfig, ...options };
 	log("Creating shared Liquid engine with options:", mergedOptions);
 
+	// Fallback should never be hit - actual value passed via configureLiquid() during build
 	const fs = createInMemoryFs({
-		componentDirs: mergedOptions.componentDirs || ["src/_includes/"],
+		componentDirs: mergedOptions.componentDirs || ["_includes/"],
 	});
 	log("In-memory filesystem created");
 

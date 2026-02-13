@@ -11,14 +11,14 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
 
 /**
  * @typedef {Object} LiquidOptions
- * @property {string | string[]} [component_dirs] - Defaults to ["src/_includes/"]
- * @property {string | string[]} [extensions] - Defaults to [".liquid", ".html"]
- * @property {string[]} [ignore_directories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
+ * @property {string[]} [componentDirs] - Defaults to Eleventy's configured input + includes directories
+ * @property {string[]} [extensions] - Defaults to [".liquid", ".html"]
+ * @property {string[]} [ignoreDirectories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
  * @property {ComponentRegistration[]} [components] - Registered components
  * @property {ComponentRegistration[]} [filters] - Custom Liquid filters
  * @property {ComponentRegistration[]} [shortcodes] - Custom shortcodes
- * @property {ComponentRegistration[]} [paired_shortcodes] - Custom paired shortcodes
- * @property {ComponentRegistration[]} [custom_tags] - Custom tags
+ * @property {ComponentRegistration[]} [pairedShortcodes] - Custom paired shortcodes
+ * @property {ComponentRegistration[]} [tags] - Custom tags
  */
 
 /**
@@ -26,7 +26,6 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
  * @property {string} [output] - Output path for live-editing.js
  * @property {boolean} [verbose] - Enable verbose browser logging
  * @property {LiquidOptions} [liquid] - Liquid template options
- * @property {Object} [nunjucks] - Nunjucks options (reserved for future use)
  */
 
 /**
@@ -35,18 +34,6 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
  * @property {function(string, function): void} on - Register an event handler
  * @property {{ output: string, input: string, includes: string, data: string }} dir - Directory configuration
  */
-
-/**
- * Normalize a value to an array.
- *
- * @param {string | string[] | undefined} value - Value to normalize
- * @param {string[]} defaultValue - Default array if value is falsy
- * @returns {string[]} Normalized array
- */
-function normalizeToArray(value, defaultValue) {
-	if (!value) return defaultValue;
-	return Array.isArray(value) ? value : [value];
-}
 
 /**
  * Eleventy plugin for CloudCannon editable regions.
@@ -61,29 +48,23 @@ export default function (eleventyConfig, pluginOptions) {
 		eleventyConfig.addLiquidTag("bind_include", createBindIncludeTag);
 	}
 
-	eleventyConfig.on("eleventy.before", async () => {
-		const liveEditingSource = createLiveEditingSource(pluginOptions);
+	eleventyConfig.on("eleventy.before", async ({ directories }) => {
+		const liveEditingSource = createLiveEditingSource(
+			pluginOptions,
+			directories,
+		);
 
 		// Build dynamic loader config from extensions
 		// esbuild only looks at the final extension, so .bookshop.liquid -> .liquid
-		const extensions = normalizeToArray(pluginOptions.liquid?.extensions, [
-			".liquid",
-			".html",
-		]);
-		const finalExtensions = [
-			...new Set(
-				extensions.map((ext) => {
-					const normalized = ext.startsWith(".") ? ext : `.${ext}`;
-					// Extract the final extension (e.g., ".bookshop.liquid" -> ".liquid")
-					const lastDotIndex = normalized.lastIndexOf(".");
-					return normalized.slice(lastDotIndex);
-				}),
-			),
-		];
 		/** @type {Record<string, import('esbuild').Loader>} */
-		const loader = Object.fromEntries(
-			finalExtensions.map((ext) => [ext, /** @type {const} */ ("text")]),
-		);
+		const loader = {};
+		const extensions = pluginOptions.liquid?.extensions ?? [".liquid", ".html"];
+		extensions.forEach((ext) => {
+			const normalized = ext.startsWith(".") ? ext : `.${ext}`;
+			// Extract the final extension (e.g., ".bookshop.liquid" -> ".liquid")
+			const lastDotIndex = normalized.lastIndexOf(".");
+			loader[normalized.slice(lastDotIndex)] = "text";
+		});
 
 		await esbuild.build({
 			stdin: {
@@ -92,8 +73,7 @@ export default function (eleventyConfig, pluginOptions) {
 			},
 			loader,
 			bundle: true,
-			outfile:
-				pluginOptions.output ?? `${eleventyConfig.dir.output}/live-editing.js`,
+			outfile: pluginOptions.output ?? `${directories.output}/live-editing.js`,
 		});
 	});
 }
@@ -105,43 +85,52 @@ export default function (eleventyConfig, pluginOptions) {
  * @param {PluginOptions} pluginOptions - Plugin configuration options
  * @returns {Promise<string>} Generated JavaScript source code
  */
-const createLiveEditingSource = async (pluginOptions) => {
+const createLiveEditingSource = async (pluginOptions, directories) => {
 	let source = "";
 
 	if (pluginOptions.liquid) {
-		const componentDirs = normalizeToArray(
-			pluginOptions.liquid.component_dirs,
-			["src/_includes/"],
+		const defaultComponentDirPath = path.join(
+			directories.input,
+			directories.includes,
 		);
-		const extensions = normalizeToArray(pluginOptions.liquid.extensions, [
-			".liquid",
-			".html",
-		]);
+		const componentDirs = pluginOptions.liquid.componentDirs ?? [
+			defaultComponentDirPath,
+		];
+		const extensions = pluginOptions.liquid.extensions ?? [".liquid", ".html"];
+		const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [];
+
+		// Normalize extensions to lowercase with leading dot
+		const normalizedExtensions = extensions.map((ext) =>
+			ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
+		);
+		const normalizedIgnoreDirs = ignoreDirectories.map((dir) =>
+			dir.toLowerCase(),
+		);
 
 		source += `		
       import { registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, setVerbose, configureLiquid } from '@cloudcannon/editable-regions/liquid';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
       
-      // Configure the Liquid engine with component directories
-      configureLiquid({
-        componentDirs: ${JSON.stringify(componentDirs)}
-      });
-      
-      window.cc_files = {};
-    `;
+    // Configure the Liquid engine with component directories
+    configureLiquid({
+      componentDirs: ${JSON.stringify(componentDirs)}
+    });
+    
+    window.cc_files = {};
+  `;
 
 		// Add files we'll need to window.cc_files -
 		// Then in our liquid file system we can grab them from window.cc_files during readFile
 		// Important for nested components
 		let i = 0;
-		const allLiquidFiles = await findAllLiquidFiles({
-			component_dirs: componentDirs,
-			extensions: extensions,
-			ignoreDirectories: pluginOptions.liquid.ignore_directories || [],
-		});
-		allLiquidFiles?.forEach((path) => {
-			const id = `liquid_file_${i++}`;
+		const allLiquidFiles = await findAllLiquidFiles(
+			componentDirs,
+			normalizedExtensions,
+			normalizedIgnoreDirs,
+		);
+		allLiquidFiles.forEach((path) => {
+			const id = `liquidFile_${i++}`;
 			source += `import ${id} from "./${path}";
 
       window.cc_files["${path}"] = ${id};
@@ -153,7 +142,7 @@ const createLiveEditingSource = async (pluginOptions) => {
 		if (customFilters?.length) {
 			let filterIdx = 0;
 			for (const { name, file } of customFilters) {
-				const filterName = `custom_filter_${filterIdx++}`;
+				const filterName = `customFilter_${filterIdx++}`;
 				source += `  
           import ${filterName} from "./${file}";
           registerCustomFilter("${name}", ${filterName});
@@ -166,7 +155,7 @@ const createLiveEditingSource = async (pluginOptions) => {
 		if (customShortcodes?.length) {
 			let shortcodeIdx = 0;
 			for (const { name, file } of customShortcodes) {
-				const shortcodeName = `custom_shortcode_${shortcodeIdx++}`;
+				const shortcodeName = `customShortcode_${shortcodeIdx++}`;
 				source += `  
           import ${shortcodeName} from "./${file}";
           registerCustomShortcode("${name}", ${shortcodeName});
@@ -175,11 +164,11 @@ const createLiveEditingSource = async (pluginOptions) => {
 		}
 
 		// Register custom paired shortcodes
-		const customPairedShortcodes = pluginOptions.liquid?.paired_shortcodes;
+		const customPairedShortcodes = pluginOptions.liquid?.pairedShortcodes;
 		if (customPairedShortcodes?.length) {
 			let pairedIdx = 0;
 			for (const { name, file } of customPairedShortcodes) {
-				const pairedShortcodeName = `custom_paired_shortcode_${pairedIdx++}`;
+				const pairedShortcodeName = `customPairedShortcode_${pairedIdx++}`;
 				source += `  
           import ${pairedShortcodeName} from "./${file}";
           registerCustomPairedShortcode("${name}", ${pairedShortcodeName});
@@ -188,11 +177,11 @@ const createLiveEditingSource = async (pluginOptions) => {
 		}
 
 		// Register custom tags
-		const customTags = pluginOptions.liquid?.custom_tags;
-		if (customTags?.length) {
+		const tags = pluginOptions.liquid?.tags;
+		if (tags?.length) {
 			let tagIdx = 0;
-			for (const { name, file } of customTags) {
-				const tagName = `custom_tag_${tagIdx++}`;
+			for (const { name, file } of tags) {
+				const tagName = `tag_${tagIdx++}`;
 				source += `  
           import ${tagName} from "./${file}";
           registerCustomTag("${name}", ${tagName});
@@ -203,7 +192,7 @@ const createLiveEditingSource = async (pluginOptions) => {
 		// Register components
 		let componentIdx = 0;
 		pluginOptions.liquid?.components?.forEach(({ name, file }) => {
-			const componentName = `custom_component_${componentIdx++}`;
+			const componentName = `customComponent_${componentIdx++}`;
 
 			source += `
         import ${componentName} from "./${file}";
@@ -211,26 +200,25 @@ const createLiveEditingSource = async (pluginOptions) => {
       `;
 		});
 	}
-	return source.toString();
+	return source;
 };
 
 /**
  * Find all component files across multiple directories.
  *
- * @param {Object} options - Search options
- * @param {string[]} [options.component_dirs] - Directories to search
- * @param {string[]} [options.extensions] - File extensions to match
- * @param {string[]} [options.ignoreDirectories] - Directory names to skip
+ * @param {string[]} componentDirs - Directories to search
+ * @param {string[]} extensions - File extensions to match
+ * @param {string[]} ignoreDirectories - Directory names to skip
  * @returns {Promise<string[]>} Array of file paths
  */
-async function findAllLiquidFiles({
-	component_dirs = ["src/_includes/"],
-	extensions = [".liquid", ".html"],
-	ignoreDirectories = [],
-}) {
+async function findAllLiquidFiles(
+	componentDirs,
+	extensions,
+	ignoreDirectories,
+) {
 	const allFiles = [];
 
-	for (const dir of component_dirs) {
+	for (const dir of componentDirs) {
 		const files = await findFilesInDirectory({
 			directory: dir,
 			extensions,
@@ -253,17 +241,10 @@ async function findAllLiquidFiles({
  */
 async function findFilesInDirectory({
 	directory,
-	extensions = [".liquid", ".html"],
-	ignoreDirectories = [],
+	extensions,
+	ignoreDirectories,
 }) {
 	const files = [];
-	// Normalize extensions to lowercase with leading dot
-	const normalizedExtensions = extensions.map((ext) =>
-		ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
-	);
-	const normalizedIgnoreDirs = ignoreDirectories.map((dir) =>
-		dir.toLowerCase(),
-	);
 
 	try {
 		const entries = await fs.promises.readdir(directory, {
@@ -274,7 +255,7 @@ async function findFilesInDirectory({
 			const fullPath = path.join(directory, entry.name);
 
 			if (entry.isDirectory()) {
-				if (normalizedIgnoreDirs.includes(entry.name.toLowerCase())) {
+				if (ignoreDirectories.includes(entry.name.toLowerCase())) {
 					continue;
 				}
 				const subFiles = await findFilesInDirectory({
@@ -287,7 +268,7 @@ async function findFilesInDirectory({
 				// Check if filename ends with any of the configured extensions
 				// This handles both simple (.liquid) and compound (.bookshop.liquid) extensions
 				const filenameLower = entry.name.toLowerCase();
-				const hasValidExtension = normalizedExtensions.some((ext) =>
+				const hasValidExtension = extensions.some((ext) =>
 					filenameLower.endsWith(ext),
 				);
 				if (hasValidExtension) {
