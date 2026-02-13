@@ -4,7 +4,7 @@
  * included as they require build-time context.
  */
 
-import { slugifyFilter } from "./utils.mjs";
+import slugify from "@sindresorhus/slugify";
 
 /**
  * Logs value to console (pass-through filter).
@@ -63,7 +63,7 @@ export function urlFilter(url, pathPrefix = "") {
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
-	slugify: slugifyFilter,
+	slugify,
 	log: logFilter,
 	url: urlFilter,
 };
