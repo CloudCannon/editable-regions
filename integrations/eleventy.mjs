@@ -29,10 +29,18 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
  */
 
 /**
+ * @typedef {Object} EleventyDirectories
+ * @property {string} input - Input directory
+ * @property {string} includes - Includes directory (relative to input)
+ * @property {string} data - Data directory
+ * @property {string} output - Output directory
+ */
+
+/**
  * @typedef {Object} EleventyConfig
  * @property {function(string, function): void} addLiquidTag - Register a custom Liquid tag
- * @property {function(string, function): void} on - Register an event handler
- * @property {{ output: string, input: string, includes: string, data: string }} dir - Directory configuration
+ * @property {function(string, function({ directories: EleventyDirectories }): Promise<void>): void} on - Register an event handler
+ * @property {EleventyDirectories} dir - Directory configuration
  */
 
 /**
@@ -83,6 +91,7 @@ export default function (eleventyConfig, pluginOptions) {
  * Generates imports for components, filters, shortcodes, and tags.
  *
  * @param {PluginOptions} pluginOptions - Plugin configuration options
+ * @param {EleventyDirectories} directories - Eleventy directory configuration
  * @returns {Promise<string>} Generated JavaScript source code
  */
 const createLiveEditingSource = async (pluginOptions, directories) => {
@@ -99,7 +108,6 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 		const extensions = pluginOptions.liquid.extensions ?? [".liquid", ".html"];
 		const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [];
 
-		// Normalize extensions to lowercase with leading dot
 		const normalizedExtensions = extensions.map((ext) =>
 			ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
 		);
@@ -122,7 +130,6 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 		// Add files we'll need to window.cc_files -
 		// Then in our liquid file system we can grab them from window.cc_files during readFile
-		// Important for nested components
 		let i = 0;
 		const allLiquidFiles = await findAllLiquidFiles(
 			componentDirs,
@@ -241,8 +248,8 @@ async function findAllLiquidFiles(
  */
 async function findFilesInDirectory({
 	directory,
-	extensions,
-	ignoreDirectories,
+	extensions = [".html", ".liquid"],
+	ignoreDirectories = [],
 }) {
 	const files = [];
 
