@@ -11,7 +11,7 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
 
 /**
  * @typedef {Object} LiquidOptions
- * @property {string[]} [componentDirs] - Defaults to Eleventy's configured input + includes directories
+ * @property {string[]} [componentDirs] - Defaults to Eleventy's configured directories.includes
  * @property {string[]} [extensions] - Defaults to [".liquid", ".html"]
  * @property {string[]} [ignoreDirectories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
  * @property {ComponentRegistration[]} [components] - Registered components
@@ -31,7 +31,7 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
 /**
  * @typedef {Object} EleventyDirectories
  * @property {string} input - Input directory
- * @property {string} includes - Includes directory (relative to input)
+ * @property {string} includes - Includes directory (normalized, relative to project root)
  * @property {string} data - Data directory
  * @property {string} output - Output directory
  */
@@ -98,12 +98,8 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 	let source = "";
 
 	if (pluginOptions.liquid) {
-		const defaultComponentDirPath = path.join(
-			directories.input,
-			directories.includes,
-		);
 		const componentDirs = pluginOptions.liquid.componentDirs ?? [
-			defaultComponentDirPath,
+			directories.includes
 		];
 		const extensions = pluginOptions.liquid.extensions ?? [".liquid", ".html"];
 		const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [];
@@ -115,17 +111,21 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 			dir.toLowerCase(),
 		);
 
+		console.log({ componentDirs })
+
 		source += `		
-      import { registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, setVerbose, configureLiquid } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, setVerbose } from '@cloudcannon/editable-regions/liquid';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
       
-    // Configure the Liquid engine with component directories
-    configureLiquid({
-      componentDirs: ${JSON.stringify(componentDirs)}
-    });
+			// Configure the Liquid engine with component directories
+			createSharedLiquidEngine({
+				root: ${JSON.stringify(componentDirs)},
+				extname: ".liquid",
+				strictFilters: true,
+			});
     
-    window.cc_files = {};
+    	window.cc_files = {};
   `;
 
 		// Add files we'll need to window.cc_files -
@@ -231,9 +231,10 @@ async function findAllLiquidFiles(
 			extensions,
 			ignoreDirectories,
 		});
+
 		allFiles.push(...files);
 	}
-
+	// console.log({ allFiles })
 	return allFiles;
 }
 

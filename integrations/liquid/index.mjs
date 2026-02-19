@@ -1,6 +1,6 @@
 import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
 import { eleventyFilters } from "./11ty-filters.mjs";
-import { createInMemoryFs } from "./fs.mjs";
+import { inMemoryFs } from "./fs.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
@@ -10,46 +10,46 @@ export { group, groupEnd, log, setVerbose } from "./logger.mjs";
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
-/** @type {{componentDirs?: string[]}} */
-let liquidEngineConfig = {};
-
-/** @type {{name: string, fn: any}[]} */
-const customFilters = [];
-
-/** @type {{name: string, fn: any}[]} */
-const customShortcodes = [];
-
-/** @type {{name: string, fn: any}[]} */
-const customPairedShortcodes = [];
-
-/** @type {{name: string, factory: any}[]} */
-const customTags = [];
-
 /**
- * Configure Liquid engine options before it's created.
+ * Creates and configures the shared Liquid engine instance.
  *
- * @param {Object} options - Configuration options
- * @param {string[]} [options.componentDirs] - Component directories
+ * @param {{componentDirs?: string[]}} options - Liquid engine options
  * @returns {void}
  */
-export function configureLiquid(options) {
-	log("Configuring Liquid with options:", options);
-	liquidEngineConfig = { ...liquidEngineConfig, ...options };
+export function createSharedLiquidEngine(options) {
+	log("Creating shared Liquid engine");
+
+	sharedLiquidEngine = new Liquid({
+		fs: inMemoryFs,
+		globals: {
+			ENV_CLIENT: true,
+		},
+		...options,
+	});
+	log("Liquid engine instantiated");
+
+	// Register Eleventy's built-in filters
+	for (const [name, fn] of Object.entries(eleventyFilters)) {
+		sharedLiquidEngine.registerFilter(name, fn);
+	}
+	log(
+		"Registered",
+		Object.keys(eleventyFilters).length,
+		"built-in 11ty filters",
+	);
+
+	log(
+		"Available files in window.cc_files:",
+		Object.keys(window.cc_files || {}),
+	);
+
+	sharedLiquidEngine.registerTag(
+		"bind_include",
+		createBindIncludeTag(sharedLiquidEngine),
+	);
+	log("bind_include tag registered");
 }
 
-/**
- * Returns the shared Liquid engine (creates it if needed).
- *
- * @param {Object} [options] - Additional Liquid engine options
- * @returns {import("liquidjs").Liquid} The shared Liquid engine instance
- */
-export function getLiquidEngine(options = {}) {
-	if (!sharedLiquidEngine) {
-		createSharedLiquidEngine(options);
-	}
-	// @ts-expect-error - sharedLiquidEngine is guaranteed to be set by createSharedLiquidEngine
-	return sharedLiquidEngine;
-}
 
 /**
  * Registers a Liquid component with the CloudCannon component system.
@@ -63,7 +63,10 @@ export function registerLiquidComponent(key, contents) {
 	log("Registering component:", key);
 	log("Component contents preview:", contents?.substring?.(0, 200) || contents);
 
-	const liquidEngine = getLiquidEngine();
+	if (!sharedLiquidEngine) {
+		throw new Error(`sharedLiquidEngine not defined when registering component ${key}`);
+	}
+	const liquidEngine = sharedLiquidEngine;
 
 	/**
 	 * Wrapper function that renders the Liquid component to an HTMLElement.
@@ -91,90 +94,74 @@ export function registerLiquidComponent(key, contents) {
 	log(`Component registered, ${key}`);
 }
 
+
 /**
- * Creates and configures the shared Liquid engine instance.
+ * Registers a custom Liquid filter.
  *
- * @param {{componentDirs?: string[]}} options - Liquid engine options
+ * @param {string} name - The filter name
+ * @param {any} fn - The filter function
  * @returns {void}
  */
-function createSharedLiquidEngine(options) {
-	// Merge stored config with passed options
-	const mergedOptions = { ...liquidEngineConfig, ...options };
-	log("Creating shared Liquid engine with options:", mergedOptions);
-
-	// Fallback should never be hit - actual value passed via configureLiquid() during build
-	const fs = createInMemoryFs({
-		componentDirs: mergedOptions.componentDirs || ["_includes/"],
-	});
-	log("In-memory filesystem created");
-
-	sharedLiquidEngine = new Liquid({
-		fs,
-		root: ["/"],
-		globals: {
-			ENV_CLIENT: true,
-		},
-		// Default extension for includes without explicit extension.
-		// LiquidJS only supports a single extname - for .html or .bookshop.liquid files,
-		// users must specify the full filename: {% include 'header.html' %}
-		extname: ".liquid",
-		strictFilters: false,
-		strictVariables: false,
-		...options,
-	});
-	log("Liquid engine instantiated");
-
-	// Register Eleventy's built-in filters
-	for (const [name, fn] of Object.entries(eleventyFilters)) {
-		sharedLiquidEngine.registerFilter(name, fn);
+export function registerCustomFilter(name, fn) {
+	log("Registering filter:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(`sharedLiquidEngine not defined when registering custom filter ${name}`);
 	}
-	log(
-		"Registered",
-		Object.keys(eleventyFilters).length,
-		"built-in 11ty filters",
-	);
+	sharedLiquidEngine.registerFilter(name, fn);
+}
 
-	log(
-		"Available files in window.cc_files:",
-		Object.keys(window.cc_files || {}),
-	);
+/**
+ * Registers a custom shortcode.
+ *
+ * Usage in templates: {% shortcodeName arg1, arg2 %}
+ *
+ * @param {string} name - The shortcode name (used as the tag name)
+ * @param {any} fn - The shortcode function (arg1, arg2, ...) => string
+ * @returns {void}
+ */
+export function registerCustomShortcode(name, fn) {
+	log("Registering shortcode:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(`sharedLiquidEngine not defined when registering custom shortcode ${name}`);
+	}
+	sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
+}
 
-	sharedLiquidEngine.registerTag(
-		"bind_include",
-		createBindIncludeTag(sharedLiquidEngine),
-	);
-	log("bind_include tag registered");
+/**
+ * Registers a custom paired shortcode (with content between tags).
+ *
+ * Usage in templates: {% shortcodeName arg %}content{% endshortcodeName %}
+ *
+ * @param {string} name - The shortcode name (used as the tag name)
+ * @param {any} fn - The shortcode function (content, arg1, ...) => string
+ * @returns {void}
+ */
+export function registerCustomPairedShortcode(name, fn) {
+	log("Registering paired shortcode:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(`sharedLiquidEngine not defined when registering custom paired shortcode ${name}`);
+	}
+	sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
+}
 
-	if (customFilters?.length > 0) {
-		for (const { name, fn } of customFilters) {
-			sharedLiquidEngine.registerFilter(name, fn);
-		}
-		log("Registered", customFilters.length, "custom filters");
+/**
+ * Registers a custom tag with full LiquidJS parser access.
+ *
+ * Custom tags are more powerful than shortcodes - they receive full access to
+ * the LiquidJS parser and can implement complex parsing/rendering logic.
+ *
+ * Usage in templates: {% tagName args %}
+ *
+ * @param {string} name - The tag name
+ * @param {any} factory - Factory function (liquidEngine) => { parse(), render() }
+ * @returns {void}
+ */
+export function registerCustomTag(name, factory) {
+	log("Registering custom tag:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(`sharedLiquidEngine not defined when registering custom tag ${name}`);
 	}
-
-	// Register custom shortcodes
-	if (customShortcodes?.length > 0) {
-		for (const { name, fn } of customShortcodes) {
-			sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
-		}
-		log("Registered", customShortcodes.length, "shortcodes");
-	}
-
-	// Register custom paired shortcodes
-	for (const { name, fn } of customPairedShortcodes) {
-		sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
-	}
-	if (customPairedShortcodes.length > 0) {
-		log("Registered", customPairedShortcodes.length, "paired shortcodes");
-	}
-
-	// Register custom tags
-	for (const { name, factory } of customTags) {
-		sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
-	}
-	if (customTags.length > 0) {
-		log("Registered", customTags.length, "custom tags");
-	}
+	sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
 }
 
 /**
@@ -273,75 +260,3 @@ export function createBindIncludeTag(_liquidEngine) {
 	};
 }
 
-/**
- * Registers a custom Liquid filter.
- *
- * @param {string} name - The filter name
- * @param {any} fn - The filter function
- * @returns {void}
- */
-export function registerCustomFilter(name, fn) {
-	log("Registering filter:", name);
-	customFilters.push({ name, fn });
-
-	if (sharedLiquidEngine) {
-		sharedLiquidEngine.registerFilter(name, fn);
-	}
-}
-
-/**
- * Registers a custom shortcode.
- *
- * Usage in templates: {% shortcodeName arg1, arg2 %}
- *
- * @param {string} name - The shortcode name (used as the tag name)
- * @param {any} fn - The shortcode function (arg1, arg2, ...) => string
- * @returns {void}
- */
-export function registerCustomShortcode(name, fn) {
-	log("Registering shortcode:", name);
-	customShortcodes.push({ name, fn });
-
-	if (sharedLiquidEngine) {
-		sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
-	}
-}
-
-/**
- * Registers a custom paired shortcode (with content between tags).
- *
- * Usage in templates: {% shortcodeName arg %}content{% endshortcodeName %}
- *
- * @param {string} name - The shortcode name (used as the tag name)
- * @param {any} fn - The shortcode function (content, arg1, ...) => string
- * @returns {void}
- */
-export function registerCustomPairedShortcode(name, fn) {
-	log("Registering paired shortcode:", name);
-	customPairedShortcodes.push({ name, fn });
-
-	if (sharedLiquidEngine) {
-		sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
-	}
-}
-
-/**
- * Registers a custom tag with full LiquidJS parser access.
- *
- * Custom tags are more powerful than shortcodes - they receive full access to
- * the LiquidJS parser and can implement complex parsing/rendering logic.
- *
- * Usage in templates: {% tagName args %}
- *
- * @param {string} name - The tag name
- * @param {any} factory - Factory function (liquidEngine) => { parse(), render() }
- * @returns {void}
- */
-export function registerCustomTag(name, factory) {
-	log("Registering custom tag:", name);
-	customTags.push({ name, factory });
-
-	if (sharedLiquidEngine) {
-		sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
-	}
-}
