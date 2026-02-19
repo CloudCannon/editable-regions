@@ -50,7 +50,6 @@ export function createSharedLiquidEngine(options) {
 	log("bind_include tag registered");
 }
 
-
 /**
  * Registers a Liquid component with the CloudCannon component system.
  * Creates a wrapper that renders the Liquid template to an HTMLElement.
@@ -64,7 +63,9 @@ export function registerLiquidComponent(key, contents) {
 	log("Component contents preview:", contents?.substring?.(0, 200) || contents);
 
 	if (!sharedLiquidEngine) {
-		throw new Error(`sharedLiquidEngine not defined when registering component ${key}`);
+		throw new Error(
+			`sharedLiquidEngine not defined when registering component ${key}`,
+		);
 	}
 	const liquidEngine = sharedLiquidEngine;
 
@@ -94,7 +95,6 @@ export function registerLiquidComponent(key, contents) {
 	log(`Component registered, ${key}`);
 }
 
-
 /**
  * Registers a custom Liquid filter.
  *
@@ -105,7 +105,9 @@ export function registerLiquidComponent(key, contents) {
 export function registerCustomFilter(name, fn) {
 	log("Registering filter:", name);
 	if (!sharedLiquidEngine) {
-		throw new Error(`sharedLiquidEngine not defined when registering custom filter ${name}`);
+		throw new Error(
+			`sharedLiquidEngine not defined when registering custom filter ${name}`,
+		);
 	}
 	sharedLiquidEngine.registerFilter(name, fn);
 }
@@ -122,7 +124,9 @@ export function registerCustomFilter(name, fn) {
 export function registerCustomShortcode(name, fn) {
 	log("Registering shortcode:", name);
 	if (!sharedLiquidEngine) {
-		throw new Error(`sharedLiquidEngine not defined when registering custom shortcode ${name}`);
+		throw new Error(
+			`sharedLiquidEngine not defined when registering custom shortcode ${name}`,
+		);
 	}
 	sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
 }
@@ -139,7 +143,9 @@ export function registerCustomShortcode(name, fn) {
 export function registerCustomPairedShortcode(name, fn) {
 	log("Registering paired shortcode:", name);
 	if (!sharedLiquidEngine) {
-		throw new Error(`sharedLiquidEngine not defined when registering custom paired shortcode ${name}`);
+		throw new Error(
+			`sharedLiquidEngine not defined when registering custom paired shortcode ${name}`,
+		);
 	}
 	sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
 }
@@ -159,7 +165,9 @@ export function registerCustomPairedShortcode(name, fn) {
 export function registerCustomTag(name, factory) {
 	log("Registering custom tag:", name);
 	if (!sharedLiquidEngine) {
-		throw new Error(`sharedLiquidEngine not defined when registering custom tag ${name}`);
+		throw new Error(
+			`sharedLiquidEngine not defined when registering custom tag ${name}`,
+		);
 	}
 	sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
 }
@@ -259,4 +267,3 @@ export function createBindIncludeTag(_liquidEngine) {
 		},
 	};
 }
-

@@ -99,10 +99,14 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 	if (pluginOptions.liquid) {
 		const componentDirs = pluginOptions.liquid.componentDirs ?? [
-			directories.includes
+			directories.includes,
+			directories.input,
 		];
 		const extensions = pluginOptions.liquid.extensions ?? [".liquid", ".html"];
-		const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [];
+		const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [
+			directories.output,
+			"node_modules",
+		];
 
 		const normalizedExtensions = extensions.map((ext) =>
 			ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
@@ -110,8 +114,6 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 		const normalizedIgnoreDirs = ignoreDirectories.map((dir) =>
 			dir.toLowerCase(),
 		);
-
-		console.log({ componentDirs })
 
 		source += `		
       import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, setVerbose } from '@cloudcannon/editable-regions/liquid';
@@ -234,7 +236,6 @@ async function findAllLiquidFiles(
 
 		allFiles.push(...files);
 	}
-	// console.log({ allFiles })
 	return allFiles;
 }
 
