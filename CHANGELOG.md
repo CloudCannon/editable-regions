@@ -7,6 +7,10 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.11
+
+* Fixed an issue where component editable regions would sometimes briefly show an error state when the editor first loaded.
+
 ## 0.0.10
 
 * Component editable regions now display an error when the component key cannot be found within 4 seconds.

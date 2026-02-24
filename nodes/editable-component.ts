@@ -351,23 +351,6 @@ export default class EditableComponent extends Editable {
 		);
 	}
 
-	setupListeners(): void {
-		super.setupListeners();
-		const key = this.element.dataset.component;
-		if (!key) {
-			return;
-		}
-
-		const component = this.getComponents()?.[key];
-		if (!component) {
-			document.addEventListener(
-				`editable-regions:registered-${key}`,
-				() => this.update(),
-				{ once: true },
-			);
-		}
-	}
-
 	mount(): void {
 		if (!this.controlsElement) {
 			let editPath: string | undefined;
