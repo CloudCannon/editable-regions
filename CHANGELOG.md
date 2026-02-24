@@ -9,6 +9,7 @@
 
 ## 0.0.11
 
+* Fixed an issue where component editable regions wouldn't correctly update the tag name of child editable regions.
 * Fixed an issue where component editable regions would sometimes briefly show an error state when the editor first loaded.
 
 ## 0.0.10
