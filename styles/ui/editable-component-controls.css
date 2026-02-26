@@ -90,6 +90,27 @@ button {
 	}
 }
 
+.context-menu:popover-open {
+	display: block;
+	pointer-events: auto;
+	inset: auto;
+	margin: 4px 4px 0 0;
+	position: fixed;
+	top: anchor(bottom);
+	right: anchor(right);
+	position-try-fallbacks: flip-block;
+}
+
+@supports (anchor-name: --a) {
+	:host {
+		position: fixed;
+		top: anchor(top);
+		right: anchor(right);
+		margin-top: var(--ccve-editable-outline-width);
+		margin-right: var(--ccve-editable-outline-width);
+	}
+}
+
 @keyframes fade-in-up {
 	from {
 		opacity: 0.5;
