@@ -131,11 +131,18 @@ export const registerAstroComponent = (key, component) => {
 			props,
 			resolve: () => "editable-region-placeholder",
 			/**
-			 * @param {*} astroGlobal
-			 * @param {*} props
-			 * @param {*} slots
+			 * @param {*} args
 			 */
-			createAstro(astroGlobal, props, slots) {
+			createAstro(...args) {
+				let astroGlobal = SSRResult;
+				let props, slots;
+
+				if (args.length === 2) {
+					[props, slots] = args;
+				} else {
+					[astroGlobal, props, slots] = args;
+				}
+
 				const astroSlots = {
 					/**
 					 * @param {string} name
