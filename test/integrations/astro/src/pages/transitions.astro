@@ -1,0 +1,57 @@
+---
+import { ClientRouter, fade, slide } from "astro:transitions";
+import TransitionBox from "../components/transition-box.astro";
+
+// Test fade and slide animation functions
+const fadeAnimation = fade({ duration: "0.5s" });
+const slideAnimation = slide({ duration: "0.3s" });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:transitions Test Page 1</title>
+    <ClientRouter />
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:transitions Module Tests - Page 1</h1>
+
+    <nav>
+      <a href="/other-transitions/">Go to Page 2</a>
+    </nav>
+
+    <section>
+      <h2>ClientRouter Component</h2>
+      <p>ClientRouter component is included in the head (check HTML source)</p>
+    </section>
+
+    <section transition:animate={fadeAnimation}>
+      <h2>fade() Animation</h2>
+      <p>Result: {JSON.stringify(fadeAnimation)}</p>
+      <div>
+        This section uses fade animation
+      </div>
+    </section>
+
+    <section transition:animate={slideAnimation}>
+      <h2>slide() Animation</h2>
+      <p>Result: {JSON.stringify(slideAnimation)}</p>
+      <div>
+        This section uses slide animation
+      </div>
+    </section>
+
+    <section>
+      <h2>Editable Transition Component</h2>
+      <div data-editable="component" data-component="transition-box">
+        <TransitionBox title="Editable Fade Box" animationType="fade" duration="0.6s">
+            <p data-editable="source" data-path="src/pages/transitions.astro" data-key="transition-box-content">This is an editable component with a fade transition.</p>
+        </TransitionBox>
+      </div>
+    </section>
+  </body>
+</html>

@@ -26,12 +26,18 @@ export const getCollection = async (collectionKey, filter) => {
 			slug = data.slug;
 		}
 
+		const body = await file.get();
 		return {
 			collection: collectionKey,
 			id: id,
 			data: data,
 			slug: slug,
-			body: await file.get(),
+			body: body,
+			render: () => ({
+				Content: () => body ?? "Content is not available when live editing",
+				headings: [],
+				remarkPluginFrontmatter: {},
+			}),
 		};
 	});
 

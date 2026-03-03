@@ -1,0 +1,57 @@
+---
+import { Image, Picture, getImage } from "astro:assets";
+import testImage from "../assets/test-image.png";
+import AssetsBox from "../components/assets-box.astro";
+
+// Test getImage function
+const optimizedImage = await getImage({ src: testImage });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:assets Test Page</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:assets Module Tests</h1>
+
+    <section>
+      <h2>Image Component - Local Import</h2>
+      <Image src={testImage} alt="Test image from local import" width={100} height={100} />
+    </section>
+
+    <section>
+      <h2>Image Component - Remote URL</h2>
+      <Image
+        src="https://placebear.com/100/100"
+        alt="Test image from remote URL"
+        width={150}
+        height={150}
+      />
+    </section>
+
+    <section>
+      <h2>Picture Component</h2>
+      <Picture src={testImage} alt="Test picture component" width={100} height={100} />
+    </section>
+
+    <section>
+      <h2>getImage() Function Result</h2>
+      <p>Optimized src: {optimizedImage.src}</p>
+      <img src={optimizedImage.src} alt="Image from getImage function" />
+    </section>
+
+    <section>
+      <h2>Editable Assets Component</h2>
+      <div data-editable="component" data-component="assets-box">
+        <AssetsBox title="Editable Assets Box" imageSrc={testImage} imageAlt="Editable test image">
+          <p data-editable="source" data-path="src/pages/assets.astro" data-key="assets-box-content">This is an editable component using astro:assets.</p>
+        </AssetsBox>
+      </div>
+    </section>
+  </body>
+</html>

@@ -1,0 +1,57 @@
+---
+import {
+  isInputError,
+  isActionError,
+  ActionError,
+} from "astro:actions";
+import ActionsButton from "../components/actions-button.astro";
+
+// Test isInputError (shimmed - will log warning)
+const inputErrorResult = isInputError(new Error("test"));
+
+// Test isActionError (shimmed - will log warning)
+const actionErrorResult = isActionError(new Error("test"));
+
+// Test ActionError class (shimmed - will log warning)
+const actionError = new ActionError({ code: "BAD_REQUEST", message: "This is a test error" });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:actions Test Page</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:actions Module Tests</h1>
+    <p><em>All functions are shimmed and will log warnings to console</em></p>
+
+    <section>
+      <h2>isInputError()</h2>
+      <p>Result: {String(inputErrorResult)}</p>
+    </section>
+
+    <section>
+      <h2>isActionError()</h2>
+      <p>Result: {String(actionErrorResult)}</p>
+    </section>
+
+    <section>
+      <h2>ActionError Class</h2>
+      <p>Error code: {actionError.code}</p>
+      <p>Error message: {actionError.message}</p>
+    </section>
+
+    <section>
+      <h2>Editable Actions Component</h2>
+      <div data-editable="component" data-component="actions-button">
+        <ActionsButton title="Editable Actions Button" actionName="submitForm">
+          <p data-editable="source" data-path="src/pages/actions.astro" data-key="actions-button-content">This is an editable component using astro:actions.</p>
+        </ActionsButton>
+      </div>
+    </section>
+  </body>
+</html>

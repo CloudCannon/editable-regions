@@ -37,6 +37,7 @@ export default class EditableArray extends Editable {
 	private updatePromise: Promise<void> | undefined;
 	private needsReupdate = false;
 	private addButton?: EditableRegionButton;
+	private pendingPartialSubtree?: ChildNode | null;
 
 	async registerListener(listener: EditableListener): Promise<void> {
 		if (!this.value) {
@@ -149,22 +150,25 @@ export default class EditableArray extends Editable {
 		return value;
 	}
 
-	update(): Promise<void> {
+	update(partialSubtree?: ChildNode | null): Promise<void> {
 		if (this.updatePromise) {
 			this.needsReupdate = true;
+			this.pendingPartialSubtree = partialSubtree;
 			return this.updatePromise;
 		}
-		this.updatePromise = this._update().then(() => {
+		this.updatePromise = this._update(partialSubtree).then(() => {
 			this.updatePromise = undefined;
 			if (this.needsReupdate) {
 				this.needsReupdate = false;
-				return this.update();
+				const savedPartialSubtree = this.pendingPartialSubtree;
+				this.pendingPartialSubtree = undefined;
+				return this.update(savedPartialSubtree);
 			}
 		});
 		return this.updatePromise;
 	}
 
-	private async _update(): Promise<void> {
+	private async _update(partialSubtree?: ChildNode | null): Promise<void> {
 		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
 		const __base_context = {
 			...this.contextBase,
@@ -188,6 +192,24 @@ export default class EditableArray extends Editable {
 			value = this.value;
 		} else {
 			value = [];
+		}
+
+		const partialChildren: (HTMLElement & { editable?: EditableArrayItem })[] =
+			[];
+		if (partialSubtree instanceof HTMLElement) {
+			for (const child of partialSubtree.querySelectorAll(
+				"editable-array-item,[data-editable='array-item']",
+			)) {
+				let parent = child.parentElement;
+				while (parent instanceof HTMLElement && !isEditableElement(parent)) {
+					parent = parent.parentElement;
+				}
+				if (parent !== partialSubtree) {
+					continue;
+				}
+
+				partialChildren.push(child as any);
+			}
 		}
 
 		const templates: {
@@ -245,23 +267,6 @@ export default class EditableArray extends Editable {
 			children.push(child as any);
 		}
 
-		if (
-			children.length === 0 &&
-			!this.element.dataset.component &&
-			!this.element.dataset.componentKey &&
-			!templates.unkeyed &&
-			Object.keys(templates.keyed).length === 0
-		) {
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render array editable region");
-			error.setAttribute(
-				"message",
-				"Array editable regions with no child array items must have either a 'data-component' attribute or a 'data-component-key' attribute. Please add an item to this array then save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
-			);
-			this.element.replaceChildren(error);
-			return;
-		}
-
 		const key = this.element.dataset.idKey ?? this.element.dataset.componentKey;
 
 		if (!key) {
@@ -278,8 +283,14 @@ export default class EditableArray extends Editable {
 
 			for (let i = 0; i < value.length; i++) {
 				let child = children[i];
+				const partialChild = partialChildren[i];
+
 				if (!child) {
-					if (templates.unkeyed) {
+					if (partialChild) {
+						child = partialChild.cloneNode(true) as HTMLElement & {
+							editable?: EditableArrayItem;
+						};
+					} else if (templates.unkeyed) {
 						child = templates.unkeyed.cloneNode(true) as HTMLElement & {
 							editable?: EditableArrayItem;
 						};
@@ -288,11 +299,22 @@ export default class EditableArray extends Editable {
 						child = document.createElement(
 							"editable-array-item",
 						) as EditableArrayItemComponent;
-					} else {
-						// Empty arrays should be caught by the error case above so children[0] should always exist
+					} else if (children[0]) {
 						child = children[0].cloneNode(true) as HTMLElement & {
 							editable?: EditableArrayItem;
 						};
+					} else {
+						const error = document.createElement("editable-region-error-card");
+						error.setAttribute(
+							"heading",
+							"Failed to render array editable region",
+						);
+						error.setAttribute(
+							"message",
+							"Array editable region contains an array item that cannot be rendered. Either a 'data-component' attribute or a 'data-component-key' attribute is required to render array items that weren't previously on the page. Please save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
+						);
+						this.element.replaceChildren(error);
+						return;
 					}
 					this.element.appendChild(child);
 				}
@@ -307,6 +329,7 @@ export default class EditableArray extends Editable {
 					this.specialProps,
 					{ path: `${i}`, editable: child.editable },
 					{ __base_context },
+					partialChild,
 				);
 			}
 			return;
@@ -359,6 +382,7 @@ export default class EditableArray extends Editable {
 					this.specialProps,
 					{ path: `${index}`, editable: child.editable },
 					{ __base_context },
+					partialChildren[index],
 				);
 			});
 
@@ -386,6 +410,7 @@ export default class EditableArray extends Editable {
 			const existingElement = children[i];
 			const templateElement = templates.keyed[key] ?? templates.unkeyed;
 			const componentKey = componentKeys[i] || this.element.dataset.component;
+			const partialChild = partialChildren[i];
 
 			const matchingChildIndex = children.findIndex(
 				(child, i) => child.dataset.id === key && !moved[i],
@@ -394,7 +419,9 @@ export default class EditableArray extends Editable {
 			let matchingChild = children[matchingChildIndex];
 			if (!matchingChild) {
 				const clone = children.find((child) => child.dataset.id === key);
-				if (templateElement) {
+				if (partialChild) {
+					matchingChild = partialChild.cloneNode(true) as any;
+				} else if (templateElement) {
 					matchingChild = templateElement.cloneNode(true) as any;
 					matchingChild.dataset.editable = "array-item";
 				} else if (componentKey) {
@@ -457,6 +484,7 @@ export default class EditableArray extends Editable {
 					this.specialProps,
 					{ path: `${i}`, editable: matchingChild.editable },
 					{ __base_context },
+					partialChild,
 				);
 			}
 		});

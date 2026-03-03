@@ -1,0 +1,31 @@
+---
+import { defineMiddleware, sequence } from "astro:middleware";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+// Test the shimmed functions
+const testMiddleware = defineMiddleware(async (ctx, next) => next());
+const chained = sequence(testMiddleware);
+---
+
+<div class="middleware-info">
+  <h3>{title}</h3>
+  <p>defineMiddleware result type: {typeof testMiddleware}</p>
+  <p>sequence result type: {typeof chained}</p>
+  <p><em>Note: Middleware functions are shimmed in editable components</em></p>
+  <slot />
+</div>
+
+<style>
+  .middleware-info {
+    border: 2px solid #9b59b6;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #f5eef8;
+  }
+</style>

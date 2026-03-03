@@ -1,0 +1,30 @@
+---
+import { fade, slide } from "astro:transitions";
+
+interface Props {
+  title: string;
+  animationType?: "fade" | "slide";
+  duration?: string;
+}
+
+const { title, animationType = "fade", duration = "0.5s" } = Astro.props;
+
+const animation = animationType === "slide"
+  ? slide({ duration })
+  : fade({ duration });
+---
+
+<div class="transition-box" transition:animate={animation}>
+  <h3>{title}</h3>
+  <slot>Default content</slot>
+</div>
+
+<style>
+  .transition-box {
+    border: 2px solid #333;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #f5f5f5;
+  }
+</style>

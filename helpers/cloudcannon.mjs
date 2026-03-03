@@ -55,7 +55,6 @@ export const apiLoadedPromise = new Promise((resolve) => {
 export const addEditableComponentRenderer = (key, renderer) => {
 	extendedWindow.cc_components = extendedWindow.cc_components || {};
 	extendedWindow.cc_components[key] = renderer;
-	document.dispatchEvent(new CustomEvent(`editable-regions:registered-${key}`));
 };
 
 /**
@@ -67,7 +66,6 @@ export const addEditableComponentRenderer = (key, renderer) => {
 export const addEditableSnippetRenderer = (key, renderer) => {
 	extendedWindow.cc_snippets = extendedWindow.cc_snippets || {};
 	extendedWindow.cc_snippets[key] = renderer;
-	document.dispatchEvent(new CustomEvent(`editable-regions:registered-${key}`));
 };
 
 /**
@@ -105,6 +103,16 @@ export const realizeAPIValue = async (value) => {
 		return items.data.get();
 	}
 	return value;
+};
+
+export const addCustomEditableRegion = (key, region) => {
+	extendedWindow.editableRegionMap ??= {};
+	extendedWindow.editableRegionMap[key] = region;
+	extendedWindow.hydrateDataEditableRegions(document.body);
+};
+
+export const getCustomEditableRegions = () => {
+	return extendedWindow.editableRegionMap ?? {};
 };
 
 export { _cloudcannon as CloudCannon };

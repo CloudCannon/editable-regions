@@ -1,0 +1,125 @@
+---
+import {
+  getCollection,
+  getEntry,
+  getEntries,
+  getEntryBySlug,
+  render,
+} from "astro:content";
+import ContentCard from "../components/content-card.astro";
+
+// Test getCollection - get all blog posts
+const allPosts = await getCollection("blog");
+
+// Test getCollection with filter
+const publishedPosts = await getCollection("blog", ({ data }) => !data.draft);
+
+// Test getEntry with object syntax
+const firstPostByObj = await getEntry({ collection: "blog", slug: "first-post" });
+
+// Test getEntry with string syntax
+const firstPostByStr = await getEntry("blog", "first-post");
+
+// Test getEntries for multiple entries
+const multipleEntries = await getEntries([
+  { collection: "blog", slug: "first-post" },
+  { collection: "blog", slug: "second-post" },
+]);
+
+// Test getEntryBySlug
+const postBySlug = await getEntryBySlug("blog", "second-post");
+
+// Test render function
+const renderedContent = firstPostByStr ? await render(firstPostByStr) : null;
+const Content = renderedContent?.Content;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:content Test Page</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:content Module Tests</h1>
+
+    <section>
+      <h2>getCollection('blog') - All Posts</h2>
+      <p>Total posts: {allPosts.length}</p>
+      <ul>
+        {allPosts.map((post) => (
+          <li>
+            <strong>{post.data.title}</strong> - {post.data.description}
+            <br />
+            <small>ID: {post.id}, Slug: {post.slug}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section>
+      <h2>getCollection with Filter (non-draft)</h2>
+      <p>Published posts: {publishedPosts.length}</p>
+    </section>
+
+    <section>
+      <h2>getEntry() - Object Syntax</h2>
+      {firstPostByObj ? (
+        <p>Found: {firstPostByObj.data.title}</p>
+      ) : (
+        <p>Not found</p>
+      )}
+    </section>
+
+    <section>
+      <h2>getEntry() - String Syntax</h2>
+      {firstPostByStr ? (
+        <p>Found: {firstPostByStr.data.title}</p>
+      ) : (
+        <p>Not found</p>
+      )}
+    </section>
+
+    <section>
+      <h2>getEntries() - Multiple Entries</h2>
+      <p>Retrieved {multipleEntries.length} entries:</p>
+      <ul>
+        {multipleEntries.map((entry) => (
+          <li>{entry?.data?.title ?? "undefined"}</li>
+        ))}
+      </ul>
+    </section>
+
+    <section>
+      <h2>getEntryBySlug()</h2>
+      {postBySlug ? (
+        <p>Found: {postBySlug.data.title}</p>
+      ) : (
+        <p>Not found</p>
+      )}
+    </section>
+
+    <section>
+      <h2>render() - Rendered Content</h2>
+      {Content ? (
+        <div class="rendered-content">
+          <Content />
+        </div>
+      ) : (
+        <p>Could not render content</p>
+      )}
+    </section>
+
+    <section>
+      <h2>Editable Content Component</h2>
+      <div data-editable="component" data-component="content-card">
+        <ContentCard title="Editable Content Card" collectionName="blog">
+          <p data-editable="source" data-path="src/pages/content.astro" data-key="content-card-content">This is an editable component using astro:content.</p>
+        </ContentCard>
+      </div>
+    </section>
+  </body>
+</html>

@@ -9,7 +9,7 @@ import {
 } from "../nodes";
 import { hasEditable, isEditableWebcomponent } from "./checks";
 
-const editableMap: Record<string, typeof Editable | undefined> = {
+const baseEditableMap: Record<string, typeof Editable | undefined> = {
 	array: EditableArray,
 	"array-item": EditableArrayItem,
 	component: EditableComponent,
@@ -31,6 +31,10 @@ export const dehydrateDataEditableRegions = (root: Element) => {
 };
 
 export const hydrateDataEditableRegions = (root: Element) => {
+	const editableMap: Record<string, typeof Editable | undefined> = {
+		...baseEditableMap,
+		...((window as any).editableRegionMap ?? {}),
+	};
 	if (
 		root instanceof HTMLElement &&
 		root.dataset.editable &&
@@ -89,3 +93,5 @@ export const hydrateDataEditableRegions = (root: Element) => {
 		}
 	});
 };
+
+(window as any).hydrateDataEditableRegions = hydrateDataEditableRegions;

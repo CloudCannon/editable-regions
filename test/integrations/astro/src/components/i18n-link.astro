@@ -1,0 +1,35 @@
+---
+import { getRelativeLocaleUrl, getAbsoluteLocaleUrl } from "astro:i18n";
+
+interface Props {
+  title: string;
+  locale: string;
+  path: string;
+}
+
+const { title, locale, path } = Astro.props;
+
+const relativeUrl = getRelativeLocaleUrl(locale, path);
+const absoluteUrl = getAbsoluteLocaleUrl(locale, path);
+---
+
+<div class="i18n-link">
+  <h3>{title}</h3>
+  <p>Locale: {locale}</p>
+  <p>Relative URL: <a href={relativeUrl}>{relativeUrl}</a></p>
+  <p>Absolute URL: <a href={absoluteUrl}>{absoluteUrl}</a></p>
+  <slot />
+</div>
+
+<style>
+  .i18n-link {
+    border: 2px solid #f0ad4e;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #fcf8e3;
+  }
+  a {
+    color: #8a6d3b;
+  }
+</style>

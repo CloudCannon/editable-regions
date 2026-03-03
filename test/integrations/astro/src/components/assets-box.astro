@@ -1,0 +1,30 @@
+---
+import { Image, getImage } from "astro:assets";
+
+interface Props {
+  title: string;
+  imageSrc: ImageMetadata;
+  imageAlt: string;
+}
+
+const { title, imageSrc, imageAlt } = Astro.props;
+
+const optimized = await getImage({ src: imageSrc });
+---
+
+<div class="assets-box">
+  <h3>{title}</h3>
+  <Image src={imageSrc} alt={imageAlt} width={80} height={80} />
+  <p>Optimized src: {optimized.src}</p>
+  <slot />
+</div>
+
+<style>
+  .assets-box {
+    border: 2px solid #4a90d9;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #e8f4fc;
+  }
+</style>

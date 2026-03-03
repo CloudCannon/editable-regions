@@ -1,0 +1,37 @@
+---
+import { getCollection, getEntry } from "astro:content";
+
+interface Props {
+  title: string;
+  collectionName: string;
+}
+
+const { title, collectionName } = Astro.props;
+
+const entries = await getCollection(collectionName);
+---
+
+<div class="content-card">
+  <h3>{title}</h3>
+  <p>Found {entries.length} entries in "{collectionName}"</p>
+  <ul>
+    {entries.slice(0, 3).map((entry) => (
+      <li>{entry.data.title || entry.id}</li>
+    ))}
+  </ul>
+  <slot />
+</div>
+
+<style>
+  .content-card {
+    border: 2px solid #5cb85c;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    background: #e8f8e8;
+  }
+  ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+</style>

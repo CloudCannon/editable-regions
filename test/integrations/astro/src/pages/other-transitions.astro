@@ -1,0 +1,44 @@
+---
+import { ClientRouter, fade, slide } from "astro:transitions";
+
+// Test fade and slide animation functions (with different durations)
+const fadeAnimation = fade({ duration: "0.7s" });
+const slideAnimation = slide({ duration: "0.4s" });
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:transitions Test Page 2</title>
+    <ClientRouter />
+  </head>
+  <body>
+    <h1>astro:transitions Module Tests - Page 2</h1>
+
+    <nav>
+      <a href="/transitions/">Go to Page 1</a>
+    </nav>
+
+    <section transition:animate={slideAnimation}>
+      <h2>slide() Animation (First on this page)</h2>
+      <p>Result: {JSON.stringify(slideAnimation)}</p>
+      <div>
+        This section uses slide animation with 0.4s duration
+      </div>
+    </section>
+
+    <section>
+      <h2>ClientRouter Component</h2>
+      <p>ClientRouter enables view transitions between pages</p>
+    </section>
+
+    <section transition:animate={fadeAnimation}>
+      <h2>fade() Animation (Last on this page)</h2>
+      <p>Result: {JSON.stringify(fadeAnimation)}</p>
+      <div>
+        This section uses fade animation with 0.7s duration
+      </div>
+    </section>
+  </body>
+</html>

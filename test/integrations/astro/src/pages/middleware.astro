@@ -1,0 +1,55 @@
+---
+import {
+  defineMiddleware,
+  sequence,
+} from "astro:middleware";
+import MiddlewareInfo from "../components/middleware-info.astro";
+
+// Test defineMiddleware (shimmed - will log warning)
+const testMiddleware = defineMiddleware(async (context, next) => {
+  console.log("Middleware running");
+  return next();
+});
+
+// Test sequence (shimmed - will log warning)
+const sequencedMiddleware = sequence(
+  testMiddleware,
+  testMiddleware
+);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>astro:middleware Test Page</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>astro:middleware Module Tests</h1>
+    <p><em>All functions are shimmed and will log warnings to console</em></p>
+
+    <section>
+      <h2>defineMiddleware()</h2>
+      <p>Result type: {typeof testMiddleware}</p>
+      <p>Middleware defined with async handler</p>
+    </section>
+
+    <section>
+      <h2>sequence()</h2>
+      <p>Result type: {typeof sequencedMiddleware}</p>
+      <p>Chained two middleware handlers together</p>
+    </section>
+
+    <section>
+      <h2>Editable Middleware Component</h2>
+      <div data-editable="component" data-component="middleware-info">
+        <MiddlewareInfo title="Editable Middleware Info">
+          <p data-editable="source" data-path="src/pages/middleware.astro" data-key="middleware-info-content">This is an editable component using astro:middleware.</p>
+        </MiddlewareInfo>
+      </div>
+    </section>
+  </body>
+</html>
