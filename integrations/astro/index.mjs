@@ -134,13 +134,19 @@ export const registerAstroComponent = (key, component) => {
 			 * @param {*} args
 			 */
 			createAstro(...args) {
+				if (args.length < 2 || args.length > 3) {
+					console.warn(
+						`[CloudCannon] createAstro called with unexpected number of arguments (${args.length})`,
+					);
+				}
+
 				let astroGlobal = SSRResult;
-				let props, slots;
+				let componentProps, componentSlots;
 
 				if (args.length === 2) {
-					[props, slots] = args;
+					[componentProps, componentSlots] = args;
 				} else {
-					[astroGlobal, props, slots] = args;
+					[astroGlobal, componentProps, componentSlots] = args;
 				}
 
 				const astroSlots = {
@@ -149,20 +155,20 @@ export const registerAstroComponent = (key, component) => {
 					 * @returns boolean
 					 */
 					has: (name) => {
-						if (!slots) return false;
-						return Boolean(slots[name]);
+						if (!componentSlots) return false;
+						return Boolean(componentSlots[name]);
 					},
 					/**
 					 * @param {string} name
 					 * @returns string
 					 */
 					render: (name) => {
-						return renderSlotToString(SSRResult, slots[name]);
+						return renderSlotToString(SSRResult, componentSlots[name]);
 					},
 				};
 				return {
 					__proto__: astroGlobal,
-					props,
+					props: componentProps,
 					slots: astroSlots,
 					request: new Request(window.location.href),
 				};

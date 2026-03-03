@@ -4,6 +4,23 @@ import { fileURLToPath } from "node:url";
 /** @type{string[]} */
 const SUPPORTED_VIRTUAL_MODULES = ["assets", "content"];
 
+function wrapTransform(original) {
+	return function (source, id, options) {
+		if (this.environment?.name === "client") {
+			const proxy = new Proxy(this, {
+				get(target, prop) {
+					if (prop === "environment") {
+						return { ...target.environment, name: "ssr" };
+					}
+					return Reflect.get(target, prop);
+				},
+			});
+			return original.call(proxy, source, id, { ...options, ssr: true });
+		}
+		return original.call(this, source, id, options);
+	};
+}
+
 /**
  * @return {import("astro").AstroIntegration}
  */
@@ -59,53 +76,17 @@ export default () => {
 										"handler" in astroBuildPlugin.transform &&
 										typeof astroBuildPlugin.transform.handler === "function"
 									) {
-										const original = astroBuildPlugin.transform.handler;
-										astroBuildPlugin.transform.handler = function (
-											source,
-											id,
-											options,
-										) {
-											if (this.environment.name === "client") {
-												/** @type {*} */
-												const newThis = {
-													...this,
-													environment: { ...this.environment, name: "ssr" },
-												};
-
-												return original.bind(newThis)(source, id, {
-													...options,
-													ssr: true,
-												});
-											} else {
-												return original.bind(this)(source, id, options);
-											}
-										};
+										astroBuildPlugin.transform.handler = wrapTransform(
+											astroBuildPlugin.transform.handler,
+										);
 									} else if (
 										astroBuildPlugin &&
 										"transform" in astroBuildPlugin &&
 										typeof astroBuildPlugin.transform === "function"
 									) {
-										const original = astroBuildPlugin.transform;
-										astroBuildPlugin.transform = function (
-											source,
-											id,
-											options,
-										) {
-											if (this.environment.name === "client") {
-												/** @type {*} */
-												const newThis = {
-													...this,
-													environment: { ...this.environment, name: "ssr" },
-												};
-
-												return original.bind(newThis)(source, id, {
-													...options,
-													ssr: true,
-												});
-											} else {
-												return original.bind(this)(source, id, options);
-											}
-										};
+										astroBuildPlugin.transform = wrapTransform(
+											astroBuildPlugin.transform,
+										);
 									}
 								},
 								resolveId: {
