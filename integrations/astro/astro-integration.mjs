@@ -4,7 +4,17 @@ import { fileURLToPath } from "node:url";
 /** @type{string[]} */
 const SUPPORTED_VIRTUAL_MODULES = ["assets", "content"];
 
+/**
+ * @param {*} original
+ * @returns
+ */
 function wrapTransform(original) {
+	/**
+	 * @this {*}
+	 * @param {*} source
+	 * @param {*} id
+	 * @param {*} options
+	 */
 	return function (source, id, options) {
 		if (this.environment?.name === "client") {
 			const proxy = new Proxy(this, {
