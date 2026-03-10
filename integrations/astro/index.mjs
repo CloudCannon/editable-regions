@@ -65,6 +65,9 @@ export const queueForClientSideRender = (renderFunction) => {
  * @returns {void}
  */
 export const registerAstroComponent = (key, component) => {
+	/** @type{Document | undefined} */
+	let doc;
+
 	/**
 	 * Wrapper function that renders the Astro component with SSR and client-side hydration.
 	 *
@@ -176,7 +179,9 @@ export const registerAstroComponent = (key, component) => {
 		};
 		// Render the Astro component to HTML string
 		const result = await renderToString(SSRResult, component, props, {});
-		const doc = document.implementation.createHTMLDocument();
+		if (!doc) {
+			doc = document.implementation.createHTMLDocument();
+		}
 		doc.body.innerHTML = result;
 
 		doc.querySelectorAll("[data-editable-region-csr-id]").forEach((node) => {
