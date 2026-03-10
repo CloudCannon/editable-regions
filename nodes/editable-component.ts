@@ -271,7 +271,7 @@ export default class EditableComponent extends Editable {
 			// The existing element is currently focused or is already the same as the rendered element
 			if (
 				(hasEditableText(targetChild) && targetChild.editable.focused) ||
-				targetChild?.isEqualNode(renderChild)
+				targetChild?.nodeName === renderChild.nodeName
 			) {
 				this.updateEditable(renderChild, targetChild);
 			} else {
