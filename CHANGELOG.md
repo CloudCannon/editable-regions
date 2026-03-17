@@ -7,6 +7,11 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.13
+
+* Fixed an issue where image editable region data panels wouldn't update correctly if the image element was removed from the DOM.
+* Fixed an issue where text editable regions were not correctly escaping snippets in codeblocks for MDX file content.
+
 ## 0.0.11
 
 * Fixed an issue where component editable regions wouldn't correctly update the tag name of child editable regions.

@@ -138,6 +138,10 @@ export default class EditableText extends Editable {
 			? { type: "markdown" }
 			: await this.dispatchGetInputConfig(this.element.dataset.prop);
 
+		const extension = this.contextBase?.isContent
+			? this.contextBase.file?.path.split(".").pop()
+			: undefined;
+
 		this.editor = await CloudCannon.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
@@ -145,6 +149,7 @@ export default class EditableText extends Editable {
 				elementType: this.element.dataset.type,
 				editableType: this.contextBase?.isContent ? "content" : undefined,
 				inputConfig,
+				extension,
 			},
 		);
 

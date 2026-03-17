@@ -6,6 +6,7 @@ export default class EditableImage extends Editable {
 		undefined;
 	inputConfig: { src?: any; alt?: any; title?: any } = {};
 	imageEl?: HTMLImageElement;
+	panelId?: string;
 
 	configuredSrc = false;
 	configuredAlt = false;
@@ -185,7 +186,7 @@ export default class EditableImage extends Editable {
 			!!this.element.dataset.propTitle || !!this.element.dataset.prop;
 
 		this.loadInputConfig().then(() => {
-			this.imageEl?.addEventListener("click", (e) => {
+			this.imageEl?.addEventListener("click", async (e) => {
 				e.preventDefault();
 
 				if (!this.value) {
@@ -203,7 +204,7 @@ export default class EditableImage extends Editable {
 					data.title = this.value.title;
 				}
 
-				CloudCannon.createCustomDataPanel({
+				this.panelId = await CloudCannon.createCustomDataPanel({
 					title: "Edit Image",
 					data,
 					position: this.imageEl?.getBoundingClientRect(),
@@ -267,5 +268,12 @@ export default class EditableImage extends Editable {
 				});
 			});
 		});
+	}
+
+	hardDisconnect(): void {
+		if (this.panelId) {
+			CloudCannon.destroyCustomDataPanel(this.panelId);
+		}
+		super.hardDisconnect();
 	}
 }
