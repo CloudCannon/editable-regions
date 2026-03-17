@@ -7,6 +7,10 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.13
+
+* Improved compatibility for `astro:content` in component editable regions. The `render` function now returns the collection entry's frontmatter as `remarkPluginFrontmatter` instead of an empty object.
+
 ## 0.0.11
 
 * Fixed an issue where component editable regions wouldn't correctly update the tag name of child editable regions.
