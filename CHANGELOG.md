@@ -7,6 +7,10 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.13
+
+* Added experimental support for Eleventy sites with liquid components.
+
 ## 0.0.11
 
 * Fixed an issue where component editable regions wouldn't correctly update the tag name of child editable regions.
