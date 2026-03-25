@@ -131,31 +131,44 @@ export const registerAstroComponent = (key, component) => {
 			props,
 			resolve: () => "editable-region-placeholder",
 			/**
-			 * @param {*} astroGlobal
-			 * @param {*} props
-			 * @param {*} slots
+			 * @param {*} args
 			 */
-			createAstro(astroGlobal, props, slots) {
+			createAstro(...args) {
+				if (args.length < 2 || args.length > 3) {
+					console.warn(
+						`[CloudCannon] createAstro called with unexpected number of arguments (${args.length})`,
+					);
+				}
+
+				let astroGlobal = SSRResult;
+				let componentProps, componentSlots;
+
+				if (args.length === 2) {
+					[componentProps, componentSlots] = args;
+				} else {
+					[astroGlobal, componentProps, componentSlots] = args;
+				}
+
 				const astroSlots = {
 					/**
 					 * @param {string} name
 					 * @returns boolean
 					 */
 					has: (name) => {
-						if (!slots) return false;
-						return Boolean(slots[name]);
+						if (!componentSlots) return false;
+						return Boolean(componentSlots[name]);
 					},
 					/**
 					 * @param {string} name
 					 * @returns string
 					 */
 					render: (name) => {
-						return renderSlotToString(SSRResult, slots[name]);
+						return renderSlotToString(SSRResult, componentSlots[name]);
 					},
 				};
 				return {
 					__proto__: astroGlobal,
-					props,
+					props: componentProps,
 					slots: astroSlots,
 					request: new Request(window.location.href),
 				};

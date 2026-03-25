@@ -9,7 +9,9 @@ editable-array-item {
 	will-change: contents;
 }
 
-editable-array-item,
-[data-editable="array-item"] {
-	position: relative;
+@supports not (anchor-name: --a) {
+	editable-array-item,
+	[data-editable="array-item"] {
+		position: relative;
+	}
 }

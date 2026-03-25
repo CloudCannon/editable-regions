@@ -93,7 +93,16 @@ export default class EditableArrayItemControls extends EditableComponentControls
 
 		this.dragHandle = document.createElement("button");
 		this.dragHandle.type = "button";
+
+		if (this.usePopoverAPI) {
+			//@ts-expect-error: Typescript doesn't yet support the popover API
+			this.dragHandle.style.anchorName = this.anchorName;
+		}
+
 		this.dragHandle.onclick = (e) => {
+			if (this.hasAttribute("open")) {
+				return;
+			}
 			e.stopPropagation();
 			e.preventDefault();
 			this.toggleContextMenu();

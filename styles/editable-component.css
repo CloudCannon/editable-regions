@@ -9,7 +9,9 @@ editable-component {
 	will-change: contents;
 }
 
-editable-component,
-[data-editable="component"] {
-	position: relative;
+@supports not (anchor-name: --a) {
+	editable-component,
+	[data-editable="component"] {
+		position: relative;
+	}
 }
