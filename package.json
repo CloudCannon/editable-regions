@@ -57,16 +57,17 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.8",
 		"@cloudcannon/javascript-api": "0.0.14",
-		"@sindresorhus/slugify": "^3.0.0",
+		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
+		"@types/node": "25.5.0",
 		"@types/react": "19.2.14",
-		"@types/react-dom": "18.3.1",
-		"astro": "^5.14.1",
-		"js-beautify": "^1.15.4",
-		"liquidjs": "^10.24.0",
+		"@types/react-dom": "19.2.3",
+		"astro": "6.0.0",
+		"js-beautify": "1.15.4",
+		"liquidjs": "10.25.2",
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
-		"esbuild": "^0.27.2"
+		"esbuild": "0.27.2"
 	}
 }

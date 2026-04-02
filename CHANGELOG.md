@@ -9,6 +9,8 @@
 
 ## 0.0.13
 
+* Fixed an issue where image editable region data panels wouldn't update correctly if the image element was removed from the DOM.
+* Fixed an issue where text editable regions were not correctly escaping snippets in codeblocks for MDX file content.
 * Added experimental support for Eleventy sites with liquid components.
 
 ## 0.0.11
