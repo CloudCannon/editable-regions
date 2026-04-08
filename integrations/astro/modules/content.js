@@ -36,7 +36,7 @@ export const getCollection = async (collectionKey, filter) => {
 			render: () => ({
 				Content: () => body ?? "Content is not available when live editing",
 				headings: [],
-				remarkPluginFrontmatter: {},
+				remarkPluginFrontmatter: data ?? {},
 			}),
 		};
 	});
@@ -109,7 +109,7 @@ export const getEntryBySlug = (collection, slug) => {
 export const render = async (entry) => ({
 	Content: () => entry?.body ?? "Content is not available when live editing",
 	headings: [],
-	remarkPluginFrontmatter: {},
+	remarkPluginFrontmatter: entry?.data ?? {},
 });
 
 export const defineCollection = () =>
