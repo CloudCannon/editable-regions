@@ -49,17 +49,25 @@
 			"default": "./integrations/react.mjs",
 			"types": "./types/react.d.ts"
 		},
+		"./liquid": "./integrations/liquid/index.mjs",
+		"./eleventy": "./integrations/eleventy.mjs",
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.7",
+		"@biomejs/biome": "2.4.10",
 		"@cloudcannon/javascript-api": "0.0.14",
+		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
+		"@types/node": "25.5.0",
 		"@types/react": "19.2.14",
-		"@types/react-dom": "18.3.1",
-		"astro": "^5.14.1",
-		"js-beautify": "^1.15.4",
+		"@types/react-dom": "19.2.3",
+		"astro": "6.1.2",
+		"js-beautify": "1.15.4",
+		"liquidjs": "10.25.2",
 		"typescript": "5.9.3"
+	},
+	"dependencies": {
+		"esbuild": "0.27.4"
 	}
 }
