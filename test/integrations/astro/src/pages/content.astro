@@ -3,7 +3,6 @@ import {
   getCollection,
   getEntry,
   getEntries,
-  getEntryBySlug,
   render,
 } from "astro:content";
 import ContentCard from "../components/content-card.astro";
@@ -15,23 +14,23 @@ const allPosts = await getCollection("blog");
 const publishedPosts = await getCollection("blog", ({ data }) => !data.draft);
 
 // Test getEntry with object syntax
-const firstPostByObj = await getEntry({ collection: "blog", slug: "first-post" });
+const firstPostByObj = await getEntry("blog", "first-post");
 
 // Test getEntry with string syntax
 const firstPostByStr = await getEntry("blog", "first-post");
 
 // Test getEntries for multiple entries
 const multipleEntries = await getEntries([
-  { collection: "blog", slug: "first-post" },
-  { collection: "blog", slug: "second-post" },
+  { collection: "blog", id: "first-post" },
+  { collection: "blog", id: "second-post" },
 ]);
 
-// Test getEntryBySlug
-const postBySlug = await getEntryBySlug("blog", "second-post");
+// Test getEntry by id
+const postBySlug = await getEntry("blog", "second-post");
 
 // Test render function
 const renderedContent = firstPostByStr ? await render(firstPostByStr) : null;
-const Content = renderedContent?.Content;
+const RenderedContent = renderedContent?.Content;
 ---
 
 <!doctype html>
@@ -104,9 +103,9 @@ const Content = renderedContent?.Content;
 
     <section>
       <h2>render() - Rendered Content</h2>
-      {Content ? (
+      {RenderedContent ? (
         <div class="rendered-content">
-          <Content />
+          <RenderedContent />
         </div>
       ) : (
         <p>Could not render content</p>
