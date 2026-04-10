@@ -6,7 +6,7 @@ import {
 import MiddlewareInfo from "../components/middleware-info.astro";
 
 // Test defineMiddleware (shimmed - will log warning)
-const testMiddleware = defineMiddleware(async (context, next) => {
+const testMiddleware = defineMiddleware(async (_context, next) => {
   console.log("Middleware running");
   return next();
 });

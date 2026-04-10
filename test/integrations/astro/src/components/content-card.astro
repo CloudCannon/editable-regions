@@ -1,9 +1,9 @@
 ---
-import { getCollection, getEntry } from "astro:content";
+import { getCollection } from "astro:content";
 
 interface Props {
   title: string;
-  collectionName: string;
+  collectionName: "blog";
 }
 
 const { title, collectionName } = Astro.props;
