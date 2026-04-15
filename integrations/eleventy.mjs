@@ -14,7 +14,7 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
  * @property {string[]} [componentDirs] - Defaults to Eleventy's configured directories.includes
  * @property {string[]} [extensions] - Defaults to [".liquid", ".html"]
  * @property {string[]} [ignoreDirectories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
- * @property {ComponentRegistration[]} [components] - Registered components
+ * @property {ComponentRegistration[]} [componentOverrides] - Explicitly registered components that override dynamic resolution
  * @property {ComponentRegistration[]} [filters] - Custom Liquid filters
  * @property {ComponentRegistration[]} [shortcodes] - Custom shortcodes
  * @property {ComponentRegistration[]} [pairedShortcodes] - Custom paired shortcodes
@@ -116,7 +116,7 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 		);
 
 		source += `		
-      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
       
@@ -198,9 +198,9 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 			}
 		}
 
-		// Register components
+		// Register explicit component overrides
 		let componentIdx = 0;
-		pluginOptions.liquid?.components?.forEach(({ name, file }) => {
+		pluginOptions.liquid?.componentOverrides?.forEach(({ name, file }) => {
 			const componentName = `customComponent_${componentIdx++}`;
 
 			source += `
@@ -208,6 +208,11 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
         registerLiquidComponent("${name}", ${componentName});
       `;
 		});
+
+		// Initialize the Proxy on window.cc_components for dynamic resolution
+		source += `
+      initComponentProxy();
+    `;
 	}
 	return source;
 };

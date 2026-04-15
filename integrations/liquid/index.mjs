@@ -96,6 +96,59 @@ export function registerLiquidComponent(key, contents) {
 }
 
 /**
+ * Wraps `window.cc_components` in a Proxy that dynamically creates
+ * render functions for any component name not explicitly registered.
+ * The dynamic renderer delegates to Liquid's `{% include %}` tag,
+ * which resolves the component via the engine's configured `root` and `extname`.
+ *
+ * Must be called after `createSharedLiquidEngine()`.
+ *
+ * @returns {void}
+ */
+export function initComponentProxy() {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when initializing component proxy",
+		);
+	}
+	const liquidEngine = sharedLiquidEngine;
+
+	const target = window.cc_components || {};
+
+	window.cc_components = new Proxy(target, {
+		get(target, prop, receiver) {
+			// Check whether a component is explicitly registered
+			// And return that instead of dynamically creating one
+			if (Reflect.has(target, prop)) {
+				return Reflect.get(target, prop, receiver);
+			}
+			// Return a renderer that will use Liquid's include resolution
+			if (typeof prop === "string") {
+				return async (props) => {
+					group(`Rendering component: ${prop}`);
+					log("Props:", props);
+					const htmlString = await liquidEngine.parseAndRender(
+						`{% include "${prop}" %}`,
+						props,
+					);
+					log(
+						"Rendered HTML preview:",
+						htmlString?.substring?.(0, 200) || htmlString,
+					);
+					const rootEl = document.createElement("div");
+					rootEl.innerHTML = htmlString;
+					groupEnd();
+					return rootEl;
+				};
+			}
+			return undefined;
+		},
+	});
+
+	log("Component proxy initialized");
+}
+
+/**
  * Registers a custom Liquid filter.
  *
  * @param {string} name - The filter name

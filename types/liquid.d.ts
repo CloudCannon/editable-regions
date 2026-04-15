@@ -10,9 +10,9 @@ declare module "@cloudcannon/editable-regions/liquid" {
 	export function group(label?: string): void;
 	export function groupEnd(): void;
 
-	export function configureLiquid(options: LiquidConfig): void;
-	export function getLiquidEngine(options?: Record<string, any>): Liquid;
+	export function createSharedLiquidEngine(options?: Record<string, any>): void;
 	export function registerLiquidComponent(key: string, contents: string): void;
+	export function initComponentProxy(): void;
 
 	export function createBindIncludeTag(liquidEngine: Liquid): {
 		parse(tagToken: any): void;
