@@ -50,7 +50,16 @@
 			"default": "./integrations/react.mjs"
 		},
 		"./liquid": "./integrations/liquid/index.mjs",
-		"./eleventy": "./integrations/eleventy.mjs",
+		"./eleventy": {
+			"require": {
+				"types": "./types/eleventy.d.cts",
+				"default": "./integrations/eleventy.cjs"
+			},
+			"import": {
+				"types": "./types/eleventy.d.ts",
+				"default": "./integrations/eleventy.mjs"
+			}
+		},
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},
