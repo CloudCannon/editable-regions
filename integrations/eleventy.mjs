@@ -4,21 +4,15 @@ import esbuild from "esbuild";
 import { createBindIncludeTag } from "./liquid/index.mjs";
 
 /**
- * @typedef {Object} ComponentRegistration
- * @property {string} name - Component name
- * @property {string} file - Path to component file
- */
-
-/**
  * @typedef {Object} LiquidOptions
  * @property {string[]} [componentDirs] - Defaults to Eleventy's configured directories.includes
  * @property {string[]} [extensions] - Defaults to [".liquid", ".html"]
  * @property {string[]} [ignoreDirectories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
- * @property {ComponentRegistration[]} [componentOverrides] - Explicitly registered components that override dynamic resolution
- * @property {ComponentRegistration[]} [filters] - Custom Liquid filters
- * @property {ComponentRegistration[]} [shortcodes] - Custom shortcodes
- * @property {ComponentRegistration[]} [pairedShortcodes] - Custom paired shortcodes
- * @property {ComponentRegistration[]} [tags] - Custom tags
+ * @property {Record<string, string>} [componentOverrides] - Explicitly registered components that override dynamic resolution
+ * @property {Record<string, string>} [filters] - Custom Liquid filters
+ * @property {Record<string, string>} [shortcodes] - Custom shortcodes
+ * @property {Record<string, string>} [pairedShortcodes] - Custom paired shortcodes
+ * @property {Record<string, string>} [tags] - Custom tags
  */
 
 /**
@@ -148,9 +142,9 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 		// Register custom filters
 		const customFilters = pluginOptions.liquid?.filters;
-		if (customFilters?.length) {
+		if (customFilters) {
 			let filterIdx = 0;
-			for (const { name, file } of customFilters) {
+			for (const [name, file] of Object.entries(customFilters)) {
 				const filterName = `customFilter_${filterIdx++}`;
 				source += `  
           import ${filterName} from "./${file}";
@@ -161,9 +155,9 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 		// Register custom shortcodes
 		const customShortcodes = pluginOptions.liquid?.shortcodes;
-		if (customShortcodes?.length) {
+		if (customShortcodes) {
 			let shortcodeIdx = 0;
-			for (const { name, file } of customShortcodes) {
+			for (const [name, file] of Object.entries(customShortcodes)) {
 				const shortcodeName = `customShortcode_${shortcodeIdx++}`;
 				source += `  
           import ${shortcodeName} from "./${file}";
@@ -174,9 +168,9 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 		// Register custom paired shortcodes
 		const customPairedShortcodes = pluginOptions.liquid?.pairedShortcodes;
-		if (customPairedShortcodes?.length) {
+		if (customPairedShortcodes) {
 			let pairedIdx = 0;
-			for (const { name, file } of customPairedShortcodes) {
+			for (const [name, file] of Object.entries(customPairedShortcodes)) {
 				const pairedShortcodeName = `customPairedShortcode_${pairedIdx++}`;
 				source += `  
           import ${pairedShortcodeName} from "./${file}";
@@ -187,9 +181,9 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 
 		// Register custom tags
 		const tags = pluginOptions.liquid?.tags;
-		if (tags?.length) {
+		if (tags) {
 			let tagIdx = 0;
-			for (const { name, file } of tags) {
+			for (const [name, file] of Object.entries(tags)) {
 				const tagName = `tag_${tagIdx++}`;
 				source += `  
           import ${tagName} from "./${file}";
@@ -199,15 +193,17 @@ const createLiveEditingSource = async (pluginOptions, directories) => {
 		}
 
 		// Register explicit component overrides
-		let componentIdx = 0;
-		pluginOptions.liquid?.componentOverrides?.forEach(({ name, file }) => {
-			const componentName = `customComponent_${componentIdx++}`;
-
-			source += `
+		const componentOverrides = pluginOptions.liquid?.componentOverrides;
+		if (componentOverrides) {
+			let componentIdx = 0;
+			for (const [name, file] of Object.entries(componentOverrides)) {
+				const componentName = `customComponent_${componentIdx++}`;
+				source += `
         import ${componentName} from "./${file}";
         registerLiquidComponent("${name}", ${componentName});
       `;
-		});
+			}
+		}
 
 		// Initialize the Proxy on window.cc_components for dynamic resolution
 		source += `
