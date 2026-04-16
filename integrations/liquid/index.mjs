@@ -87,10 +87,10 @@ export function createSharedLiquidEngine(options) {
 	);
 
 	sharedLiquidEngine.registerTag(
-		"bind_include",
-		createBindIncludeTag(sharedLiquidEngine),
+		"include_with",
+		createIncludeWithTag(sharedLiquidEngine),
 	);
-	log("bind_include tag registered");
+	log("include_with tag registered");
 }
 
 /**
@@ -283,22 +283,22 @@ export function registerCustomTag(name, factory) {
 }
 
 /**
- * Creates a bind_include tag for spreading object props into includes.
+ * Creates an include_with tag for spreading object props into includes.
  * Like Astro's {...props} spread for Liquid includes.
  *
- * Usage: {% bind_include "path/to/partial", objectToSpread %}
+ * Usage: {% include_with "path/to/partial", objectToSpread %}
  *
  * @param {any} _liquidEngine - The LiquidJS engine instance (provided by LiquidJS, accessed via this.liquid)
  * @returns {any} Tag implementation with parse and render methods
  */
-export function createBindIncludeTag(_liquidEngine) {
+export function createIncludeWithTag(_liquidEngine) {
 	return {
 		/**
-		 * Parses the bind_include tag arguments.
+		 * Parses the include_with tag arguments.
 		 * @param {any} tagToken - The tag token from LiquidJS parser
 		 */
 		parse(tagToken) {
-			log("bind_include parsing tag with args:", tagToken.args);
+			log("include_with parsing tag with args:", tagToken.args);
 			const tokenizer = new Tokenizer(
 				tagToken.args,
 				this.liquid.options.operatorsTrie,
@@ -306,19 +306,19 @@ export function createBindIncludeTag(_liquidEngine) {
 
 			this.pathToken = tokenizer.readValue();
 			if (!this.pathToken)
-				throw new Error("bind_include: missing path argument");
-			log("bind_include parsed path token:", this.pathToken);
+				throw new Error("include_with: missing path argument");
+			log("include_with parsed path token:", this.pathToken);
 
 			tokenizer.skipBlank();
 			if (tokenizer.peek() !== ",")
-				throw new Error("bind_include: expected comma separator");
+				throw new Error("include_with: expected comma separator");
 			tokenizer.advance();
 			tokenizer.skipBlank();
 
 			this.objectToken = tokenizer.readValue();
 			if (!this.objectToken)
-				throw new Error("bind_include: missing object argument");
-			log("bind_include parsed object token:", this.objectToken);
+				throw new Error("include_with: missing object argument");
+			log("include_with parsed object token:", this.objectToken);
 		},
 
 		/**
@@ -326,7 +326,7 @@ export function createBindIncludeTag(_liquidEngine) {
 		 * @param {any} context - The LiquidJS render context
 		 */
 		async render(context) {
-			group("bind_include rendering");
+			group("include_with rendering");
 			log("Evaluating path token...");
 			const path = await toPromise(evalToken(this.pathToken, context));
 			log("Path resolved to:", path);
@@ -337,7 +337,7 @@ export function createBindIncludeTag(_liquidEngine) {
 
 			if (!path || typeof path !== "string") {
 				groupEnd();
-				throw new Error(`bind_include: invalid path "${path}"`);
+				throw new Error(`include_with: invalid path "${path}"`);
 			}
 			if (!obj || typeof obj !== "object") {
 				log("Object is not valid, returning empty");
@@ -370,7 +370,7 @@ export function createBindIncludeTag(_liquidEngine) {
 				log("Error during render:", error.message);
 				log("Full error:", error);
 				groupEnd();
-				throw enhanceLiquidError(err, `bind_include "${path}"`);
+				throw enhanceLiquidError(err, `include_with "${path}"`);
 			} finally {
 				context.pop();
 			}

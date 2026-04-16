@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import esbuild from "esbuild";
-import { createBindIncludeTag } from "./liquid/index.mjs";
+import { createIncludeWithTag } from "./liquid/index.mjs";
 
 /**
  * @typedef {Object} LiquidOptions
@@ -47,7 +47,7 @@ import { createBindIncludeTag } from "./liquid/index.mjs";
  */
 export default function (eleventyConfig, pluginOptions) {
 	if (pluginOptions.liquid) {
-		eleventyConfig.addLiquidTag("bind_include", createBindIncludeTag);
+		eleventyConfig.addLiquidTag("include_with", createIncludeWithTag);
 	}
 
 	eleventyConfig.on("eleventy.before", async ({ directories }) => {
