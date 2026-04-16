@@ -24,7 +24,8 @@ export const inMemoryFs = {
 	 * Synchronously reads a file from the in-memory store.
 	 *
 	 * @param {string} filePath - The file path to read
-	 * @returns {string | undefined} The file contents or undefined if not found
+	 * @returns {string} The file contents
+	 * @throws {Error} If the file is not found
 	 */
 	readFileSync(filePath) {
 		log("readFileSync:", filePath);
@@ -34,10 +35,12 @@ export const inMemoryFs = {
 			const availableFiles = Object.keys(window.cc_files || {});
 			warn("File not found:", filePath);
 			log("Available files:", availableFiles);
-		} else {
-			log("File found, length:", fileContents?.length || 0);
+			throw new Error(
+				`ENOENT: Failed to find "${filePath}" in the bundled template files. Please check that this file exists and is within your configured component directories.`,
+			);
 		}
 
+		log("File found, length:", fileContents?.length || 0);
 		return fileContents;
 	},
 
@@ -46,7 +49,7 @@ export const inMemoryFs = {
 	 *
 	 * @param {string} filePath - The file path to read
 	 * @returns {Promise<string>} The file contents
-	 * @throws {Error} If filePath is empty
+	 * @throws {Error} If filePath is empty or the file is not found
 	 */
 	async readFile(filePath) {
 		log("readFile:", filePath);
