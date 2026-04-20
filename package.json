@@ -55,17 +55,17 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.11",
+		"@biomejs/biome": "2.4.12",
 		"@cloudcannon/javascript-api": "0.0.14",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "25.6.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
-		"astro": "6.1.6",
+		"astro": "6.1.7",
 		"js-beautify": "1.15.4",
 		"liquidjs": "10.25.5",
-		"typescript": "6.0.2"
+		"typescript": "6.0.3"
 	},
 	"dependencies": {
 		"esbuild": "0.28.0"
