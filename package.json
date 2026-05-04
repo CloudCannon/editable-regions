@@ -55,14 +55,14 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.13",
+		"@biomejs/biome": "2.4.14",
 		"@cloudcannon/javascript-api": "0.0.14",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "25.6.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
-		"astro": "6.1.10",
+		"astro": "6.2.1",
 		"js-beautify": "1.15.4",
 		"liquidjs": "10.25.7",
 		"typescript": "6.0.3"
