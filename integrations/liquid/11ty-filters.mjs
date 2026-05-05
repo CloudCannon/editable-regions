@@ -1,10 +1,11 @@
 /**
  * Browser-compatible implementations of Eleventy's built-in filters.
- * Some filters (get*CollectionItem, inputPathToUrl, renderTransforms) are not
- * included as they require build-time context.
+ * Filters that require Eleventy's build-time internals are registered as
+ * pass-through stubs that warn once, so templates keep rendering.
  */
 
 import slugify from "@sindresorhus/slugify";
+import { warnOnce } from "./logger.mjs";
 
 /**
  * Logs value to console (pass-through filter).
@@ -19,7 +20,6 @@ export function logFilter(value, prefix = "") {
 	} else {
 		console.log(value);
 	}
-	// Return the original value so it can be chained or used in output
 	return value;
 }
 
@@ -37,23 +37,17 @@ export function urlFilter(url, pathPrefix = "") {
 
 	const urlString = String(url);
 
-	// If there's a pathPrefix, prepend it
 	if (pathPrefix) {
-		// Ensure pathPrefix starts with / and doesn't end with /
 		const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
 
-		// If url is absolute (starts with /), prepend pathPrefix
 		if (urlString.startsWith("/")) {
 			return normalizedPrefix + urlString;
 		}
-		// If url is relative, just return it
 		return urlString;
 	}
 
-	// Basic normalization: ensure single slashes, remove trailing slash (except root)
 	const normalized = urlString.replace(/\/+/g, "/");
 
-	// Remove trailing slash unless it's the root path
 	if (normalized.length > 1 && normalized.endsWith("/")) {
 		return normalized.slice(0, -1);
 	}
@@ -61,9 +55,235 @@ export function urlFilter(url, pathPrefix = "") {
 	return normalized;
 }
 
+/**
+ * Coerces an input (Date, ISO string, epoch number) into a Date.
+ * Returns `null` for unusable inputs so filters can bail gracefully.
+ *
+ * @param {any} value
+ * @returns {Date | null}
+ */
+function toDate(value) {
+	if (value instanceof Date)
+		return Number.isNaN(value.getTime()) ? null : value;
+	if (value === null || value === undefined || value === "") return null;
+	const d = new Date(value);
+	return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * ISO 8601 / RFC 3339 date string (e.g. "2026-04-21T00:00:00.000Z").
+ *
+ * @param {Date | string | number} date
+ * @returns {string}
+ */
+export function dateToRfc3339(date) {
+	const d = toDate(date);
+	return d ? d.toISOString() : "";
+}
+
+/**
+ * RFC 822 / RFC 1123 date string (e.g. "Tue, 21 Apr 2026 00:00:00 GMT").
+ *
+ * @param {Date | string | number} date
+ * @returns {string}
+ */
+export function dateToRfc822(date) {
+	const d = toDate(date);
+	return d ? d.toUTCString() : "";
+}
+
+/**
+ * HTML date string in `YYYY-MM-DD` form, used for `<time datetime>` attributes.
+ *
+ * @param {Date | string | number} date
+ * @returns {string}
+ */
+export function htmlDateString(date) {
+	const d = toDate(date);
+	return d ? d.toISOString().slice(0, 10) : "";
+}
+
+/**
+ * Returns the newest `date` field across a collection.
+ *
+ * @param {Array<{date?: any}>} collection
+ * @param {Date | string | number} [emptyFallback]
+ * @returns {Date}
+ */
+export function getNewestCollectionItemDate(collection, emptyFallback) {
+	if (!Array.isArray(collection) || collection.length === 0) {
+		return toDate(emptyFallback) ?? new Date(0);
+	}
+	let newest = 0;
+	for (const item of collection) {
+		const d = toDate(item?.date);
+		if (d && d.getTime() > newest) newest = d.getTime();
+	}
+	return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
+}
+
+/**
+ * Resolves the `inputPath` identifier for a `page`-ish argument passed to a
+ * collection-item filter. Accepts a full page object, a collection item
+ * (which has `inputPath` at the top level), or a raw string path.
+ *
+ * @param {any} page
+ * @returns {string | null}
+ */
+function resolveInputPath(page) {
+	if (!page) return null;
+	if (typeof page === "string") return page;
+	if (typeof page.inputPath === "string") return page.inputPath;
+	if (page.page && typeof page.page.inputPath === "string") {
+		return page.page.inputPath;
+	}
+	return null;
+}
+
+/**
+ * Finds the index of the current page in a collection by matching `inputPath`.
+ *
+ * @param {Array<{inputPath?: string}>} collection
+ * @param {any} page
+ * @returns {number}
+ */
+function indexInCollection(collection, page) {
+	if (!Array.isArray(collection)) return -1;
+	const inputPath = resolveInputPath(page);
+	if (!inputPath) {
+		warnOnce(
+			"collection-item-no-page",
+			"Eleventy collection-item filter called without a resolvable `page` argument. " +
+				"In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
+		);
+		return -1;
+	}
+	return collection.findIndex((item) => item?.inputPath === inputPath);
+}
+
+/**
+ * Returns the current item in a collection.
+ *
+ * @param {any[]} collection
+ * @param {any} page
+ */
+export function getCollectionItem(collection, page) {
+	const i = indexInCollection(collection, page);
+	return i >= 0 ? collection[i] : undefined;
+}
+
+/**
+ * Returns the previous sequential item in a collection.
+ *
+ * @param {any[]} collection
+ * @param {any} page
+ */
+export function getPreviousCollectionItem(collection, page) {
+	const i = indexInCollection(collection, page);
+	return i > 0 ? collection[i - 1] : undefined;
+}
+
+/**
+ * Returns the next sequential item in a collection.
+ *
+ * @param {any[]} collection
+ * @param {any} page
+ */
+export function getNextCollectionItem(collection, page) {
+	const i = indexInCollection(collection, page);
+	return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
+}
+
+/**
+ * Returns the 0-based index of the current item in a collection.
+ *
+ * @param {any[]} collection
+ * @param {any} page
+ * @returns {number}
+ */
+export function getCollectionItemIndex(collection, page) {
+	return indexInCollection(collection, page);
+}
+
+/**
+ * Builds a pass-through filter that warns once on first use.
+ * Used for Eleventy filters that depend on build-time internals we don't have
+ * in the browser.
+ *
+ * @param {string} filterName
+ * @param {string} reason - Human-readable explanation of the limitation
+ * @returns {(value: any) => any}
+ */
+function passThroughStub(filterName, reason) {
+	return (value) => {
+		warnOnce(
+			`filter-stub:${filterName}`,
+			`Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
+				"Returning the input unchanged.",
+		);
+		return value;
+	};
+}
+
+/**
+ * Names of filters we handle with handwritten browser implementations
+ * (Tier 1). The Eleventy plugin reads this list so the auto-mirror pass
+ * (Tier 2) can skip names we've already covered.
+ *
+ * @type {string[]}
+ */
+export const tier1FilterNames = [
+	"slugify",
+	"slug",
+	"log",
+	"url",
+	"dateToRfc3339",
+	"dateToRfc822",
+	"htmlDateString",
+	"getNewestCollectionItemDate",
+	"getCollectionItem",
+	"getPreviousCollectionItem",
+	"getNextCollectionItem",
+	"getCollectionItemIndex",
+	"inputPathToUrl",
+	"renderContent",
+	"renderTemplate",
+	"htmlBaseUrl",
+	"serverlessUrl",
+];
+
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
 	slugify,
+	slug: slugify,
 	log: logFilter,
 	url: urlFilter,
+	dateToRfc3339,
+	dateToRfc822,
+	htmlDateString,
+	getNewestCollectionItemDate,
+	getCollectionItem,
+	getPreviousCollectionItem,
+	getNextCollectionItem,
+	getCollectionItemIndex,
+	inputPathToUrl: passThroughStub(
+		"inputPathToUrl",
+		"it requires Eleventy's build-time input-path-to-url map",
+	),
+	renderContent: passThroughStub(
+		"renderContent",
+		"it requires Eleventy's template engines at runtime",
+	),
+	renderTemplate: passThroughStub(
+		"renderTemplate",
+		"it requires Eleventy's template engines at runtime",
+	),
+	htmlBaseUrl: passThroughStub(
+		"htmlBaseUrl",
+		"it requires Eleventy's pathPrefix/HTML base config",
+	),
+	serverlessUrl: passThroughStub(
+		"serverlessUrl",
+		"serverless routing is a build-time concept",
+	),
 };

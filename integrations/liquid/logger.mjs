@@ -50,6 +50,21 @@ export function warn(...args) {
 	console.warn(...args);
 }
 
+const warnedKeys = new Set();
+
+/**
+ * Warn exactly once per key for the lifetime of the page.
+ *
+ * @param {string} key - Deduplication key
+ * @param {...any} args - Arguments to pass to `warn`
+ * @returns {void}
+ */
+export function warnOnce(key, ...args) {
+	if (warnedKeys.has(key)) return;
+	warnedKeys.add(key);
+	warn(...args);
+}
+
 /**
  * Always log errors.
  *

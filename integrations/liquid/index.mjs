@@ -1,8 +1,51 @@
 import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
+import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { eleventyFilters } from "./11ty-filters.mjs";
 import { inMemoryFs } from "./fs.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
+
+/**
+ * Lazily resolves a CloudCannon collection by key into an array of items
+ * suitable for Liquid templates. Each item is realized to plain data so
+ * Liquid filters/iteration work without further awaiting nested fields.
+ *
+ * Item shape is best-effort 11ty-ish (`url`, `inputPath`, `data`); the CC
+ * collection layout is not guaranteed to match what Eleventy would have
+ * produced.
+ *
+ * @param {string} key
+ * @returns {Promise<Array<{url: any, inputPath: string, data: any}>>}
+ */
+async function resolveCollection(key) {
+	await apiLoadedPromise;
+	const collection = CloudCannon.collection(key);
+	const files = await collection.items();
+	return Promise.all(
+		files.map(async (file) => {
+			const data = await file.data.get();
+			return {
+				url: file.url ?? file.path,
+				inputPath: file.path,
+				data,
+			};
+		}),
+	);
+}
+
+// Proxy exposed as the `collections` global on the Liquid engine. Property
+// reads kick off an async fetch via the CloudCannon live-editing API; Liquid
+// awaits the returned thenable wherever the value is consumed (for-loops,
+// filter args, output expressions).
+const collectionsProxy = new Proxy(
+	{},
+	{
+		get(_target, key) {
+			if (typeof key !== "string") return undefined;
+			return resolveCollection(key);
+		},
+	},
+);
 
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
@@ -48,9 +91,7 @@ function enhanceLiquidError(err, componentName) {
 		);
 	}
 
-	return new Error(
-		`Error rendering "${componentName}": ${message}`,
-	);
+	return new Error(`Error rendering "${componentName}": ${message}`);
 }
 
 /**
@@ -66,6 +107,7 @@ export function createSharedLiquidEngine(options) {
 		fs: inMemoryFs,
 		globals: {
 			ENV_CLIENT: true,
+			collections: collectionsProxy,
 		},
 		...options,
 	});
@@ -220,6 +262,29 @@ export function registerCustomFilter(name, fn) {
 		);
 	}
 	sharedLiquidEngine.registerFilter(name, fn);
+}
+
+/**
+ * Bulk-registers filters auto-mirrored from Eleventy's registry at build time
+ * (Tier 2). Each value is either a portable function (serialized via
+ * `toString()` into the bundle) or a pass-through stub that warns once.
+ *
+ * Call after `createSharedLiquidEngine()` and before any user-level
+ * `registerCustomFilter` calls so that user overrides win.
+ *
+ * @param {Record<string, any>} filters - Map of filter name -> function
+ * @returns {void}
+ */
+export function registerMirroredFilters(filters) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering mirrored filters",
+		);
+	}
+	for (const [name, fn] of Object.entries(filters)) {
+		sharedLiquidEngine.registerFilter(name, fn);
+	}
+	log("Registered", Object.keys(filters).length, "mirrored 11ty filters");
 }
 
 /**

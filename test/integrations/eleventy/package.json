@@ -1,0 +1,13 @@
+{
+	"name": "eleventy-starter-editables",
+	"type": "module",
+	"version": "0.0.1",
+	"scripts": {
+		"build": "eleventy",
+		"dev": "eleventy --serve"
+	},
+	"dependencies": {
+		"@11ty/eleventy": "^3.0.0",
+		"@cloudcannon/editable-regions": "file:../../.."
+	}
+}
