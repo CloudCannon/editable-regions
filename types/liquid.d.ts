@@ -23,6 +23,9 @@ declare module "@cloudcannon/editable-regions/liquid" {
 		name: string,
 		fn: (...args: any[]) => any,
 	): void;
+	export function registerMirroredFilters(
+		filters: Record<string, (...args: any[]) => any>,
+	): void;
 	export function registerCustomShortcode(
 		name: string,
 		fn: (...args: any[]) => any,
