@@ -7,98 +7,55 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Clone
-        uses: actions/checkout@v3
+    uses: ./.github/workflows/test.yml
 
-      - name: Install
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Integration tests
-        run: bash run-integration-tests.sh
-
-  publish-github-release:
-    name: Publish to GitHub
-    runs-on: ubuntu-24.04
+  publish-npm-package:
+    runs-on: ubuntu-latest
     needs: test
+    outputs:
+      npm_tag: ${{ steps.npm_tag.outputs.value }}
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     steps:
-      - name: Get Token
-        id: get_workflow_token
-        uses: peter-murray/workflow-application-token-action@v2
-        with:
-          application_id: ${{ secrets.CC_OSS_BOT_ID }}
-          application_private_key: ${{ secrets.CC_OSS_BOT_PEM }}
-
-      - name: Swap to main
-        uses: actions/checkout@v3
-        with:
-          ref: main
-          fetch-depth: 0 # Full fetch
-          token: ${{ steps.get_workflow_token.outputs.token }}
-
-      - name: Get Version
+      - uses: actions/checkout@v6
+      - name: Get tag
+        id: npm_tag
         run: |
-          GIT_VERSION=$(node ./.backstage/get_tagged_version.cjs)
-          echo GIT_VERSION="$GIT_VERSION" >> $GITHUB_ENV
-      - name: Get Release Tag
-        run: |
-          NPM_TAG=$(node ./.backstage/get_npm_tag.cjs)
-          echo NPM_TAG="$NPM_TAG" >> $GITHUB_ENV
-
-      - name: Stable Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') && env.NPM_TAG == 'latest'
-        env:
-          GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
-
-      - name: Prerelease
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') && env.NPM_TAG != 'latest'
+          VERSION="${GITHUB_REF_NAME#v}"
+          # e.g.: x.y.z -> latest, x.y.z-rc.1 -> rc
+          TAG=$([[ "$VERSION" == *-* ]] && echo "${VERSION#*-}" | cut -d. -f1 || echo latest)
+          echo "value=$TAG" >> $GITHUB_OUTPUT
+      - uses: actions/setup-node@v6
         with:
-          prerelease: true
+          cache: npm
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+      - name: Set version in package.json
+        run: npm --no-git-tag-version version "${GITHUB_REF_NAME#v}"
+      - name: Publish package on npm
+        run: npm publish --tag ${{ steps.npm_tag.outputs.value }}
+      - uses: actions/setup-node@v6
+        with:
+          registry-url: https://npm.pkg.github.com
+      - name: Publish package on GitHub
+        run: npm publish --tag ${{ steps.npm_tag.outputs.value }}
         env:
-          GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-npm-release:
-    runs-on: ubuntu-24.04
-    needs: publish-github-release
+  create-github-release:
+    runs-on: ubuntu-latest
+    needs: publish-npm-package
+    permissions:
+      contents: write
     steps:
-      - name: Clone
-        uses: actions/checkout@v3
-
-      - name: Get Version
+      - name: Create release
         run: |
-          GIT_VERSION=$(node ./.backstage/get_tagged_version.cjs)
-          echo GIT_VERSION="$GIT_VERSION" >> $GITHUB_ENV
-      - name: Get Release Tag
-        run: |
-          NPM_TAG=$(node ./.backstage/get_npm_tag.cjs)
-          echo NPM_TAG="$NPM_TAG" >> $GITHUB_ENV
-
-      - name: Prepare package
-        run: |
-          npm --no-git-tag-version version $GIT_VERSION
-
-      - name: Install
-        run: npm ci
-
-      - name: Publish internal
-        uses: JS-DevTools/npm-publish@v3
-        with:
-          tag: ${{ env.NPM_TAG }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          registry: "https://npm.pkg.github.com"
-
-      - name: Publish external
-        uses: JS-DevTools/npm-publish@v3
-        with:
-          tag: ${{ env.NPM_TAG }}
-          token: ${{ secrets.NPM_TOKEN }}
-          access: public
+          if [ "${{ needs.publish-npm-package.outputs.npm_tag }}" = "latest" ]; then
+            gh release create ${{ github.ref_name }} --generate-notes --repo ${{ github.repository }}
+          else
+            gh release create ${{ github.ref_name }} --generate-notes --prerelease --repo ${{ github.repository }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

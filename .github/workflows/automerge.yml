@@ -8,7 +8,8 @@ permissions:
 jobs:
   auto_merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]' && github.repository_owner == 'CloudCannon'
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login ==
+      'dependabot[bot]' && github.repository_owner == 'CloudCannon'
     steps:
       - name: Dependabot metadata
         id: metadata
@@ -16,6 +17,7 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: Approve PR
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
