@@ -1,4 +1,4 @@
-import type { CloudCannonJavaScriptV1APIFile } from "@cloudcannon/javascript-api";
+import type { CloudCannonVisualEditorAPIV1File } from "@cloudcannon/visual-editor-api";
 import { html as beautifyHtml } from "js-beautify";
 import { CloudCannon } from "../helpers/cloudcannon.mjs";
 import EditableText from "./editable-text.js";
@@ -25,7 +25,7 @@ const HTML_VOID_ELEMENT: Record<string, boolean> = {
 };
 
 export default class EditableSource extends EditableText {
-	file?: CloudCannonJavaScriptV1APIFile;
+	file?: CloudCannonVisualEditorAPIV1File;
 	format = {
 		leading: "",
 		trailing: "",
