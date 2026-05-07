@@ -1,7 +1,9 @@
 import "@cloudcannon/editable-regions/astro-react-renderer";
+import "@cloudcannon/editable-regions/astro-svelte-renderer";
 
 import { registerAstroComponent } from "@cloudcannon/editable-regions/astro";
 import { registerReactComponent } from "@cloudcannon/editable-regions/react";
+import { registerSvelteComponent } from "@cloudcannon/editable-regions/svelte";
 
 import ReactTest from "./src/components/react-test.astro";
 import ReactTestInner from "./src/components/react-test-inner";
@@ -14,6 +16,9 @@ import I18nLink from "./src/components/i18n-link.astro";
 import ActionsButton from "./src/components/actions-button.astro";
 import MiddlewareInfo from "./src/components/middleware-info.astro";
 import EnvDisplay from "./src/components/env-display.astro";
+import SvelteTest from "./src/components/svelte-test.astro";
+import SvelteCounter from "./src/components/svelte-counter.svelte";
+import SvelteStatic from "./src/components/svelte-static.svelte";
 
 registerAstroComponent("astro-test", AstroTest);
 registerAstroComponent("slot-test", SlotTest);
@@ -26,3 +31,6 @@ registerAstroComponent("actions-button", ActionsButton);
 registerAstroComponent("middleware-info", MiddlewareInfo);
 registerAstroComponent("env-display", EnvDisplay);
 registerReactComponent("react-test-inner", ReactTestInner);
+registerAstroComponent("svelte-test", SvelteTest);
+registerSvelteComponent("svelte-counter", SvelteCounter);
+registerSvelteComponent("svelte-static", SvelteStatic);

@@ -1,0 +1,9 @@
+---
+import SvelteCounter from "./svelte-counter.svelte";
+import SvelteStatic from "./svelte-static.svelte";
+---
+
+<SvelteStatic title="Static inside Astro" />
+<SvelteCounter label="client:load inside Astro" client:load />
+<SvelteCounter label="client:idle inside Astro" client:idle />
+<SvelteCounter label="client:visible inside Astro" client:visible />
