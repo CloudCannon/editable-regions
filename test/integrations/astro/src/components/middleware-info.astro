@@ -8,7 +8,7 @@ interface Props {
 const { title } = Astro.props;
 
 // Test the shimmed functions
-const testMiddleware = defineMiddleware(async (ctx, next) => next());
+const testMiddleware = defineMiddleware(async (_ctx, next) => next());
 const chained = sequence(testMiddleware);
 ---
 

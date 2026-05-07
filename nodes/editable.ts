@@ -1,8 +1,8 @@
 import type {
-	CloudCannonJavaScriptV1APICollection,
-	CloudCannonJavaScriptV1APIDataset,
-	CloudCannonJavaScriptV1APIFile,
-} from "@cloudcannon/javascript-api";
+	CloudCannonVisualEditorAPIV1Collection,
+	CloudCannonVisualEditorAPIV1Dataset,
+	CloudCannonVisualEditorAPIV1File,
+} from "@cloudcannon/visual-editor-api";
 import { hasEditable } from "../helpers/checks";
 import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.mjs";
 
@@ -22,9 +22,9 @@ export interface EditableContext {
 	fullPath?: string;
 	filePath?: string;
 	isContent?: boolean;
-	file?: CloudCannonJavaScriptV1APIFile;
-	collection?: CloudCannonJavaScriptV1APICollection;
-	dataset?: CloudCannonJavaScriptV1APIDataset;
+	file?: CloudCannonVisualEditorAPIV1File;
+	collection?: CloudCannonVisualEditorAPIV1Collection;
+	dataset?: CloudCannonVisualEditorAPIV1Dataset;
 }
 
 export interface DOMListener {
@@ -35,13 +35,14 @@ export interface DOMListener {
 export interface APIListener {
 	fn: (e: any) => void;
 	obj:
-		| CloudCannonJavaScriptV1APIFile
-		| CloudCannonJavaScriptV1APICollection
-		| CloudCannonJavaScriptV1APIDataset;
+		| CloudCannonVisualEditorAPIV1File
+		| CloudCannonVisualEditorAPIV1Collection
+		| CloudCannonVisualEditorAPIV1Dataset;
 }
 
 export default class Editable {
 	APIListeners: APIListener[] = [];
+	handleAPIEventsListeners?: this["handleApiEvent"];
 	listeners: EditableListener[] = [];
 	domListeners: DOMListener[] = [];
 	value: unknown = undefined;
@@ -371,6 +372,12 @@ export default class Editable {
 		}
 	}
 
+	hardDisconnect(): void {
+		this.listeners.forEach(({ editable }) => {
+			editable.hardDisconnect();
+		});
+	}
+
 	async disconnect(): Promise<void> {
 		if (this.disconnecting) {
 			return;
@@ -382,7 +389,6 @@ export default class Editable {
 		}
 
 		this.parent?.deregisterListener(this);
-		this.parent = null;
 		if (this.pendingParentElement) {
 			const pending = this.pendingParentElement.__pendingEditableListeners;
 			if (pending) {
@@ -413,6 +419,8 @@ export default class Editable {
 	}
 
 	connect(): void {
+		this.parent = null;
+
 		if (!this.validateConfiguration()) {
 			return;
 		}
@@ -528,12 +536,23 @@ export default class Editable {
 			this.queueListenerOnParent(this.pendingParentElement, { editable: this });
 		}
 
-		this.addEventListener("cloudcannon-api", this.handleApiEvent.bind(this));
+		if (this.handleAPIEventsListeners) {
+			this.element.removeEventListener(
+				"cloudcannon-api",
+				this.handleAPIEventsListeners,
+			);
+		}
+		this.handleAPIEventsListeners = this.handleApiEvent.bind(this);
+		this.element.addEventListener(
+			"cloudcannon-api",
+			this.handleAPIEventsListeners,
+		);
 		this.replayPendingListeners();
 	}
 
 	handleApiEvent(e: any): void {
-		if (e.target !== this.element) {
+		const target = e.detail.forwardedTarget ?? e.target;
+		if (target !== this.element) {
 			if (!e.detail.source) {
 				e.detail.source = this.element.dataset.prop;
 			} else {
@@ -551,20 +570,35 @@ export default class Editable {
 			}
 		}
 
+		let propagating = true;
 		const { absolute } = this.parseSource(e.detail.source);
 		if (!this.parent || absolute) {
 			if (this.executeApiCall(e.detail)) {
+				propagating = false;
 				e.stopPropagation();
 			}
+		}
+
+		if (!this.connected && propagating) {
+			this.parent?.element.dispatchEvent(
+				new CustomEvent("cloudcannon-api", {
+					bubbles: true,
+					detail: { ...e.detail, forwardedTarget: target },
+				}),
+			);
 		}
 	}
 
 	executeApiCall(options: any): boolean {
+		if (!this.connected) {
+			return false;
+		}
+
 		let { file, collection, source, dataset } = this.parseSource(
 			options.source,
 		);
 
-		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
+		let filePromise: Promise<CloudCannonVisualEditorAPIV1File | undefined>;
 		if (!file) {
 			if (collection && source) {
 				const parts = source.split(".");
@@ -700,9 +734,9 @@ export default class Editable {
 	}
 
 	parseSource(source?: string) {
-		let collection: CloudCannonJavaScriptV1APICollection | undefined;
-		let file: CloudCannonJavaScriptV1APIFile | undefined;
-		let dataset: CloudCannonJavaScriptV1APIDataset | undefined;
+		let collection: CloudCannonVisualEditorAPIV1Collection | undefined;
+		let file: CloudCannonVisualEditorAPIV1File | undefined;
+		let dataset: CloudCannonVisualEditorAPIV1Dataset | undefined;
 		let absolute = false;
 		let currentFile = false;
 

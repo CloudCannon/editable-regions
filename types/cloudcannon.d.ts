@@ -3,9 +3,9 @@ export {};
 declare global {
 	var ENV_CLIENT: boolean;
 	var inEditorMode: boolean;
-	var CloudCannonAPI: CloudCannonJavascriptApiRouter | undefined;
+	var CloudCannonAPI: CloudCannonVisualEditorAPIRouter | undefined;
 	var CloudCannon:
-		| CloudCannonJavaScriptV0API
-		| CloudCannonJavaScriptV1API
+		| CloudCannonVisualEditorAPIV0
+		| CloudCannonVisualEditorAPIV1
 		| undefined;
 }

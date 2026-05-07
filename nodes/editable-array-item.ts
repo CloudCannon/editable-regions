@@ -493,4 +493,15 @@ export default class EditableArrayItem extends EditableComponent {
 			"@index": Number(this.element.dataset.prop),
 		};
 	}
+
+	handleApiEvent(e: any): void {
+		if (this.connected) {
+			return super.handleApiEvent(e);
+		}
+	}
+
+	async disconnect(): Promise<void> {
+		await super.disconnect();
+		this.hardDisconnect();
+	}
 }

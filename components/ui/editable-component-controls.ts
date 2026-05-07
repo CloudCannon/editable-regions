@@ -46,7 +46,6 @@ export default class EditableComponentControls extends HTMLElement {
 
 		if (this.usePopoverAPI) {
 			this.contextMenu.setAttribute("popover", "auto");
-			//@ts-expect-error: Typescript doesn't yet support the popover API
 			this.contextMenu.style.positionAnchor = this.anchorName;
 		}
 
@@ -109,11 +108,9 @@ export default class EditableComponentControls extends HTMLElement {
 			if (existing && existing !== "none") {
 				this.hostAnchorName = existing.split(",")[0].trim();
 			} else {
-				// @ts-expect-error
 				this.parentElement.style.anchorName = this.hostAnchorName;
 			}
 
-			// @ts-expect-error
 			this.style.positionAnchor = this.hostAnchorName;
 		}
 	}
