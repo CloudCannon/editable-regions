@@ -30,9 +30,15 @@ declare module "@cloudcannon/editable-regions/liquid" {
 		name: string,
 		fn: (...args: any[]) => any,
 	): void;
+	export function registerMirroredShortcodes(
+		shortcodes: Record<string, (...args: any[]) => any>,
+	): void;
 	export function registerCustomPairedShortcode(
 		name: string,
 		fn: (...args: any[]) => any,
+	): void;
+	export function registerMirroredPairedShortcodes(
+		pairedShortcodes: Record<string, (...args: any[]) => any>,
 	): void;
 	export function registerCustomTag(
 		name: string,

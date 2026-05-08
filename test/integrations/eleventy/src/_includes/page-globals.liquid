@@ -1,0 +1,26 @@
+<section class="page-globals">
+	<h2>Page globals</h2>
+	<dl>
+		<dt>inputPath</dt><dd>{{ page.inputPath }}</dd>
+		<dt>fileSlug</dt><dd>{{ page.fileSlug }}</dd>
+		<dt>filePathStem</dt><dd>{{ page.filePathStem }}</dd>
+		<dt>outputFileExtension</dt><dd>{{ page.outputFileExtension }}</dd>
+		<dt>url</dt><dd>{{ page.url }}</dd>
+		<dt>date (RFC 3339)</dt><dd>{{ page.date | dateToRfc3339 }}</dd>
+	</dl>
+	<p>
+		Current item via collection-item filter (title):
+		{% assign current = collections.posts | getCollectionItem: page %}
+		{{ current.data.title }}
+	</p>
+	<p>
+		Previous item title:
+		{% assign prev = collections.posts | getPreviousCollectionItem: page %}
+		{{ prev.data.title }}
+	</p>
+	<p>
+		Next item title:
+		{% assign next = collections.posts | getNextCollectionItem: page %}
+		{{ next.data.title }}
+	</p>
+</section>

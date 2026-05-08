@@ -47,6 +47,96 @@ const collectionsProxy = new Proxy(
 	},
 );
 
+/**
+ * Strips the file extension from a path.
+ * @param {string} p
+ * @returns {string}
+ */
+function stripExtension(p) {
+	return p.replace(/\.[^./]+$/, "");
+}
+
+/**
+ * 11ty's default folder-style permalink: every input path becomes a URL with a
+ * trailing slash, with `index` files mapping to the parent directory. Used as
+ * the fallback when no front matter `permalink` is set.
+ *
+ * @param {string} inputPath
+ * @returns {string}
+ */
+function deriveDefaultUrl(inputPath) {
+	const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
+	const withLeadingSlash = stem.startsWith("/") ? stem : `/${stem}`;
+	const withoutIndex = withLeadingSlash.replace(/\/index$/, "/");
+	return withoutIndex.endsWith("/") ? withoutIndex : `${withoutIndex}/`;
+}
+
+/**
+ * Resolves a single property of the `page` global against the currently
+ * edited file in the Visual Editor. Returns undefined for properties we
+ * can't reliably reconstruct without Eleventy build-time state
+ * (`outputPath`, `templateSyntax`, `lang`).
+ *
+ * @param {string} key
+ * @returns {Promise<any>}
+ */
+async function resolvePageProperty(key) {
+	await apiLoadedPromise;
+	const file = CloudCannon?.currentFile?.();
+	if (!file) return undefined;
+
+	const inputPath = file.path;
+
+	switch (key) {
+		case "inputPath":
+			return inputPath;
+		case "fileSlug": {
+			const base = inputPath.split("/").pop() ?? "";
+			return stripExtension(base);
+		}
+		case "filePathStem": {
+			const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
+			return stem.startsWith("/") ? stem : `/${stem}`;
+		}
+		case "outputFileExtension":
+			return "html";
+		case "date": {
+			const data = (await file.data.get()) ?? {};
+			const raw = /** @type {any} */ (data).date;
+			if (!raw) return undefined;
+			const d = new Date(raw);
+			return Number.isNaN(d.getTime()) ? undefined : d;
+		}
+		case "url": {
+			const data = (await file.data.get()) ?? {};
+			const permalink = /** @type {any} */ (data).permalink;
+			if (typeof permalink === "string") return permalink;
+			return deriveDefaultUrl(inputPath);
+		}
+		default:
+			return undefined;
+	}
+}
+
+// Proxy exposed as the `page` global on the Liquid engine. Mirrors 11ty's
+// `page` object as closely as we can from the Visual Editor API; properties we
+// can't derive from `currentFile()` resolve to `undefined`. Like
+// `collectionsProxy`, property reads return Promises that liquidjs awaits.
+const pageProxy = new Proxy(
+	{},
+	{
+		get(_target, key) {
+			// Guard against accidental thenable detection: if liquidjs (or any
+			// awaiting code) inspects `page.then`, returning a Promise here would
+			// make the proxy itself look like a thenable and trigger recursive
+			// resolution.
+			if (key === "then") return undefined;
+			if (typeof key !== "string") return undefined;
+			return resolvePageProperty(key);
+		},
+	},
+);
+
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
 
@@ -108,6 +198,7 @@ export function createSharedLiquidEngine(options) {
 		globals: {
 			ENV_CLIENT: true,
 			collections: collectionsProxy,
+			page: pageProxy,
 		},
 		...options,
 	});
@@ -285,6 +376,55 @@ export function registerMirroredFilters(filters) {
 		sharedLiquidEngine.registerFilter(name, fn);
 	}
 	log("Registered", Object.keys(filters).length, "mirrored 11ty filters");
+}
+
+/**
+ * Bulk-registers shortcodes auto-mirrored from Eleventy's registry at build
+ * time. Same pattern as filters: portable functions arrive as live functions,
+ * non-portable ones as warn-once stubs. Each value is wrapped via
+ * `createShortcodeTag` before registration.
+ *
+ * @param {Record<string, any>} shortcodes - Map of shortcode name -> function
+ * @returns {void}
+ */
+export function registerMirroredShortcodes(shortcodes) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering mirrored shortcodes",
+		);
+	}
+	for (const [name, fn] of Object.entries(shortcodes)) {
+		sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
+	}
+	log(
+		"Registered",
+		Object.keys(shortcodes).length,
+		"mirrored 11ty shortcodes",
+	);
+}
+
+/**
+ * Bulk-registers paired shortcodes auto-mirrored from Eleventy's registry at
+ * build time. Each value is wrapped via `createPairedShortcodeTag` before
+ * registration.
+ *
+ * @param {Record<string, any>} pairedShortcodes - Map of name -> function
+ * @returns {void}
+ */
+export function registerMirroredPairedShortcodes(pairedShortcodes) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering mirrored paired shortcodes",
+		);
+	}
+	for (const [name, fn] of Object.entries(pairedShortcodes)) {
+		sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
+	}
+	log(
+		"Registered",
+		Object.keys(pairedShortcodes).length,
+		"mirrored 11ty paired shortcodes",
+	);
 }
 
 /**
