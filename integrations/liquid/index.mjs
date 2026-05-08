@@ -339,6 +339,45 @@ export function initComponentProxy() {
 }
 
 /**
+ * Sets the `eleventy` global on the shared Liquid engine, mirroring the
+ * subset of https://www.11ty.dev/docs/data-eleventy-supplied/ that makes
+ * sense in a browser. The bundle generator builds the data at build time;
+ * this function is a thin setter.
+ *
+ * @param {{version: string, generator: string, env: {runMode: string, source: string}, directories: Record<string, string>}} data
+ * @returns {void}
+ */
+export function registerEleventyData(data) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering eleventy data",
+		);
+	}
+	/** @type {any} */ (sharedLiquidEngine.globals).eleventy = data;
+	log("Registered eleventy data, version:", data?.version);
+}
+
+/**
+ * Sets the `process.env` global on the shared Liquid engine so templates can
+ * read build-time environment variables via `{{ process.env.NAME }}`. The
+ * bundle generator builds `env` from the user's allowlist
+ * (`pluginOptions.env`) and/or prefix (`pluginOptions.envPrefix`) at build
+ * time; this function never reads `process.env` itself.
+ *
+ * @param {Record<string, string>} env
+ * @returns {void}
+ */
+export function registerProcessEnv(env) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering process.env",
+		);
+	}
+	/** @type {any} */ (sharedLiquidEngine.globals).process = { env };
+	log("Registered", Object.keys(env).length, "process.env vars");
+}
+
+/**
  * Registers a custom Liquid filter.
  *
  * @param {string} name - The filter name

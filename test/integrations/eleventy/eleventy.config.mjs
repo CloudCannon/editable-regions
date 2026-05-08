@@ -16,6 +16,8 @@ export default function (eleventyConfig) {
 		liquid: {
 			extensions: [".liquid"],
 		},
+		env: ["NODE_ENV"],
+		envPrefix: "PUBLIC_",
 	});
 
 	return {

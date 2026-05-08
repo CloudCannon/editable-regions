@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
 import { tier1FilterNames } from "./liquid/11ty-filters.mjs";
@@ -21,6 +22,8 @@ import { createIncludeWithTag } from "./liquid/index.mjs";
  * @property {string} [output] - Output path for live-editing.js
  * @property {boolean} [verbose] - Enable verbose browser logging
  * @property {LiquidOptions} [liquid] - Liquid template options
+ * @property {string[]} [env] - Names of environment variables to expose to live-editing templates as `process.env.NAME`. Values are read from the host `process.env` at build time and embedded in the bundle as static literals — anything not listed here (and not matched by `envPrefix`) is invisible to the browser.
+ * @property {string} [envPrefix] - Convenience: any `process.env.NAME` whose name starts with this prefix is auto-included alongside `env`. Empty strings are rejected to prevent accidental leaks. Use sparingly — explicit allowlists are easier to audit.
  */
 
 /**
@@ -221,6 +224,91 @@ function serializeMirroredPairedShortcodes(eleventyConfig, skipNames) {
 }
 
 /**
+ * Builds the `process.env` subset to ship to the browser, given the user's
+ * allowlist and optional prefix. Treats both inputs as opt-in: with neither
+ * set, the result is empty and no `process` global is registered.
+ *
+ * Empty-string prefixes are ignored — `"".startsWith("")` is true for every
+ * env var, which would silently leak the entire host environment.
+ *
+ * @param {string[] | undefined} allowlist - Explicit names to include
+ * @param {string | undefined} prefix - Names with this prefix are auto-included
+ * @returns {Record<string, string>}
+ */
+function collectExposedEnv(allowlist, prefix) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  if (Array.isArray(allowlist)) {
+    for (const name of allowlist) {
+      if (typeof name !== "string") continue;
+      const value = process.env[name];
+      if (typeof value === "string") out[name] = value;
+    }
+  }
+  if (typeof prefix === "string" && prefix.length > 0) {
+    for (const [name, value] of Object.entries(process.env)) {
+      if (name.startsWith(prefix) && typeof value === "string") {
+        out[name] = value;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Reads the installed Eleventy version from its `package.json`. Resolved
+ * from this module's location, which works for the typical hoisted-deps
+ * layout. Returns `"unknown"` if Eleventy can't be resolved (e.g. the
+ * package isn't installed where we'd expect) so the bundle still builds.
+ *
+ * @returns {string}
+ */
+function readEleventyVersion() {
+  try {
+    const require = createRequire(import.meta.url);
+    /** @type {{version: string}} */
+    const pkg = require("@11ty/eleventy/package.json");
+    return pkg.version;
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Builds the static `eleventy` global that the live-editing bundle exposes
+ * in place of Eleventy's build-time data of the same name. Mirrors the parts
+ * of https://www.11ty.dev/docs/data-eleventy-supplied/ that make sense in a
+ * browser, with deliberate omissions:
+ *   - `env.config` and `env.root` are dropped (absolute filesystem paths
+ *     don't belong in client JS).
+ *   - `env.runMode` is hardcoded to `"serve"` — we're not in any of 11ty's
+ *     real run modes, but "serve" is the dev-mode analogue and gives
+ *     templates branching on this the right code path.
+ *   - `env.source` is hardcoded to `"cli"`.
+ *   - `serverless` is omitted (deprecated upstream).
+ *
+ * @param {EleventyDirectories} directories
+ * @returns {{version: string, generator: string, env: {runMode: string, source: string}, directories: EleventyDirectories}}
+ */
+function buildEleventyData(directories) {
+  const version = readEleventyVersion();
+  return {
+    version,
+    generator: `Eleventy v${version}`,
+    env: {
+      runMode: "serve",
+      source: "cli",
+    },
+    directories: {
+      input: directories.input,
+      includes: directories.includes,
+      data: directories.data,
+      output: directories.output,
+    },
+  };
+}
+
+/**
  * Heuristic check for whether stringified function source can be safely
  * shipped to the browser. Returns `{portable: true}` when the source is
  * self-contained or `{portable: false, reason}` when it references things we
@@ -347,7 +435,7 @@ const createLiveEditingSource = async (
     );
 
     source += `
-      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, registerMirroredFilters, registerMirroredShortcodes, registerMirroredPairedShortcodes, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, registerMirroredFilters, registerMirroredShortcodes, registerMirroredPairedShortcodes, registerProcessEnv, registerEleventyData, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
 
@@ -360,6 +448,24 @@ const createLiveEditingSource = async (
 
     	window.cc_files = {};
   `;
+
+    // Build the filtered env object at build time and embed it as a static
+    // literal. Reading process.env happens here, in Node — never in the
+    // browser. Anything not in the allowlist or matching the prefix is
+    // invisible to the bundle.
+    const exposedEnv = collectExposedEnv(
+      pluginOptions.env,
+      pluginOptions.envPrefix,
+    );
+    if (Object.keys(exposedEnv).length > 0) {
+      source += `\nregisterProcessEnv(${JSON.stringify(exposedEnv)});\n`;
+    }
+
+    // Static `eleventy` global — version, generator, hardcoded env, and the
+    // configured directories. Embedded as a literal so templates branching
+    // on `eleventy.version` / `eleventy.env.runMode` see something sensible.
+    const eleventyData = buildEleventyData(directories);
+    source += `\nregisterEleventyData(${JSON.stringify(eleventyData)});\n`;
 
     // Add files we'll need to window.cc_files -
     // Then in our liquid file system we can grab them from window.cc_files during readFile
