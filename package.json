@@ -55,7 +55,7 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.14",
+		"@biomejs/biome": "2.4.15",
 		"@cloudcannon/visual-editor-api": "0.0.15",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
