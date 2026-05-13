@@ -3,8 +3,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
 import {
-  tier1FilterNames,
-  tier1ShortcodeNames,
+  builtinFilterNames,
+  builtinShortcodeNames,
 } from "./liquid/11ty-builtins.mjs";
 import { createIncludeWithTag } from "./liquid/index.mjs";
 
@@ -180,8 +180,8 @@ async function generateLiveEditingSource(
     });
 
     // Auto-mirror everything registered in eleventy.config.mjs (filters,
-    // shortcodes, paired shortcodes). Tier 1 and override skip lists are
-    // handled internally — see `tier1ByKind`.
+    // shortcodes, paired shortcodes). Built-in and override skip lists are
+    // handled internally — see `builtinNamesByKind`.
     source += generateFromEleventyConfig(eleventyConfig, pluginOptions.liquid);
 
     // Register user-supplied browser-side overrides (filters, shortcodes,
@@ -368,7 +368,7 @@ async function findFilesInDirectory({
 }
 
 /**
- * Per-kind Tier 1 skip lists. Drives both the set of kinds the auto-mirror
+ * Per-kind built-in skip lists. Drives both the set of kinds the auto-mirror
  * walks and the names it omits within each kind (since those are already
  * covered by handwritten browser ports — see `liquid/11ty-builtins.mjs`).
  *
@@ -377,9 +377,9 @@ async function findFilesInDirectory({
  * then provides a browser-friendly replacement via
  * `pluginOptions.liquid.<kind>`.
  */
-const tier1ByKind = {
-  filters: tier1FilterNames,
-  shortcodes: tier1ShortcodeNames,
+const builtinNamesByKind = {
+  filters: builtinFilterNames,
+  shortcodes: builtinShortcodeNames,
   pairedShortcodes: /** @type {string[]} */ ([]),
 };
 
@@ -390,7 +390,7 @@ const tier1ByKind = {
  * registry; liquid-specific wins on name collisions.
  *
  * Two skip sources, both handled here so the caller doesn't repeat itself:
- *   - the kind's Tier 1 list (names already covered by handwritten ports)
+ *   - the kind's built-in list (names already covered by handwritten ports)
  *   - names the user has overridden via `pluginOptions.liquid.<kind>`
  *     (registered separately by `generateFromPluginOptions` so overrides win)
  *
@@ -411,16 +411,16 @@ function generateFromEleventyConfig(eleventyConfig, liquidOptions) {
   const cfg = eleventyConfig;
   let out = "";
 
-  for (const specName of /** @type {Array<keyof typeof tier1ByKind>} */ (
-    Object.keys(tier1ByKind)
+  for (const specName of /** @type {Array<keyof typeof builtinNamesByKind>} */ (
+    Object.keys(builtinNamesByKind)
   )) {
-    const tier1 = tier1ByKind[specName];
+    const builtins = builtinNamesByKind[specName];
     const registry = {
       ...(cfg?.universal?.[specName] ?? {}),
       ...(cfg?.liquid?.[specName] ?? {}),
     };
     const overrideNames = Object.keys(liquidOptions?.[specName] ?? {});
-    const skip = new Set([...tier1, ...overrideNames]);
+    const skip = new Set([...builtins, ...overrideNames]);
 
     // Derive the runtime register fn: "filters" -> registerFilter,
     // "pairedShortcodes" -> registerPairedShortcode (strip trailing s).

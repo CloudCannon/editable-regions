@@ -1,7 +1,7 @@
 /**
  * Browser-compatible implementations of Eleventy's built-in filters and
- * shortcodes (Tier 1). Filters that require Eleventy's build-time internals
- * are registered as pass-through stubs that warn once, so templates keep
+ * shortcodes. Filters that require Eleventy's build-time internals are
+ * registered as pass-through stubs that warn once, so templates keep
  * rendering. `registerEleventyBuiltins` is the single entry point used by
  * `createSharedLiquidEngine` to wire everything up.
  */
@@ -234,14 +234,13 @@ function passThroughStub(filterName, reason) {
 }
 
 /**
- * Filter names with handwritten browser ports (Tier 1) — skipped by the
- * auto-mirror pass (Tier 2). Split from `tier1ShortcodeNames` because the
- * auto-mirror reads filter, shortcode, and paired-shortcode registries
- * separately.
+ * Filter names with handwritten browser ports — skipped by the auto-mirror
+ * pass. Split from `builtinShortcodeNames` because the auto-mirror reads
+ * filter, shortcode, and paired-shortcode registries separately.
  *
  * @type {string[]}
  */
-export const tier1FilterNames = [
+export const builtinFilterNames = [
 	"slugify",
 	"slug",
 	"log",
@@ -261,12 +260,12 @@ export const tier1FilterNames = [
 ];
 
 /**
- * Shortcode names with handwritten ports. See `tier1FilterNames` for context.
- * `renderFile` is implemented in `11ty-render.mjs`.
+ * Shortcode names with handwritten ports. See `builtinFilterNames` for
+ * context. `renderFile` is implemented in `11ty-render.mjs`.
  *
  * @type {string[]}
  */
-export const tier1ShortcodeNames = ["renderFile"];
+export const builtinShortcodeNames = ["renderFile"];
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
@@ -297,7 +296,7 @@ export const eleventyFilters = {
 };
 
 /**
- * Registers all Eleventy built-ins (Tier 1) on the shared Liquid engine:
+ * Registers all Eleventy built-ins on the shared Liquid engine:
  *   - the plain filters from `eleventyFilters` (slugify, url, dateToRfc3339, …)
  *   - the RenderPlugin shims: `renderTemplate` (tag), `renderFile`
  *     (shortcode), `renderContent` (filter)

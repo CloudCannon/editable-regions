@@ -153,11 +153,10 @@ export function registerProcessEnv(env) {
 
 /**
  * Registers a Liquid filter. Called by both the build-time auto-mirror pass
- * (Tier 2, with the user's `eleventyConfig.addFilter` function) and by
- * user-supplied browser overrides (`pluginOptions.liquid.filters`). The
- * Eleventy plugin emits one call per name; overrides emitted last win on
- * collision, but the mirror pass already skips override names so collisions
- * shouldn't arise.
+ * (with the user's `eleventyConfig.addFilter` function) and by user-supplied
+ * browser overrides (`pluginOptions.liquid.filters`). The Eleventy plugin
+ * emits one call per name; overrides emitted last win on collision, but the
+ * mirror pass already skips override names so collisions shouldn't arise.
  *
  * @param {string} name
  * @param {any} fn

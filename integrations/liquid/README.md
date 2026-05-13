@@ -17,7 +17,7 @@ build time; this directory is what that bundle pulls in.
   - [Eleventy global](#eleventy-global)
 - [Filters](#filters)
   - [Adding a custom filter](#adding-a-custom-filter)
-  - [Overriding a Tier 1 built-in](#overriding-a-tier-1-built-in)
+  - [Overriding a built-in](#overriding-a-built-in)
 - [Shortcodes and paired shortcodes](#shortcodes-and-paired-shortcodes)
   - [Adding a custom shortcode](#adding-a-custom-shortcode)
 - [Tags](#tags)
@@ -218,10 +218,10 @@ built once at build time:
 
 ## Filters
 
-Filters are layered as three tiers, resolved in order so later tiers win on
-name collision:
+Filters come from three sources, resolved in order so later sources win on
+name collision: **built-ins**, **auto-mirrored**, then **overrides**.
 
-1. **Tier 1 — handwritten ports** (`11ty-builtins.mjs`). Browser-safe
+1. **Built-ins** (`11ty-builtins.mjs`). Handwritten browser-safe
    reimplementations of common Eleventy built-ins: `slugify`/`slug`, `url`,
    `dateToRfc3339`, `dateToRfc822`, `htmlDateString`,
    `getNewestCollectionItemDate`, the four collection-item filters, and a
@@ -230,40 +230,41 @@ name collision:
    warn-once pass-throughs that return their input unchanged. The
    RenderPlugin filter `renderContent` is registered as a real shim that
    parse-and-renders its input via the shared Liquid engine — see
-   "RenderPlugin shims" below. Names listed in `tier1FilterNames` are
-   skipped by Tier 2 to keep the auto-mirror from overwriting our ports
+   "RenderPlugin shims" below. Names listed in `builtinFilterNames` are
+   skipped by the auto-mirror to keep it from overwriting our ports
    with Eleventy's Node-only defaults (which close over imports like
    `@sindresorhus/slugify` that don't exist in the browser).
 
-2. **Tier 2 — auto-mirror from Eleventy's registry**. At build time the
-   plugin walks `eleventyConfig.universal.filters` and
+2. **Auto-mirrored from Eleventy's registry**. At build time the plugin
+   walks `eleventyConfig.universal.filters` and
    `eleventyConfig.liquid.filters` and embeds each function verbatim via
    `fn.toString()`. There's no portability heuristic — the function is
    shipped as-is. If it depends on Eleventy build-time state (`this.ctx`,
    `process`, `require`, `__dirname`, a closed-over Node import, …) it'll
-   throw at render time in the browser, which is the signal to add a Tier
-   3 override.
+   throw at render time in the browser, which is the signal to add an
+   override.
 
    Eleventy wraps every registered function in a benchmark closure; the
    serializer unwraps via `__eleventyInternal.callback` so we serialize
    the user's function, not the wrapper.
 
-3. **Tier 3 — explicit overrides** (`pluginOptions.liquid.filters`). A map
-   from filter name to module path. Two reasons to use this:
-   - **A mirrored filter throws at render time.** The Tier 2 entry isn't
-     safe to run in the browser — supply a hand-rolled replacement here.
-   - **You're overriding a Tier 1 name.** Tier 2 skips Tier 1 names to
-     protect our browser ports, which means an `eleventyConfig.addFilter("url", …)`
-     won't reach live editing. To override a Tier 1 filter in the bundle
-     you must also register here.
+3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name
+   to module path. Two reasons to use this:
+   - **A mirrored filter throws at render time.** The auto-mirrored entry
+     isn't safe to run in the browser — supply a hand-rolled replacement
+     here.
+   - **You're overriding a built-in name.** The auto-mirror skips built-in
+     names to protect our browser ports, which means an
+     `eleventyConfig.addFilter("url", …)` won't reach live editing. To
+     override a built-in filter in the bundle you must also register here.
 
-   Tier 3 names are also skipped by Tier 2 (so an override doesn't get
-   double-registered).
+   Override names are also skipped by the auto-mirror (so an override
+   doesn't get double-registered).
 
 ### Adding a custom filter
 
 For most filters you don't need to do anything — registering with Eleventy
-the normal way is enough; Tier 2 mirrors it automatically.
+the normal way is enough; the auto-mirror picks it up.
 
 ```js
 // eleventy.config.mjs
@@ -272,8 +273,8 @@ eleventyConfig.addFilter("shout", (s) => String(s).toUpperCase());
 ```
 
 If your filter touches `this.ctx`, `process`, `require`, `__dirname`, or a
-closed-over Node module, the Tier 2 mirror will ship it but it'll throw at
-render time in the browser. Surface the actionable path by adding a Tier 3
+closed-over Node module, the auto-mirror will ship it but it'll throw at
+render time in the browser. Surface the actionable path by adding an
 override:
 
 ```js
@@ -298,13 +299,13 @@ The override module's default export is registered against the live-editing
 engine in place of the original. The Eleventy server-side filter is
 untouched.
 
-### Overriding a Tier 1 built-in
+### Overriding a built-in
 
-If you replace a Tier 1 name in your Eleventy config —
+If you replace a built-in name in your Eleventy config —
 `eleventyConfig.addFilter("url", myCustomUrl)` — your replacement applies
 server-side, but the live-editing bundle still uses our handwritten port
-(Tier 2 skips Tier 1 names). To make the override apply in the bundle too,
-register a second time via `pluginOptions.liquid.filters`:
+(the auto-mirror skips built-in names). To make the override apply in the
+bundle too, register a second time via `pluginOptions.liquid.filters`:
 
 ```js
 // eleventy.config.mjs
@@ -319,28 +320,35 @@ eleventyConfig.addPlugin(editableRegions, {
 });
 ```
 
-It's a tax, and it only applies to Tier 1 names. The alternative — letting
-the auto-mirror ship Eleventy's defaults — breaks every project that uses
-`{{ x | url }}` without overriding, because Eleventy's default `url`
-filter closes over Node-only imports that don't survive `fn.toString()`.
-The skip protects users who don't override; the second registration
-unlocks the path for users who do.
+It's a tax, and it only applies to built-in names. The alternative —
+letting the auto-mirror ship Eleventy's defaults — breaks every project
+that uses `{{ x | url }}` without overriding, because Eleventy's default
+`url` filter closes over Node-only imports that don't survive
+`fn.toString()`. The skip protects users who don't override; the second
+registration unlocks the path for users who do.
 
 ## Shortcodes and paired shortcodes
 
-Same Tier 1 / Tier 2 / Tier 3 model as filters. Each registered function is
-wrapped via `createShortcodeTag` / `createPairedShortcodeTag` (see
-`shortcodes.mjs`) which translates Eleventy's "function returning a string"
-shape into LiquidJS's `{ parse, render }` tag shape.
+Same built-ins / auto-mirrored / overrides model as filters. Each
+registered function is wrapped via `createShortcodeTag` /
+`createPairedShortcodeTag` (see `shortcodes.mjs`) which translates
+Eleventy's "function returning a string" shape into LiquidJS's
+`{ parse, render }` tag shape.
 
-The only Tier 1 shortcode is `renderFile` (from the RenderPlugin) — see
-"RenderPlugin shims" below. Tier 2 ships everything the user registered
-via `addShortcode` / `addPairedShortcode` verbatim. Tier 3 lives under
+The only built-in shortcode is `renderFile`. It's one of three RenderPlugin
+pieces we shim — the other two land in different sections because they're
+different shapes: `renderContent` is a [filter](#filters) and
+`renderTemplate` is a [tag](#built-in-tags). See
+[RenderPlugin shims](#renderplugin-shims) for the unified view of all
+three.
+
+The auto-mirror ships everything the user registered via `addShortcode` /
+`addPairedShortcode` verbatim. Overrides live under
 `pluginOptions.liquid.shortcodes` / `pluginOptions.liquid.pairedShortcodes`
 for browser-friendly replacements.
 
 Like filters, the auto-mirror has no portability heuristic — non-portable
-shortcodes throw at render time and direct you to add a Tier 3 override.
+shortcodes throw at render time and direct you to add an override.
 
 ### Adding a custom shortcode
 
@@ -502,7 +510,7 @@ section catalogues the gaps and the patterns for working around them.
 | `inputPathToUrl`, `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged (they depend on Eleventy build-time state we don't have). | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
 | `renderTemplate` / `renderFile` / `renderContent` with a non-Liquid engine arg (e.g. `"njk"`, `"md"`) | Warn-once and return the body unchanged. We only ship LiquidJS in the bundle. | Switch the template to Liquid, or guard the call with `{% if ENV_CLIENT %}` so it only runs at build time. |
 | Mirrored filters/shortcodes that touch `this.ctx`, `process`, `require`, `__dirname`, or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
-| User overrides of a **Tier 1** filter name via `eleventyConfig.addFilter` | The auto-mirror skips Tier 1 names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a Tier 1 built-in". |
+| User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |
 | `page.outputPath`, `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
 | `page.url` for templates relying on computed permalinks set in `eleventy.config.mjs` | Falls back to a derived folder-style URL. | Set `permalink:` in front matter so the runtime can read it directly. |
@@ -553,7 +561,7 @@ tag or filter override. The Visual Editor exposes `currentFile()`,
 | File | Purpose |
 | --- | --- |
 | `index.mjs` | Public entry point: engine, registration functions, component proxy, render helper, error enhancement. |
-| `11ty-builtins.mjs` | Tier 1 filter/shortcode ports + `tier1FilterNames` / `tier1ShortcodeNames` skip lists. Exposes `registerEleventyBuiltins(engine)` which `createSharedLiquidEngine` calls to wire all 11ty built-ins onto the engine in one shot. |
+| `11ty-builtins.mjs` | Handwritten filter/shortcode ports + `builtinFilterNames` / `builtinShortcodeNames` skip lists. Exposes `registerEleventyBuiltins(engine)` which `createSharedLiquidEngine` calls to wire all 11ty built-ins onto the engine in one shot. |
 | `11ty-render.mjs` | RenderPlugin shims: `createRenderTemplateTag` (paired Liquid tag), `createRenderFileShortcode`, `createRenderContentFilter`. |
 | `shortcodes.mjs` | Adapters that turn Eleventy-style shortcode functions into LiquidJS tag definitions. Also exports the shared `parseArgs` / `evaluateArgs` helpers used by `11ty-render.mjs`. |
 | `fs.mjs` | LiquidJS-compatible filesystem backed by `window.cc_files`. |
