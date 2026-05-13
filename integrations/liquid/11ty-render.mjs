@@ -16,11 +16,14 @@
  *   - "html" → identity passthrough (HTML is literal)
  *   - any other engine → warn-once and return the body unchanged
  *
- * `renderFile` reads from `window.cc_files` (populated at build time by the
- * Eleventy plugin's `findAllLiquidFiles` pass) rather than the filesystem.
- * Files not auto-bundled into `cc_files` are unreachable from live editing.
+ * `renderFile` resolves its target via the CloudCannon Visual Editor API
+ * (`CloudCannon.file(path).content.get()`), which returns the file body
+ * with front matter stripped — matching how Eleventy feeds a template body
+ * to its engine. This means any file the editor can see is reachable, not
+ * just files bundled into `window.cc_files`.
  */
 
+import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { warnOnce } from "./logger.mjs";
 import { evaluateArgs, parseArgs } from "./shortcodes.mjs";
 
@@ -44,24 +47,6 @@ function inferEngineFromPath(inputPath) {
 	if (ext === "md") return "md";
 	if (ext === "njk") return "njk";
 	return undefined;
-}
-
-/**
- * Looks up a bundled file by path. Tries the literal key first, then a few
- * conservative normalizations (`./` / leading-slash stripping) so users who
- * write paths Eleventy-style still hit the right entry.
- *
- * @param {string} inputPath
- * @returns {string | null}
- */
-function lookupBundledFile(inputPath) {
-	const files = /** @type {Record<string, string>} */ (window.cc_files || {});
-	if (Object.hasOwn(files, inputPath)) return files[inputPath];
-	const stripped = inputPath.replace(/^\.\/+/, "").replace(/^\/+/, "");
-	if (stripped !== inputPath && Object.hasOwn(files, stripped)) {
-		return files[stripped];
-	}
-	return null;
 }
 
 /**
@@ -175,9 +160,9 @@ export function createRenderContentFilter(liquidEngine) {
 }
 
 /**
- * Builds the `renderFile` shortcode. Resolves `inputPath` against the
- * build-time bundled file map (`window.cc_files`) and renders the contents
- * with `data`. The engine is taken from `templateLang` when supplied,
+ * Builds the `renderFile` shortcode. Fetches `inputPath` via the CloudCannon
+ * Visual Editor API (`CloudCannon.file(path).content.get()`) and renders the
+ * body with `data`. The engine is taken from `templateLang` when supplied,
  * otherwise inferred from the file extension.
  *
  * @param {any} liquidEngine - LiquidJS engine instance
@@ -193,13 +178,21 @@ export function createRenderFileShortcode(liquidEngine) {
 			return "";
 		}
 
-		const body = lookupBundledFile(inputPath);
-		if (body == null) {
+		// Normalise Eleventy-style paths (`./foo`, `/foo`) to the
+		// project-relative shape the CC API expects.
+		const normalizedPath = inputPath
+			.replace(/^\.\/+/, "")
+			.replace(/^\/+/, "");
+
+		await apiLoadedPromise;
+		let body;
+		try {
+			body = await CloudCannon.file(normalizedPath).content.get();
+		} catch (err) {
 			warnOnce(
 				`render-file-missing:${inputPath}`,
-				`renderFile: "${inputPath}" not found in window.cc_files. ` +
-					"Make sure the file lives inside a configured componentDir " +
-					"and its extension is included in pluginOptions.liquid.extensions.",
+				`renderFile: failed to load "${inputPath}" via the CloudCannon API ` +
+					`(${err instanceof Error ? err.message : String(err)}).`,
 			);
 			return "";
 		}

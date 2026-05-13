@@ -449,9 +449,12 @@ the engines we actually run there:
 All three share the same behaviour: `"liquid"` (or unspecified) → real
 parse-and-render through the shared engine; `"html"` → identity
 passthrough; any other engine → warn-once and return the body unchanged.
-`renderFile` reads from `window.cc_files` (populated at build time by
-`findAllLiquidFiles`) rather than the filesystem, so the referenced file
-has to live inside a configured `componentDir` with a supported extension.
+`renderFile` fetches the target via the CloudCannon Visual Editor API
+(`CloudCannon.file(path).content.get()`), which returns the file body with
+front matter stripped — matching how Eleventy feeds a template body to its
+engine. Any file the editor can see is reachable, not just files inside a
+configured `componentDir`. (`{% include %}` is the separate path: it goes
+through LiquidJS's filesystem, which is the build-time `cc_files` map.)
 
 ## Component resolution
 
