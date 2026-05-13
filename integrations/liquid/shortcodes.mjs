@@ -17,7 +17,7 @@ import { group, groupEnd, log } from "./logger.mjs";
  * @param {any} operatorsTrie - Liquid options operatorsTrie
  * @returns {any[]} Array of parsed tokens
  */
-function parseArgs(argsString, operatorsTrie) {
+export function parseArgs(argsString, operatorsTrie) {
 	if (!argsString || !argsString.trim()) {
 		return [];
 	}
@@ -49,7 +49,7 @@ function parseArgs(argsString, operatorsTrie) {
  * @param {any} context - LiquidJS render context
  * @returns {Promise<any[]>} Array of evaluated values
  */
-async function evaluateArgs(tokens, context) {
+export async function evaluateArgs(tokens, context) {
 	const values = [];
 	for (const token of tokens) {
 		const value = await toPromise(evalToken(token, context));

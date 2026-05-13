@@ -19,26 +19,17 @@ declare module "@cloudcannon/editable-regions/liquid" {
 		render(context: any): Promise<string>;
 	};
 
-	export function registerCustomFilter(
+	export function registerFilter(
 		name: string,
 		fn: (...args: any[]) => any,
 	): void;
-	export function registerMirroredFilters(
-		filters: Record<string, (...args: any[]) => any>,
-	): void;
-	export function registerCustomShortcode(
+	export function registerShortcode(
 		name: string,
 		fn: (...args: any[]) => any,
 	): void;
-	export function registerMirroredShortcodes(
-		shortcodes: Record<string, (...args: any[]) => any>,
-	): void;
-	export function registerCustomPairedShortcode(
+	export function registerPairedShortcode(
 		name: string,
 		fn: (...args: any[]) => any,
-	): void;
-	export function registerMirroredPairedShortcodes(
-		pairedShortcodes: Record<string, (...args: any[]) => any>,
 	): void;
 	export function registerCustomTag(
 		name: string,

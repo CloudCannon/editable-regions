@@ -2,7 +2,10 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
-import { tier1FilterNames } from "./liquid/11ty-filters.mjs";
+import {
+  tier1FilterNames,
+  tier1ShortcodeNames,
+} from "./liquid/11ty-builtins.mjs";
 import { createIncludeWithTag } from "./liquid/index.mjs";
 
 /**
@@ -11,7 +14,7 @@ import { createIncludeWithTag } from "./liquid/index.mjs";
  * @property {string[]} [extensions] - Defaults to [".liquid", ".html"]
  * @property {string[]} [ignoreDirectories] - Directory names to skip (e.g., ["_drafts", "node_modules"])
  * @property {Record<string, string>} [componentOverrides] - Explicitly registered components that override dynamic resolution
- * @property {Record<string, string>} [filters] - Browser-side filter overrides, keyed by filter name with a path to a module exporting the replacement function. Filters registered in `eleventy.config.mjs` are auto-mirrored into the bundle by default; use this only when a filter can't be serialized to the browser (e.g. it touches `this.ctx`, `process`, `require`, `__dirname`) and you need to supply a browser-friendly implementation.
+ * @property {Record<string, string>} [filters] - Browser-side filter overrides, keyed by filter name with a path to a module exporting the replacement function. Filters registered in `eleventy.config.mjs` are auto-mirrored into the bundle by default; use this when a mirrored filter throws at render time in the browser (typically because it relies on Eleventy build-time state like `this.ctx`, `process`, `require`, or `__dirname`) and you need to supply a browser-friendly implementation.
  * @property {Record<string, string>} [shortcodes] - Browser-side shortcode overrides. Same auto-mirror + override model as `filters`: shortcodes registered via `addShortcode`/`addLiquidShortcode` are mirrored automatically; use this to replace any whose source can't run in the browser.
  * @property {Record<string, string>} [pairedShortcodes] - Browser-side paired-shortcode overrides. Same auto-mirror + override model as `filters`.
  * @property {Record<string, string>} [tags] - Custom Liquid tags to register in the browser engine, keyed by tag name with a path to a module exporting the tag factory `(liquidEngine) => { parse, render }`. Unlike filters/shortcodes, tags are not auto-mirrored from `addLiquidTag` — register any tag you want available during live editing here.
@@ -57,27 +60,32 @@ import { createIncludeWithTag } from "./liquid/index.mjs";
  */
 export default function (eleventyConfig, pluginOptions) {
   if (pluginOptions.liquid) {
-    eleventyConfig.addLiquidTag("include_with", createIncludeWithTag);
+    eleventyConfig.addLiquidTag("includeWith", createIncludeWithTag);
   }
 
   eleventyConfig.on("eleventy.after", async ({ directories, dir }) => {
     const dirs = directories ?? dir ?? eleventyConfig.dir;
-    const liveEditingSource = await createLiveEditingSource(
+    const rawExtensions = pluginOptions.liquid?.extensions ?? [
+      ".liquid",
+      ".html",
+    ];
+    const normalizedExtensions = rawExtensions.map((ext) =>
+      ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
+    );
+
+    const liveEditingSource = await generateLiveEditingSource(
       pluginOptions,
       dirs,
       eleventyConfig,
+      normalizedExtensions,
     );
 
-    // Build dynamic loader config from extensions
-    // esbuild only looks at the final extension, so .bookshop.liquid -> .liquid
+    // esbuild only matches the final extension, so .bookshop.liquid -> .liquid
     /** @type {Record<string, import('esbuild').Loader>} */
     const loader = {};
-    const extensions = pluginOptions.liquid?.extensions ?? [".liquid", ".html"];
-    extensions.forEach((ext) => {
-      const normalized = ext.startsWith(".") ? ext : `.${ext}`;
-      const lastDotIndex = normalized.lastIndexOf(".");
-      loader[normalized.slice(lastDotIndex)] = "text";
-    });
+    for (const ext of normalizedExtensions) {
+      loader[ext.slice(ext.lastIndexOf("."))] = "text";
+    }
 
     await esbuild.build({
       stdin: {
@@ -92,328 +100,21 @@ export default function (eleventyConfig, pluginOptions) {
 }
 
 /**
- * Walks a registry of Eleventy-registered functions (filters, shortcodes,
- * paired shortcodes, or tag factories) and emits a `registerMirroredX({...})`
- * call for the bundle.
- *
- * For each entry not in `skipNames`, unwraps Eleventy's benchmark closure,
- * serializes via `fn.toString()`, and runs `classifyMirroredSource`. Portable
- * sources are embedded verbatim; non-portable ones either fall back to a
- * stub built by `buildStub`, or are skipped if no stub builder is provided.
- *
- * @param {Object} args
- * @param {Record<string, any>} args.registry - Map of name -> function
- * @param {string} args.registerFnName - Name of the runtime register function
- * @param {string[]} args.skipNames - Names to omit (already covered or overridden)
- * @param {((name: string, reason: string) => string) | undefined} args.buildStub - Builder for non-portable fallback source; omit to skip non-portable entries entirely
- * @returns {string} JS source to append to the bundle (empty if nothing to register)
- */
-function serializeMirroredFunctions({
-  registry,
-  registerFnName,
-  skipNames,
-  buildStub,
-}) {
-  const skip = new Set(skipNames);
-  const entries = [];
-
-  for (const [name, fn] of Object.entries(registry)) {
-    if (skip.has(name)) continue;
-    if (typeof fn !== "function") continue;
-
-    // Eleventy wraps every registered filter/shortcode in a benchmark closure
-    // (see @11ty/eleventy/src/Benchmark/BenchmarkGroup.js), which references
-    // local `callback`/`benchmark` identifiers that don't exist in the
-    // browser. The original user function is hung off the wrapper via
-    // `__eleventyInternal.callback` — use that for serialization.
-    const original = fn.__eleventyInternal?.callback ?? fn;
-    if (typeof original !== "function") continue;
-
-    const source = original.toString();
-    const classification = classifyMirroredSource(source);
-    const nameLit = JSON.stringify(name);
-
-    if (classification.portable) {
-      // Wrap in parens so `function name(...) {}` or `async function(){}`
-      // parses as an expression in an object literal.
-      entries.push(`  ${nameLit}: (${source})`);
-    } else if (buildStub) {
-      entries.push(
-        `  ${nameLit}: ${buildStub(name, classification.reason)}`,
-      );
-    }
-    // else: non-portable + no stub builder => omit entirely
-  }
-
-  if (entries.length === 0) return "";
-
-  return `\n${registerFnName}({\n${entries.join(",\n")}\n});\n`;
-}
-
-/**
- * Tier 2 mirror for filters. See `serializeMirroredFunctions`.
- *
- * @param {EleventyConfig} eleventyConfig
- * @param {string[]} skipNames - Filter names to omit (Tier 1 + Tier 3)
- * @returns {string}
- */
-function serializeMirroredFilters(eleventyConfig, skipNames) {
-  /** @type {any} */
-  const cfg = eleventyConfig;
-  // Pull from both universal (cross-engine) and liquid-specific registries.
-  // Liquid-specific wins on name collisions (more specific registration).
-  const registry = {
-    ...(cfg?.universal?.filters ?? {}),
-    ...(cfg?.liquid?.filters ?? {}),
-  };
-  return serializeMirroredFunctions({
-    registry,
-    registerFnName: "registerMirroredFilters",
-    skipNames,
-    buildStub: (name, reason) =>
-      buildPassthroughStub({ kind: "filter", name, reason }),
-  });
-}
-
-/**
- * Auto-mirror for non-paired shortcodes registered in the user's eleventy
- * config. Non-portable shortcodes fall back to a warn-once empty-string stub.
- *
- * @param {EleventyConfig} eleventyConfig
- * @param {string[]} skipNames - Names overridden via plugin options
- * @returns {string}
- */
-function serializeMirroredShortcodes(eleventyConfig, skipNames) {
-  /** @type {any} */
-  const cfg = eleventyConfig;
-  const registry = {
-    ...(cfg?.universal?.shortcodes ?? {}),
-    ...(cfg?.liquid?.shortcodes ?? {}),
-  };
-  return serializeMirroredFunctions({
-    registry,
-    registerFnName: "registerMirroredShortcodes",
-    skipNames,
-    buildStub: (name, reason) =>
-      buildEmptyStringStub({ kind: "shortcode", name, reason }),
-  });
-}
-
-/**
- * Auto-mirror for paired shortcodes. Non-portable entries fall back to a
- * warn-once stub that returns the inner content unchanged.
- *
- * @param {EleventyConfig} eleventyConfig
- * @param {string[]} skipNames
- * @returns {string}
- */
-function serializeMirroredPairedShortcodes(eleventyConfig, skipNames) {
-  /** @type {any} */
-  const cfg = eleventyConfig;
-  const registry = {
-    ...(cfg?.universal?.pairedShortcodes ?? {}),
-    ...(cfg?.liquid?.pairedShortcodes ?? {}),
-  };
-  return serializeMirroredFunctions({
-    registry,
-    registerFnName: "registerMirroredPairedShortcodes",
-    skipNames,
-    buildStub: (name, reason) =>
-      buildContentPassthroughStub({ kind: "paired shortcode", name, reason }),
-  });
-}
-
-/**
- * Builds the `process.env` subset to ship to the browser, given the user's
- * allowlist and optional prefix. Treats both inputs as opt-in: with neither
- * set, the result is empty and no `process` global is registered.
- *
- * Empty-string prefixes are ignored — `"".startsWith("")` is true for every
- * env var, which would silently leak the entire host environment.
- *
- * @param {string[] | undefined} allowlist - Explicit names to include
- * @param {string | undefined} prefix - Names with this prefix are auto-included
- * @returns {Record<string, string>}
- */
-function collectExposedEnv(allowlist, prefix) {
-  /** @type {Record<string, string>} */
-  const out = {};
-  if (Array.isArray(allowlist)) {
-    for (const name of allowlist) {
-      if (typeof name !== "string") continue;
-      const value = process.env[name];
-      if (typeof value === "string") out[name] = value;
-    }
-  }
-  if (typeof prefix === "string" && prefix.length > 0) {
-    for (const [name, value] of Object.entries(process.env)) {
-      if (name.startsWith(prefix) && typeof value === "string") {
-        out[name] = value;
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * Reads the installed Eleventy version from its `package.json`. Resolved
- * from this module's location, which works for the typical hoisted-deps
- * layout. Returns `"unknown"` if Eleventy can't be resolved (e.g. the
- * package isn't installed where we'd expect) so the bundle still builds.
- *
- * @returns {string}
- */
-function readEleventyVersion() {
-  try {
-    const require = createRequire(import.meta.url);
-    /** @type {{version: string}} */
-    const pkg = require("@11ty/eleventy/package.json");
-    return pkg.version;
-  } catch {
-    return "unknown";
-  }
-}
-
-/**
- * Builds the static `eleventy` global that the live-editing bundle exposes
- * in place of Eleventy's build-time data of the same name. Mirrors the parts
- * of https://www.11ty.dev/docs/data-eleventy-supplied/ that make sense in a
- * browser, with deliberate omissions:
- *   - `env.config` and `env.root` are dropped (absolute filesystem paths
- *     don't belong in client JS).
- *   - `env.runMode` is hardcoded to `"serve"` — we're not in any of 11ty's
- *     real run modes, but "serve" is the dev-mode analogue and gives
- *     templates branching on this the right code path.
- *   - `env.source` is hardcoded to `"cli"`.
- *   - `serverless` is omitted (deprecated upstream).
- *
- * @param {EleventyDirectories} directories
- * @returns {{version: string, generator: string, env: {runMode: string, source: string}, directories: EleventyDirectories}}
- */
-function buildEleventyData(directories) {
-  const version = readEleventyVersion();
-  return {
-    version,
-    generator: `Eleventy v${version}`,
-    env: {
-      runMode: "serve",
-      source: "cli",
-    },
-    directories: {
-      input: directories.input,
-      includes: directories.includes,
-      data: directories.data,
-      output: directories.output,
-    },
-  };
-}
-
-/**
- * Heuristic check for whether stringified function source can be safely
- * shipped to the browser. Returns `{portable: true}` when the source is
- * self-contained or `{portable: false, reason}` when it references things we
- * can't recreate. Applies equally to filters, shortcodes, and tag factories.
- *
- * @param {string} source
- * @returns {{portable: true} | {portable: false, reason: string}}
- */
-function classifyMirroredSource(source) {
-  const patterns = [
-    {
-      re: /this\.(ctx|page|eleventy|config)\b/,
-      reason:
-        "it references Eleventy's filter `this` context (this.ctx/this.page/this.eleventy/this.config)",
-    },
-    { re: /\brequire\s*\(/, reason: "it calls require() at runtime" },
-    { re: /\bimport\s*\(/, reason: "it uses dynamic import()" },
-    { re: /\bprocess\./, reason: "it reads from Node's process global" },
-    {
-      re: /\b__(dirname|filename)\b/,
-      reason: "it references __dirname or __filename",
-    },
-  ];
-  for (const { re, reason } of patterns) {
-    if (re.test(source)) return { portable: false, reason };
-  }
-  return { portable: true };
-}
-
-/**
- * Shared warn-once wrapper used by every stub variant. Emits a self-contained
- * IIFE that returns a function with the supplied body and warns the first time
- * it's invoked.
- *
- * @param {string} message - JSON-stringified warning message
- * @param {string} signature - Parameter list, e.g. "value" or "...args"
- * @param {string} returnExpr - Expression returned from the stub
- * @returns {string}
- */
-function buildWarnOnceStub(message, signature, returnExpr) {
-  return `(() => {
-    let warned = false;
-    return (${signature}) => {
-      if (!warned) { warned = true; console.warn(${message}); }
-      return ${returnExpr};
-    };
-  })()`;
-}
-
-/**
- * Stub for filters: returns the piped value unchanged so `{{ x | broken }}`
- * still renders something sensible.
- *
- * @param {{kind: string, name: string, reason: string}} args
- * @returns {string}
- */
-function buildPassthroughStub({ kind, name, reason }) {
-  const message = JSON.stringify(
-    `Eleventy ${kind} "${name}" is not supported in live editing (${reason}). Returning the input unchanged.`,
-  );
-  return buildWarnOnceStub(message, "value", "value");
-}
-
-/**
- * Stub for non-paired shortcodes: returns "" since the original output is
- * unrecoverable but the surrounding template still needs to render.
- *
- * @param {{kind: string, name: string, reason: string}} args
- * @returns {string}
- */
-function buildEmptyStringStub({ kind, name, reason }) {
-  const message = JSON.stringify(
-    `Eleventy ${kind} "${name}" is not supported in live editing (${reason}). Returning an empty string.`,
-  );
-  return buildWarnOnceStub(message, "...args", '""');
-}
-
-/**
- * Stub for paired shortcodes: returns the inner content unchanged so the
- * surrounded markup still appears in the rendered preview.
- *
- * @param {{kind: string, name: string, reason: string}} args
- * @returns {string}
- */
-function buildContentPassthroughStub({ kind, name, reason }) {
-  const message = JSON.stringify(
-    `Eleventy ${kind} "${name}" is not supported in live editing (${reason}). Returning the wrapped content unchanged.`,
-  );
-  return buildWarnOnceStub(message, "content, ...args", "content");
-}
-
-/**
  * Creates the JavaScript source code for the live-editing client bundle.
  * Generates imports for components, filters, shortcodes, and tags.
  *
  * @param {PluginOptions} pluginOptions - Plugin configuration options
  * @param {EleventyDirectories} directories - Eleventy directory configuration
  * @param {EleventyConfig} eleventyConfig - Eleventy config, used to read registered filters
+ * @param {string[]} normalizedExtensions - Lowercase, leading-dot file extensions to bundle
  * @returns {Promise<string>} Generated JavaScript source code
  */
-const createLiveEditingSource = async (
+async function generateLiveEditingSource(
   pluginOptions,
   directories,
   eleventyConfig,
-) => {
+  normalizedExtensions,
+) {
   let source = "";
 
   if (pluginOptions.liquid) {
@@ -421,21 +122,16 @@ const createLiveEditingSource = async (
       directories.includes,
       directories.input,
     ];
-    const extensions = pluginOptions.liquid.extensions ?? [".liquid", ".html"];
     const ignoreDirectories = pluginOptions.liquid.ignoreDirectories ?? [
       directories.output,
       "node_modules",
     ];
-
-    const normalizedExtensions = extensions.map((ext) =>
-      ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
-    );
     const normalizedIgnoreDirs = ignoreDirectories.map((dir) =>
       dir.toLowerCase(),
     );
 
     source += `
-      import { createSharedLiquidEngine, registerLiquidComponent, registerCustomFilter, registerCustomShortcode, registerCustomPairedShortcode, registerCustomTag, registerMirroredFilters, registerMirroredShortcodes, registerMirroredPairedShortcodes, registerProcessEnv, registerEleventyData, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
 
@@ -483,94 +179,19 @@ const createLiveEditingSource = async (
       `;
     });
 
-    // Auto-mirror anything registered in eleventy.config.mjs (filters,
-    // shortcodes, paired shortcodes, tags). For each kind:
-    //   - skip names we already cover with handwritten ports (filters Tier 1)
-    //   - skip names overridden via plugin options (registered just below)
-    // so that overrides always win.
-    const filterOverrideNames = Object.keys(pluginOptions.liquid?.filters ?? {});
-    source += serializeMirroredFilters(eleventyConfig, [
-      ...tier1FilterNames,
-      ...filterOverrideNames,
-    ]);
+    // Auto-mirror everything registered in eleventy.config.mjs (filters,
+    // shortcodes, paired shortcodes). Tier 1 and override skip lists are
+    // handled internally — see `tier1ByKind`.
+    source += generateFromEleventyConfig(eleventyConfig, pluginOptions.liquid);
 
-    const shortcodeOverrideNames = Object.keys(
-      pluginOptions.liquid?.shortcodes ?? {},
-    );
-    source += serializeMirroredShortcodes(eleventyConfig, shortcodeOverrideNames);
-
-    const pairedShortcodeOverrideNames = Object.keys(
-      pluginOptions.liquid?.pairedShortcodes ?? {},
-    );
-    source += serializeMirroredPairedShortcodes(
-      eleventyConfig,
-      pairedShortcodeOverrideNames,
-    );
-
-    // Register filter overrides
-    const customFilters = pluginOptions.liquid?.filters;
-    if (customFilters) {
-      let filterIdx = 0;
-      for (const [name, file] of Object.entries(customFilters)) {
-        const filterName = `customFilter_${filterIdx++}`;
-        source += `
-          import ${filterName} from "./${file}";
-          registerCustomFilter("${name}", ${filterName});
-        `;
-      }
-    }
-
-    // Register shortcode overrides
-    const customShortcodes = pluginOptions.liquid?.shortcodes;
-    if (customShortcodes) {
-      let shortcodeIdx = 0;
-      for (const [name, file] of Object.entries(customShortcodes)) {
-        const shortcodeName = `customShortcode_${shortcodeIdx++}`;
-        source += `
-          import ${shortcodeName} from "./${file}";
-          registerCustomShortcode("${name}", ${shortcodeName});
-        `;
-      }
-    }
-
-    // Register paired shortcode overrides
-    const customPairedShortcodes = pluginOptions.liquid?.pairedShortcodes;
-    if (customPairedShortcodes) {
-      let pairedIdx = 0;
-      for (const [name, file] of Object.entries(customPairedShortcodes)) {
-        const pairedShortcodeName = `customPairedShortcode_${pairedIdx++}`;
-        source += `
-          import ${pairedShortcodeName} from "./${file}";
-          registerCustomPairedShortcode("${name}", ${pairedShortcodeName});
-        `;
-      }
-    }
-
-    // Register tag overrides
-    const tags = pluginOptions.liquid?.tags;
-    if (tags) {
-      let tagIdx = 0;
-      for (const [name, file] of Object.entries(tags)) {
-        const tagName = `tag_${tagIdx++}`;
-        source += `
-          import ${tagName} from "./${file}";
-          registerCustomTag("${name}", ${tagName});
-        `;
-      }
-    }
-
-    // Register explicit component overrides
-    const componentOverrides = pluginOptions.liquid?.componentOverrides;
-    if (componentOverrides) {
-      let componentIdx = 0;
-      for (const [name, file] of Object.entries(componentOverrides)) {
-        const componentName = `customComponent_${componentIdx++}`;
-        source += `
-        import ${componentName} from "./${file}";
-        registerLiquidComponent("${name}", ${componentName});
-      `;
-      }
-    }
+    // Register user-supplied browser-side overrides (filters, shortcodes,
+    // paired shortcodes, tags, component overrides). Each generates an
+    // `import` + the matching `registerFilter` / `registerShortcode` /
+    // `registerPairedShortcode` / `registerCustomTag` /
+    // `registerLiquidComponent` call. Override names are already excluded
+    // from the mirrored payload above, so there's no collision — these
+    // are the sole registration for each name.
+    source += generateFromPluginOptions(pluginOptions.liquid);
 
     // Initialize the Proxy on window.cc_components for dynamic resolution
     source += `
@@ -578,7 +199,92 @@ const createLiveEditingSource = async (
     `;
   }
   return source;
-};
+}
+
+/**
+ * Builds the `process.env` subset to ship to the browser, given the user's
+ * allowlist and optional prefix. Treats both inputs as opt-in: with neither
+ * set, the result is empty and no `process` global is registered.
+ *
+ * Empty-string prefixes are ignored — `"".startsWith("")` is true for every
+ * env var, which would silently leak the entire host environment.
+ *
+ * @param {string[] | undefined} allowlist - Explicit names to include
+ * @param {string | undefined} prefix - Names with this prefix are auto-included
+ * @returns {Record<string, string>}
+ */
+function collectExposedEnv(allowlist, prefix) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  if (Array.isArray(allowlist)) {
+    for (const name of allowlist) {
+      if (typeof name !== "string") continue;
+      const value = process.env[name];
+      if (typeof value === "string") out[name] = value;
+    }
+  }
+  if (typeof prefix === "string" && prefix.length > 0) {
+    for (const [name, value] of Object.entries(process.env)) {
+      if (name.startsWith(prefix) && typeof value === "string") {
+        out[name] = value;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Builds the static `eleventy` global that the live-editing bundle exposes
+ * in place of Eleventy's build-time data of the same name. Mirrors the parts
+ * of https://www.11ty.dev/docs/data-eleventy-supplied/ that make sense in a
+ * browser, with deliberate omissions:
+ *   - `env.config` and `env.root` are dropped (absolute filesystem paths
+ *     don't belong in client JS).
+ *   - `env.runMode` is hardcoded to `"serve"` — we're not in any of 11ty's
+ *     real run modes, but "serve" is the dev-mode analogue and gives
+ *     templates branching on this the right code path.
+ *   - `env.source` is hardcoded to `"cli"`.
+ *   - `serverless` is omitted (deprecated upstream).
+ *
+ * @param {EleventyDirectories} directories
+ * @returns {{version: string, generator: string, env: {runMode: string, source: string}, directories: EleventyDirectories}}
+ */
+function buildEleventyData(directories) {
+  const version = readEleventyVersion();
+  return {
+    version,
+    generator: `Eleventy v${version}`,
+    env: {
+      runMode: "serve",
+      source: "cli",
+    },
+    directories: {
+      input: directories.input,
+      includes: directories.includes,
+      data: directories.data,
+      output: directories.output,
+    },
+  };
+}
+
+/**
+ * Reads the installed Eleventy version from its `package.json`. Resolved
+ * from this module's location, which works for the typical hoisted-deps
+ * layout. Returns `"unknown"` if Eleventy can't be resolved (e.g. the
+ * package isn't installed where we'd expect) so the bundle still builds.
+ *
+ * @returns {string}
+ */
+function readEleventyVersion() {
+  try {
+    const require = createRequire(import.meta.url);
+    /** @type {{version: string}} */
+    const pkg = require("@11ty/eleventy/package.json");
+    return pkg.version;
+  } catch {
+    return "unknown";
+  }
+}
 
 /**
  * Find all component files across multiple directories.
@@ -659,4 +365,132 @@ async function findFilesInDirectory({
   }
 
   return files;
+}
+
+/**
+ * Per-kind Tier 1 skip lists. Drives both the set of kinds the auto-mirror
+ * walks and the names it omits within each kind (since those are already
+ * covered by handwritten browser ports — see `liquid/11ty-builtins.mjs`).
+ *
+ * Non-portable entries are not detected at build time — they're shipped
+ * as-is and surface as real errors when invoked in the browser; the user
+ * then provides a browser-friendly replacement via
+ * `pluginOptions.liquid.<kind>`.
+ */
+const tier1ByKind = {
+  filters: tier1FilterNames,
+  shortcodes: tier1ShortcodeNames,
+  pairedShortcodes: /** @type {string[]} */ ([]),
+};
+
+/**
+ * Auto-mirrors all functions registered in the user's Eleventy config into
+ * the browser bundle — filters, shortcodes, and paired shortcodes. For each
+ * kind, pulls from both `universal` (cross-engine) and the liquid-specific
+ * registry; liquid-specific wins on name collisions.
+ *
+ * Two skip sources, both handled here so the caller doesn't repeat itself:
+ *   - the kind's Tier 1 list (names already covered by handwritten ports)
+ *   - names the user has overridden via `pluginOptions.liquid.<kind>`
+ *     (registered separately by `generateFromPluginOptions` so overrides win)
+ *
+ * Every surviving entry is unwrapped from Eleventy's benchmark closure and
+ * embedded verbatim via `fn.toString()`. If a function depends on
+ * Eleventy build-time state (`this.ctx`, `process`, `require`, ...) it'll
+ * throw at render time in the browser — that's the signal to register an
+ * override. We deliberately don't try to detect this at build time: any
+ * regex-based check would have false positives that block portable code
+ * and false negatives that ship broken code anyway.
+ *
+ * @param {EleventyConfig} eleventyConfig
+ * @param {LiquidOptions | undefined} liquidOptions - Used to find user-supplied overrides to skip
+ * @returns {string} JS source to append to the bundle (empty if nothing to register)
+ */
+function generateFromEleventyConfig(eleventyConfig, liquidOptions) {
+  /** @type {any} */
+  const cfg = eleventyConfig;
+  let out = "";
+
+  for (const specName of /** @type {Array<keyof typeof tier1ByKind>} */ (
+    Object.keys(tier1ByKind)
+  )) {
+    const tier1 = tier1ByKind[specName];
+    const registry = {
+      ...(cfg?.universal?.[specName] ?? {}),
+      ...(cfg?.liquid?.[specName] ?? {}),
+    };
+    const overrideNames = Object.keys(liquidOptions?.[specName] ?? {});
+    const skip = new Set([...tier1, ...overrideNames]);
+
+    // Derive the runtime register fn: "filters" -> registerFilter,
+    // "pairedShortcodes" -> registerPairedShortcode (strip trailing s).
+    const registerFnName = `register${specName[0].toUpperCase()}${specName.slice(1, -1)}`;
+
+    for (const [name, fn] of Object.entries(registry)) {
+      if (skip.has(name)) continue;
+      if (typeof fn !== "function") continue;
+
+      // Eleventy wraps every registered filter/shortcode in a benchmark closure
+      // (see @11ty/eleventy/src/Benchmark/BenchmarkGroup.js), which references
+      // local `callback`/`benchmark` identifiers that don't exist in the
+      // browser. The original user function is hung off the wrapper via
+      // `__eleventyInternal.callback` — use that for serialization.
+      const original = fn.__eleventyInternal?.callback ?? fn;
+      if (typeof original !== "function") continue;
+
+      // Wrap the stringified function in parens so `function name(...) {}` or
+      // `async function(){}` parses as an expression in argument position.
+      out += `\n${registerFnName}(${JSON.stringify(name)}, (${original.toString()}));\n`;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Per-kind configuration for user-supplied browser-side overrides, keyed by
+ * the matching `pluginOptions.liquid` field. Each row gives the runtime
+ * register function the import gets compiled into and an identifier prefix
+ * for the generated import binding.
+ */
+const overrideSpecs = {
+  filters: { registerFn: "registerFilter", idPrefix: "overrideFilter" },
+  shortcodes: {
+    registerFn: "registerShortcode",
+    idPrefix: "overrideShortcode",
+  },
+  pairedShortcodes: {
+    registerFn: "registerPairedShortcode",
+    idPrefix: "overridePairedShortcode",
+  },
+  tags: { registerFn: "registerCustomTag", idPrefix: "tag" },
+  componentOverrides: {
+    registerFn: "registerLiquidComponent",
+    idPrefix: "componentOverride",
+  },
+};
+
+/**
+ * Emits the `import` + register-call pair for each user-supplied override in
+ * `pluginOptions.liquid`. Each entry produces:
+ *
+ *   import overrideFilter_0 from "./path/to/file";
+ *   registerFilter("name", overrideFilter_0);
+ *
+ * @param {LiquidOptions | undefined} liquidOptions
+ * @returns {string}
+ */
+function generateFromPluginOptions(liquidOptions) {
+  let out = "";
+  for (const optionKey of /** @type {Array<keyof typeof overrideSpecs>} */ (
+    Object.keys(overrideSpecs)
+  )) {
+    const { registerFn, idPrefix } = overrideSpecs[optionKey];
+    const entries = Object.entries(liquidOptions?.[optionKey] ?? {});
+    entries.forEach(([name, file], i) => {
+      const id = `${idPrefix}_${i}`;
+      out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
+    });
+  }
+  return out;
 }

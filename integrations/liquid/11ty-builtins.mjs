@@ -1,11 +1,19 @@
 /**
- * Browser-compatible implementations of Eleventy's built-in filters.
- * Filters that require Eleventy's build-time internals are registered as
- * pass-through stubs that warn once, so templates keep rendering.
+ * Browser-compatible implementations of Eleventy's built-in filters and
+ * shortcodes (Tier 1). Filters that require Eleventy's build-time internals
+ * are registered as pass-through stubs that warn once, so templates keep
+ * rendering. `registerEleventyBuiltins` is the single entry point used by
+ * `createSharedLiquidEngine` to wire everything up.
  */
 
 import slugify from "@sindresorhus/slugify";
+import {
+	createRenderContentFilter,
+	createRenderFileShortcode,
+	createRenderTemplateTag,
+} from "./11ty-render.mjs";
 import { warnOnce } from "./logger.mjs";
+import { createShortcodeTag } from "./shortcodes.mjs";
 
 /**
  * Logs value to console (pass-through filter).
@@ -226,9 +234,10 @@ function passThroughStub(filterName, reason) {
 }
 
 /**
- * Names of filters we handle with handwritten browser implementations
- * (Tier 1). The Eleventy plugin reads this list so the auto-mirror pass
- * (Tier 2) can skip names we've already covered.
+ * Filter names with handwritten browser ports (Tier 1) — skipped by the
+ * auto-mirror pass (Tier 2). Split from `tier1ShortcodeNames` because the
+ * auto-mirror reads filter, shortcode, and paired-shortcode registries
+ * separately.
  *
  * @type {string[]}
  */
@@ -247,10 +256,17 @@ export const tier1FilterNames = [
 	"getCollectionItemIndex",
 	"inputPathToUrl",
 	"renderContent",
-	"renderTemplate",
 	"htmlBaseUrl",
 	"serverlessUrl",
 ];
+
+/**
+ * Shortcode names with handwritten ports. See `tier1FilterNames` for context.
+ * `renderFile` is implemented in `11ty-render.mjs`.
+ *
+ * @type {string[]}
+ */
+export const tier1ShortcodeNames = ["renderFile"];
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
@@ -270,14 +286,6 @@ export const eleventyFilters = {
 		"inputPathToUrl",
 		"it requires Eleventy's build-time input-path-to-url map",
 	),
-	renderContent: passThroughStub(
-		"renderContent",
-		"it requires Eleventy's template engines at runtime",
-	),
-	renderTemplate: passThroughStub(
-		"renderTemplate",
-		"it requires Eleventy's template engines at runtime",
-	),
 	htmlBaseUrl: passThroughStub(
 		"htmlBaseUrl",
 		"it requires Eleventy's pathPrefix/HTML base config",
@@ -287,3 +295,33 @@ export const eleventyFilters = {
 		"serverless routing is a build-time concept",
 	),
 };
+
+/**
+ * Registers all Eleventy built-ins (Tier 1) on the shared Liquid engine:
+ *   - the plain filters from `eleventyFilters` (slugify, url, dateToRfc3339, …)
+ *   - the RenderPlugin shims: `renderTemplate` (tag), `renderFile`
+ *     (shortcode), `renderContent` (filter)
+ *
+ * The shims live in `./11ty-render.mjs`; this is the single entry point
+ * that wires both groups onto the engine.
+ *
+ * @param {import("liquidjs").Liquid} liquidEngine
+ */
+export function registerEleventyBuiltins(liquidEngine) {
+	for (const [name, fn] of Object.entries(eleventyFilters)) {
+		liquidEngine.registerFilter(name, fn);
+	}
+
+	liquidEngine.registerTag(
+		"renderTemplate",
+		createRenderTemplateTag(liquidEngine),
+	);
+	liquidEngine.registerTag(
+		"renderFile",
+		createShortcodeTag(createRenderFileShortcode(liquidEngine), "renderFile"),
+	);
+	liquidEngine.registerFilter(
+		"renderContent",
+		createRenderContentFilter(liquidEngine),
+	);
+}
