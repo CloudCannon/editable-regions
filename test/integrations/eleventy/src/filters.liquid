@@ -1,0 +1,18 @@
+---
+title: Filters
+layout: page-shell
+date: 2026-04-21
+---
+<section class="auto-mirror">
+	<h2>Auto-mirrored filters</h2>
+	<p>shout: {{ "live editing" | shout }}</p>
+	<p>currentPageUrl (override applies in the bundle, this is the server render): {{ "unused" | currentPageUrl }}</p>
+</section>
+
+<section class="builtins">
+	<h2>Built-in filters</h2>
+	<p>slugify: {{ "Hello World" | slugify }}</p>
+	<p>dateToRfc3339: {{ date | dateToRfc3339 }}</p>
+	<p>dateToRfc822: {{ date | dateToRfc822 }}</p>
+	<p>htmlDateString: {{ date | htmlDateString }}</p>
+</section>

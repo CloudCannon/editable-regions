@@ -1,0 +1,11 @@
+---
+title: Custom tags
+layout: page-shell
+cardProps:
+  title: Spread title
+  body: Body from includeWith
+---
+<p>echo tag: {% echo title %}</p>
+
+<p>includeWith spreads an object into the include's scope:</p>
+{% includeWith "card", cardProps %}

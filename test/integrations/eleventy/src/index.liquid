@@ -1,15 +1,20 @@
 ---
 title: Editable regions 11ty test
+layout: page-shell
 ---
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<title>{{ title }}</title>
-		<script src="/live-editing.js" defer></script>
-	</head>
-	<body>
-		<h1>{{ title }}</h1>
-		<p>Components are registered by live-editing.js and rendered into editable regions at runtime.</p>
-	</body>
-</html>
+<p>
+	Each page below exercises a different live-editing surface. Pages render
+	server-side via Eleventy and load <code>/live-editing.js</code> so the
+	browser bundle is wired up too.
+</p>
+
+<nav>
+	<ul>
+		<li><a href="/filters/">Filters</a> — auto-mirror + built-in + override</li>
+		<li><a href="/shortcodes/">Shortcodes</a> — plain + paired</li>
+		<li><a href="/custom-tags/">Custom tags</a> — <code>echo</code> + <code>includeWith</code></li>
+		<li><a href="/render-plugin/">RenderPlugin shims</a> — <code>renderTemplate</code> / <code>renderFile</code> / <code>renderContent</code></li>
+		<li><a href="/globals/">Globals</a> — <code>eleventy</code>, <code>page</code>, <code>collections</code>, <code>process.env</code></li>
+		<li><a href="/unsupported/">Unsupported filters</a> — warn-once stubs</li>
+	</ul>
+</nav>

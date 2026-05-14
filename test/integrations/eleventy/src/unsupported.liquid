@@ -1,0 +1,10 @@
+---
+title: Unsupported filters
+layout: page-shell
+---
+<p>
+	These filters depend on Eleventy build-time state we don't have in the
+	browser. They're registered as warn-once pass-throughs so templates keep
+	rendering. Server-side, Eleventy's real implementations run.
+</p>
+<p>inputPathToUrl: {{ "src/index.liquid" | inputPathToUrl }}</p>

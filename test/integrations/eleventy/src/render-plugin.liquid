@@ -1,0 +1,18 @@
+---
+title: RenderPlugin shims
+layout: page-shell
+templateData:
+  who: world
+renderTargetData:
+  title: Override title
+---
+<p>renderTemplate (paired tag):</p>
+{% renderTemplate "liquid", templateData %}
+	<span data-render-template>hello {{ who }}</span>
+{% endrenderTemplate %}
+
+<p>renderFile (shortcode — browser path fetches via CloudCannon API):</p>
+{% renderFile "src/_includes/render-target.liquid", renderTargetData %}
+
+<p>renderContent (filter):</p>
+{{ "raw <strong>{{ title }}</strong>" | renderContent: "liquid", page }}
