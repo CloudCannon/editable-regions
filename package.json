@@ -53,13 +53,14 @@
 		"./eleventy": {
 			"require": {
 				"types": "./types/eleventy.d.cts",
-				"default": "./integrations/eleventy.cjs"
+				"default": "./integrations/eleventy/index.cjs"
 			},
 			"import": {
 				"types": "./types/eleventy.d.ts",
-				"default": "./integrations/eleventy.mjs"
+				"default": "./integrations/eleventy/index.mjs"
 			}
 		},
+		"./eleventy/browser": "./integrations/eleventy/browser/liquid-builtins.mjs",
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},

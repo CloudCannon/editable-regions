@@ -2,11 +2,11 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
+import { createIncludeWithTag } from "../liquid/index.mjs";
 import {
   builtinFilterNames,
   builtinShortcodeNames,
-} from "./liquid/11ty-builtins.mjs";
-import { createIncludeWithTag } from "./liquid/index.mjs";
+} from "./browser/liquid-builtins.mjs";
 
 /**
  * @typedef {Object} LiquidOptions
@@ -38,16 +38,61 @@ import { createIncludeWithTag } from "./liquid/index.mjs";
  */
 
 /**
+ * Payload Eleventy passes to `eleventy.after` handlers. `directories` is the
+ * Eleventy 3.x shape; `dir` is the older fallback we still accept.
+ *
  * @typedef {Object} EleventyEventPayload
  * @property {EleventyDirectories} [directories]
  * @property {EleventyDirectories} [dir]
  */
 
 /**
+ * A user-supplied filter, shortcode, or paired-shortcode function. Eleventy
+ * wraps these in a benchmark closure at registration time; the original is
+ * recoverable via `fn.__eleventyInternal.callback`. We serialize via
+ * `fn.toString()` regardless of arity, so the loose signature is fine.
+ *
+ * @typedef {((...args: any[]) => any) & { __eleventyInternal?: { callback?: EleventyHelper } }} EleventyHelper
+ */
+
+/**
+ * A Liquid tag factory: invoked once by LiquidJS with the engine, returns
+ * the `{ parse, render }` pair LiquidJS calls per occurrence. Matches the
+ * shape `eleventyConfig.addLiquidTag` documents.
+ *
+ * @typedef {(liquidEngine: import("liquidjs").Liquid) => { parse: (...args: any[]) => void, render: (...args: any[]) => unknown }} LiquidTagFactory
+ */
+
+/**
+ * Per-kind helper registry as exposed on Eleventy's user config under
+ * `universal` (cross-engine) and `liquid` (Liquid-specific) in 11ty 3.x.
+ *
+ * @typedef {Object} EleventyHelperRegistry
+ * @property {Record<string, EleventyHelper>} [filters]
+ * @property {Record<string, EleventyHelper>} [shortcodes]
+ * @property {Record<string, EleventyHelper>} [pairedShortcodes]
+ */
+
+/**
+ * Eleventy lifecycle event names we know about. Eleventy ships more, but we
+ * only subscribe to `eleventy.after`. Stays as a union of known names so
+ * typos surface at the typedef level.
+ *
+ * @typedef {"eleventy.before" | "eleventy.after" | "eleventy.beforeWatch" | "eleventy.beforeConfig"} EleventyEventName
+ */
+
+/**
+ * Shape we use from Eleventy's user config object. Eleventy itself doesn't
+ * ship types and the DefinitelyTyped coverage is incomplete, so we declare
+ * only the surface we actually touch. Anything else accessed on the config
+ * is a typing hole.
+ *
  * @typedef {Object} EleventyConfig
- * @property {function(string, function): void} addLiquidTag - Register a custom Liquid tag
- * @property {function(string, function(EleventyEventPayload): Promise<void> | void): void} on - Register an event handler
+ * @property {(name: string, factory: LiquidTagFactory) => void} addLiquidTag - Register a custom Liquid tag
+ * @property {(event: EleventyEventName, handler: (payload: EleventyEventPayload) => Promise<void> | void) => void} on - Register an event handler
  * @property {EleventyDirectories} dir - Directory configuration
+ * @property {EleventyHelperRegistry} [universal] - Cross-engine registry of helpers (Eleventy 3.x)
+ * @property {EleventyHelperRegistry} [liquid] - Liquid-specific registry of helpers
  */
 
 /**
@@ -132,15 +177,21 @@ async function generateLiveEditingSource(
 
     source += `
       import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { registerEleventyBuiltins } from '@cloudcannon/editable-regions/eleventy/browser';
 
       setVerbose(${Boolean(pluginOptions.verbose)});
 
 			// Configure the Liquid engine with component directories
-			createSharedLiquidEngine({
+			const liquidEngine = createSharedLiquidEngine({
 				root: ${JSON.stringify(componentDirs)},
 				extname: ".liquid",
 				strictFilters: true,
 			});
+
+			// Wire up Eleventy's built-in filters/shortcodes (browser ports) +
+			// RenderPlugin shims. The engine itself is host-agnostic; this is
+			// what makes it behave like Eleventy.
+			registerEleventyBuiltins(liquidEngine);
 
     	window.cc_files = {};
   `;
@@ -165,24 +216,23 @@ async function generateLiveEditingSource(
 
     // Add files we'll need to window.cc_files -
     // Then in our liquid file system we can grab them from window.cc_files during readFile
-    let i = 0;
     const allLiquidFiles = await findAllLiquidFiles(
       componentDirs,
       normalizedExtensions,
       normalizedIgnoreDirs,
     );
-    allLiquidFiles.forEach((path) => {
-      const id = `liquidFile_${i++}`;
+    for (const [i, path] of allLiquidFiles.entries()) {
+      const id = `liquidFile_${i}`;
       source += `import ${id} from "./${path}";
 
       window.cc_files["${path}"] = ${id};
       `;
-    });
+    }
 
     // Auto-mirror everything registered in eleventy.config.mjs (filters,
     // shortcodes, paired shortcodes). Built-in and override skip lists are
     // handled internally — see `builtinNamesByKind`.
-    source += generateFromEleventyConfig(eleventyConfig, pluginOptions.liquid);
+    source += emitAutoMirroredRegistrations(eleventyConfig, pluginOptions.liquid);
 
     // Register user-supplied browser-side overrides (filters, shortcodes,
     // paired shortcodes, tags, component overrides). Each generates an
@@ -191,7 +241,7 @@ async function generateLiveEditingSource(
     // `registerLiquidComponent` call. Override names are already excluded
     // from the mirrored payload above, so there's no collision — these
     // are the sole registration for each name.
-    source += generateFromPluginOptions(pluginOptions.liquid);
+    source += emitOverrideRegistrations(pluginOptions.liquid);
 
     // Initialize the Proxy on window.cc_components for dynamic resolution
     source += `
@@ -370,7 +420,7 @@ async function findFilesInDirectory({
 /**
  * Per-kind built-in skip lists. Drives both the set of kinds the auto-mirror
  * walks and the names it omits within each kind (since those are already
- * covered by handwritten browser ports — see `liquid/11ty-builtins.mjs`).
+ * covered by handwritten browser ports — see `browser/liquid-builtins.mjs`).
  *
  * Non-portable entries are not detected at build time — they're shipped
  * as-is and surface as real errors when invoked in the browser; the user
@@ -392,7 +442,7 @@ const builtinNamesByKind = {
  * Two skip sources, both handled here so the caller doesn't repeat itself:
  *   - the kind's built-in list (names already covered by handwritten ports)
  *   - names the user has overridden via `pluginOptions.liquid.<kind>`
- *     (registered separately by `generateFromPluginOptions` so overrides win)
+ *     (registered separately by `emitOverrideRegistrations` so overrides win)
  *
  * Every surviving entry is unwrapped from Eleventy's benchmark closure and
  * embedded verbatim via `fn.toString()`. If a function depends on
@@ -406,9 +456,7 @@ const builtinNamesByKind = {
  * @param {LiquidOptions | undefined} liquidOptions - Used to find user-supplied overrides to skip
  * @returns {string} JS source to append to the bundle (empty if nothing to register)
  */
-function generateFromEleventyConfig(eleventyConfig, liquidOptions) {
-  /** @type {any} */
-  const cfg = eleventyConfig;
+function emitAutoMirroredRegistrations(eleventyConfig, liquidOptions) {
   let out = "";
 
   for (const specName of /** @type {Array<keyof typeof builtinNamesByKind>} */ (
@@ -416,8 +464,8 @@ function generateFromEleventyConfig(eleventyConfig, liquidOptions) {
   )) {
     const builtins = builtinNamesByKind[specName];
     const registry = {
-      ...(cfg?.universal?.[specName] ?? {}),
-      ...(cfg?.liquid?.[specName] ?? {}),
+      ...(eleventyConfig.universal?.[specName] ?? {}),
+      ...(eleventyConfig.liquid?.[specName] ?? {}),
     };
     const overrideNames = Object.keys(liquidOptions?.[specName] ?? {});
     const skip = new Set([...builtins, ...overrideNames]);
@@ -480,17 +528,17 @@ const overrideSpecs = {
  * @param {LiquidOptions | undefined} liquidOptions
  * @returns {string}
  */
-function generateFromPluginOptions(liquidOptions) {
+function emitOverrideRegistrations(liquidOptions) {
   let out = "";
   for (const optionKey of /** @type {Array<keyof typeof overrideSpecs>} */ (
     Object.keys(overrideSpecs)
   )) {
     const { registerFn, idPrefix } = overrideSpecs[optionKey];
-    const entries = Object.entries(liquidOptions?.[optionKey] ?? {});
-    entries.forEach(([name, file], i) => {
+    const overrideEntries = Object.entries(liquidOptions?.[optionKey] ?? {});
+    for (const [i, [name, file]] of overrideEntries.entries()) {
       const id = `${idPrefix}_${i}`;
       out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
-    });
+    }
   }
   return out;
 }

@@ -23,9 +23,9 @@
  * just files bundled into `window.cc_files`.
  */
 
-import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
-import { warnOnce } from "./logger.mjs";
-import { evaluateArgs, parseArgs } from "./shortcodes.mjs";
+import { apiLoadedPromise, CloudCannon } from "../../../helpers/cloudcannon.mjs";
+import { warnOnce } from "../../liquid/logger.mjs";
+import { evaluateArgs, parseArgs } from "../../liquid/shortcodes.mjs";
 
 const SUPPORTED_ENGINES = new Set(["liquid", "html"]);
 

@@ -1,16 +1,12 @@
 declare module "@cloudcannon/editable-regions/liquid" {
-	import type { Liquid } from "liquidjs";
-
-	interface LiquidConfig {
-		componentDirs?: string[];
-	}
+	import type { Liquid, LiquidOptions } from "liquidjs";
 
 	export function setVerbose(value: boolean): void;
 	export function log(...args: any[]): void;
 	export function group(label?: string): void;
 	export function groupEnd(): void;
 
-	export function createSharedLiquidEngine(options?: Record<string, any>): void;
+	export function createSharedLiquidEngine(options?: LiquidOptions): Liquid;
 	export function registerLiquidComponent(key: string, contents: string): void;
 	export function initComponentProxy(): void;
 

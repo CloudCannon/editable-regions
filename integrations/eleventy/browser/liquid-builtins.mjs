@@ -2,18 +2,19 @@
  * Browser-compatible implementations of Eleventy's built-in filters and
  * shortcodes. Filters that require Eleventy's build-time internals are
  * registered as pass-through stubs that warn once, so templates keep
- * rendering. `registerEleventyBuiltins` is the single entry point used by
- * `createSharedLiquidEngine` to wire everything up.
+ * rendering. `registerEleventyBuiltins(engine)` is the single entry point
+ * the generated bundle calls after `createSharedLiquidEngine()` to wire
+ * everything up.
  */
 
 import slugify from "@sindresorhus/slugify";
+import { warnOnce } from "../../liquid/logger.mjs";
+import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
 import {
 	createRenderContentFilter,
 	createRenderFileShortcode,
 	createRenderTemplateTag,
-} from "./11ty-render.mjs";
-import { warnOnce } from "./logger.mjs";
-import { createShortcodeTag } from "./shortcodes.mjs";
+} from "./liquid-render.mjs";
 
 /**
  * Logs value to console (pass-through filter).
@@ -261,7 +262,7 @@ export const builtinFilterNames = [
 
 /**
  * Shortcode names with handwritten ports. See `builtinFilterNames` for
- * context. `renderFile` is implemented in `11ty-render.mjs`.
+ * context. `renderFile` is implemented in `liquid-render.mjs`.
  *
  * @type {string[]}
  */
@@ -301,10 +302,10 @@ export const eleventyFilters = {
  *   - the RenderPlugin shims: `renderTemplate` (tag), `renderFile`
  *     (shortcode), `renderContent` (filter)
  *
- * The shims live in `./11ty-render.mjs`; this is the single entry point
+ * The shims live in `./liquid-render.mjs`; this is the single entry point
  * that wires both groups onto the engine.
  *
- * @param {import("liquidjs").Liquid} liquidEngine
+ * @param {import("liquidjs").Liquid} liquidEngine - Engine returned by `createSharedLiquidEngine()`
  */
 export function registerEleventyBuiltins(liquidEngine) {
 	for (const [name, fn] of Object.entries(eleventyFilters)) {
