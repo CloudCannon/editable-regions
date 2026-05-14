@@ -1,7 +1,7 @@
 # Liquid live-editing runtime
 
 Browser-side Liquid engine used by the CloudCannon Visual Editor. The Eleventy
-plugin (`integrations/eleventy.mjs`) generates a `live-editing.js` bundle at
+plugin (`integrations/eleventy/index.mjs`) generates a `live-editing.js` bundle at
 build time; this directory is what that bundle pulls in.
 
 ## Contents
@@ -104,14 +104,15 @@ directory. Load it on the pages the Visual Editor will render against:
 eleventy.config.mjs            (user)
         │  registers filters / shortcodes / tags via the Eleventy API
         ▼
-integrations/eleventy.mjs      (build-time)
+integrations/eleventy/index.mjs       (build-time)
         │  walks Eleventy's registries, serializes functions via
         │  fn.toString(), emits import + register calls for the bundle
         ▼
-live-editing.js                (browser)
+live-editing.js                       (browser)
         │  loaded by the Visual Editor
         ▼
-integrations/liquid/index.mjs  (runtime)
+integrations/liquid/index.mjs         (browser engine, host-agnostic)
+integrations/eleventy/browser/*.mjs   (browser 11ty ports — filters, RenderPlugin shims)
         │  instantiates a shared Liquid engine, registers everything,
         │  exposes components on window.cc_components
         ▼
@@ -131,7 +132,7 @@ under the configured component directories.
 
 ## Globals
 
-Globals are passed to `new Liquid({ globals })` in `index.mjs:108`:
+Globals are passed to `new Liquid({ globals })` inside `createSharedLiquidEngine`:
 
 | Global | Status | Notes |
 | --- | --- | --- |
@@ -180,7 +181,7 @@ eleventyConfig.addPlugin(editableRegions, {
 });
 ```
 
-At build time, `eleventy.mjs` reads `process.env`, filters by the allowlist
+At build time, `eleventy/index.mjs` reads `process.env`, filters by the allowlist
 and (if set) the prefix, and embeds the resulting object as a JSON literal in
 the bundle. The runtime call is `registerProcessEnv(env)`, which sets
 `engine.globals.process = { env }`. Templates then read it the same way 11ty
@@ -221,7 +222,7 @@ built once at build time:
 Filters come from three sources, resolved in order so later sources win on
 name collision: **built-ins**, **auto-mirrored**, then **overrides**.
 
-1. **Built-ins** (`11ty-builtins.mjs`). Handwritten browser-safe
+1. **Built-ins** (`eleventy/browser/liquid-builtins.mjs`). Handwritten browser-safe
    reimplementations of common Eleventy built-ins: `slugify`/`slug`, `url`,
    `dateToRfc3339`, `dateToRfc822`, `htmlDateString`,
    `getNewestCollectionItemDate`, the four collection-item filters, and a
@@ -412,23 +413,30 @@ don't have to do anything to get these.
 
 **`includeWith`** — spreads an object into an include the way Astro's
 `{...props}` does. Wired up in both the Eleventy build (so server-rendered
-output works) and `createSharedLiquidEngine` (so live editing matches):
+output works) and `createSharedLiquidEngine` (so live editing matches).
+Pass a variable that references the object you want to spread — front
+matter, an `assign`-ed name, or a global like `page`:
 
 ```liquid
-{% includeWith "components/card", { title: "Hello", body: page.body } %}
+{% includeWith "components/card", cardProps %}
 ```
 
+The second argument must be a variable reference; inline object literals
+(`{ key: value }`) aren't standard Liquid syntax and aren't supported.
+
 **`renderTemplate`** — RenderPlugin shim. A paired tag that compiles the
-body as a Liquid template and renders it against the supplied data:
+body as a Liquid template and renders it against the supplied data. Same
+constraint as `includeWith`: the data argument must be a variable
+reference.
 
 ```liquid
-{% renderTemplate "liquid", { name: "Tom" } %}
+{% renderTemplate "liquid", templateData %}
   Hello {{ name }}
 {% endrenderTemplate %}
 ```
 
 Only `"liquid"` and `"html"` engines are supported in the browser (other
-engines warn once and return the body unchanged). See `11ty-render.mjs`.
+engines warn once and return the body unchanged). See `eleventy/browser/liquid-render.mjs`.
 
 `renderFile` and `renderContent` are also part of the RenderPlugin shim —
 documented in the next section since they're shortcode/filter rather than
@@ -436,9 +444,21 @@ tag-shaped.
 
 ### RenderPlugin shims
 
-Eleventy's `RenderPlugin` (auto-loaded in 11ty 3.x) registers three
-template-side helpers. We reimplement all three in the browser, scoped to
-the engines we actually run there:
+Eleventy's `RenderPlugin` registers three template-side helpers. We
+reimplement all three in the browser, scoped to the engines we actually
+run there.
+
+> **Server-side note:** 11ty 3.x ships `RenderPlugin` but doesn't auto-load
+> it. If you want the helpers to work in your Eleventy build (in addition
+> to live editing), explicitly add it in `eleventy.config.mjs`:
+>
+> ```js
+> import { EleventyRenderPlugin } from "@11ty/eleventy";
+> eleventyConfig.addPlugin(EleventyRenderPlugin);
+> ```
+>
+> Our browser-side shims work either way.
+
 
 | Helper | Shape | Usage |
 | --- | --- | --- |
@@ -491,9 +511,9 @@ their contents). Extensions are configurable via
 
 ## Error enhancement
 
-`enhanceLiquidError` in `index.mjs` rewrites three categories of LiquidJS
-error into actionable messages with the component/template name and a
-concrete next step:
+`enhanceLiquidError` (in `errors.mjs`) rewrites three categories of
+LiquidJS error into actionable messages with the component/template name
+and a concrete next step:
 
 - Unknown filter → "register it in the `filters` option"
 - Missing template (`ENOENT …`) → "check the file is in your component dirs"
@@ -513,6 +533,7 @@ section catalogues the gaps and the patterns for working around them.
 | `inputPathToUrl`, `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged (they depend on Eleventy build-time state we don't have). | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
 | `renderTemplate` / `renderFile` / `renderContent` with a non-Liquid engine arg (e.g. `"njk"`, `"md"`) | Warn-once and return the body unchanged. We only ship LiquidJS in the bundle. | Switch the template to Liquid, or guard the call with `{% if ENV_CLIENT %}` so it only runs at build time. |
 | Mirrored filters/shortcodes that touch `this.ctx`, `process`, `require`, `__dirname`, or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
+| Helpers from auto-loaded 11ty plugins used **inside a component** (e.g. `getBundle` / `getBundleFileUrl` / `renderTransforms` from `@11ty/eleventy-plugin-bundle`) | 11ty 3.x auto-loads several plugins that register universal helpers; the auto-mirror ships them verbatim and they'll throw if invoked from a template the editor re-renders. Layouts and pages aren't affected — the live runtime only renders components. | If you reference one of these in an editable component, add a browser-safe override via `pluginOptions.liquid.shortcodes` / `.filters`. Most users won't hit this because bundle helpers typically live in layouts. |
 | User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |
 | `page.outputPath`, `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
@@ -557,15 +578,29 @@ becomes the front matter / data cascade and is readable via the
 `collections` proxy), or from the CloudCannon JS API directly in a custom
 tag or filter override. The Visual Editor exposes `currentFile()`,
 `collection(key)`, `dataset(key)`, and `file(path)` — see the existing
-`page` proxy in `index.mjs` for a reference implementation.
+`page` proxy in `globals.mjs` for a reference implementation.
 
 ## File map
 
+This directory is host-agnostic — it knows about Liquid but not about
+Eleventy. The 11ty-specific browser ports live next door under
+`integrations/eleventy/browser/`, which depends on this directory's public
+exports.
+
+`integrations/liquid/`:
+
 | File | Purpose |
 | --- | --- |
-| `index.mjs` | Public entry point: engine, registration functions, component proxy, render helper, error enhancement. |
-| `11ty-builtins.mjs` | Handwritten filter/shortcode ports + `builtinFilterNames` / `builtinShortcodeNames` skip lists. Exposes `registerEleventyBuiltins(engine)` which `createSharedLiquidEngine` calls to wire all 11ty built-ins onto the engine in one shot. |
-| `11ty-render.mjs` | RenderPlugin shims: `createRenderTemplateTag` (paired Liquid tag), `createRenderFileShortcode`, `createRenderContentFilter`. |
-| `shortcodes.mjs` | Adapters that turn Eleventy-style shortcode functions into LiquidJS tag definitions. Also exports the shared `parseArgs` / `evaluateArgs` helpers used by `11ty-render.mjs`. |
+| `index.mjs` | Public entry point: engine creation, registration functions, component proxy + renderer, `includeWith` tag. |
+| `errors.mjs` | `enhanceLiquidError` — rewrites LiquidJS errors into actionable messages. |
+| `globals.mjs` | `collectionsProxy` + `pageProxy` — the `collections` and `page` globals on the engine, backed by the CloudCannon Visual Editor API. |
+| `shortcodes.mjs` | Adapters that turn Eleventy-style shortcode functions into LiquidJS tag definitions. Also exports the shared `parseArgs` / `evaluateArgs` helpers. |
 | `fs.mjs` | LiquidJS-compatible filesystem backed by `window.cc_files`. |
 | `logger.mjs` | `setVerbose` + `log` / `group` / `warnOnce` helpers used everywhere in the runtime. |
+
+`integrations/eleventy/browser/` (browser-side 11ty ports):
+
+| File | Purpose |
+| --- | --- |
+| `liquid-builtins.mjs` | Handwritten filter/shortcode ports + `builtinFilterNames` / `builtinShortcodeNames` skip lists. Exposes `registerEleventyBuiltins(engine)` which the generated bundle calls with the engine returned by `createSharedLiquidEngine()` to wire all 11ty built-ins on in one shot. |
+| `liquid-render.mjs` | RenderPlugin shims: `createRenderTemplateTag` (paired Liquid tag), `createRenderFileShortcode`, `createRenderContentFilter`. |
