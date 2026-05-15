@@ -59,7 +59,7 @@
 		"@cloudcannon/visual-editor-api": "0.0.15",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
-		"@types/node": "25.6.2",
+		"@types/node": "25.7.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"astro": "6.3.1",
