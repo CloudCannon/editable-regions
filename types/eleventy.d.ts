@@ -5,8 +5,8 @@ export interface LiquidOptions {
 	extensions?: string[];
 	/** Directory names to skip when walking. Defaults to `[directories.output, "node_modules"]`. */
 	ignoreDirectories?: string[];
-	/** Map of component name → module path. Wins over the proxy fallback. */
-	componentOverrides?: Record<string, string>;
+	/** Map of component name → module path. Wins over the auto-discovered components. */
+	components?: Record<string, string>;
 	/**
 	 * Browser-side filter overrides: filter name → module path. Use when an
 	 * auto-mirrored filter relies on Eleventy build-time state (`this.ctx`,
@@ -30,8 +30,12 @@ export interface PluginOptions {
 	output?: string;
 	/** Enable verbose browser logging. */
 	verbose?: boolean;
-	/** Liquid template options. Omit to disable Liquid live editing entirely. */
-	liquid?: LiquidOptions;
+	/**
+	 * Liquid is the plugin's default language and is enabled implicitly.
+	 * Pass `false` to disable, `true` for defaults, or an options object
+	 * for customisation.
+	 */
+	liquid?: LiquidOptions | boolean;
 	/**
 	 * Allowlist of `process.env` names to expose to live-editing templates as
 	 * `process.env.NAME`. Read from the host `process.env` at build time and
@@ -45,6 +49,15 @@ export interface PluginOptions {
 	 */
 	envPrefix?: string;
 }
+
+/**
+ * Internal shape after `normalizePluginOptions`: each supported language is
+ * resolved to either an options object (enabled) or `false` (disabled). Same
+ * shape as `PluginOptions` aside from that resolution.
+ */
+export type NormalizedPluginOptions = Omit<PluginOptions, "liquid"> & {
+	liquid: LiquidOptions | false;
+};
 
 export default function (
 	eleventyConfig: any,

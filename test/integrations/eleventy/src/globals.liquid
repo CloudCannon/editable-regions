@@ -24,6 +24,7 @@ date: 2026-04-21
 		<dt>filePathStem</dt><dd>{{ page.filePathStem }}</dd>
 		<dt>outputFileExtension</dt><dd>{{ page.outputFileExtension }}</dd>
 		<dt>url</dt><dd>{{ page.url }}</dd>
+		<dt>outputPath</dt><dd>{{ page.outputPath }}</dd>
 		<dt>date (RFC 3339)</dt><dd>{{ page.date | dateToRfc3339 }}</dd>
 	</dl>
 </section>
@@ -44,6 +45,7 @@ date: 2026-04-21
 			<li>
 				<a href="{{ post.url }}">{{ post.data.title }}</a>
 				<time datetime="{{ post.date | dateToRfc3339 }}">{{ post.date | htmlDateString }}</time>
+				<small>(slug: {{ post.fileSlug }}, stem: {{ post.filePathStem }})</small>
 			</li>
 		{% endfor %}
 	</ul>

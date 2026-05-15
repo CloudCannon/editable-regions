@@ -49,7 +49,7 @@ declare global {
 			(props: Record<string, any>) => Promise<HTMLElement>
 		>;
 		/** Liquid template files keyed by path */
-		cc_files?: Record<string, string>;
+		cc_liquid_files?: Record<string, string>;
 	}
 }
 

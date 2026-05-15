@@ -4,7 +4,8 @@
 	"version": "0.0.1",
 	"scripts": {
 		"build": "eleventy",
-		"dev": "eleventy --serve"
+		"dev": "eleventy --serve",
+		"test": "PUBLIC_SITE_NAME=fixture PUBLIC_API_BASE=https://example.test NODE_ENV=test eleventy && node verify-bundle.mjs"
 	},
 	"dependencies": {
 		"@11ty/eleventy": "^3.0.0",

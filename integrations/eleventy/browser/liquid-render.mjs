@@ -19,63 +19,17 @@
  * `renderFile` resolves its target via the CloudCannon Visual Editor API
  * (`CloudCannon.file(path).content.get()`), which returns the file body
  * with front matter stripped — matching how Eleventy feeds a template body
- * to its engine. This means any file the editor can see is reachable, not
- * just files bundled into `window.cc_files`.
+ * to its engine.
  */
 
-import { apiLoadedPromise, CloudCannon } from "../../../helpers/cloudcannon.mjs";
+import {
+  apiLoadedPromise,
+  CloudCannon,
+} from "../../../helpers/cloudcannon.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { evaluateArgs, parseArgs } from "../../liquid/shortcodes.mjs";
 
-const SUPPORTED_ENGINES = new Set(["liquid", "html"]);
-
-/**
- * Maps a file extension (lowercase, leading dot) to the engine name we'd use
- * to render it. Anything not in the supported set still gets a guess so the
- * warn-once message can name the engine — but only "liquid" / "html" actually
- * render; the rest fall through to passthrough.
- *
- * @param {string} inputPath
- * @returns {string | undefined}
- */
-function inferEngineFromPath(inputPath) {
-	const dot = inputPath.lastIndexOf(".");
-	if (dot < 0) return undefined;
-	const ext = inputPath.slice(dot + 1).toLowerCase();
-	if (ext === "liquid") return "liquid";
-	if (ext === "html" || ext === "htm") return "html";
-	if (ext === "md") return "md";
-	if (ext === "njk") return "njk";
-	return undefined;
-}
-
-/**
- * Normalises the `(templateLang, data)` argument pair, supporting both the
- * documented `(content, lang, data)` shape and the `(content, data)` overload
- * where the lang is omitted and the second positional is treated as data.
- *
- * @param {[any, any]} args
- * @returns {{templateLang: string | undefined, data: any}}
- */
-function normalizeRenderArgs([templateLang, data]) {
-	if (templateLang && typeof templateLang !== "string") {
-		data = templateLang;
-		templateLang = undefined;
-	}
-	return { templateLang, data: data ?? {} };
-}
-
-/**
- * @param {string} engineName
- * @returns {string}
- */
-function unsupportedEngineMessage(engineName) {
-	return (
-		`Eleventy RenderPlugin: engine "${engineName}" is not supported in ` +
-		`live editing (only "liquid" and "html" run in the browser). ` +
-		"Returning the body unchanged."
-	);
-}
+const supportedEngines = new Set(["liquid", "html"]);
 
 /**
  * Liquid tag factory for `{% renderTemplate ... %}…{% endrenderTemplate %}`.
@@ -87,49 +41,49 @@ function unsupportedEngineMessage(engineName) {
  * @returns {any} Tag implementation with parse and render methods
  */
 export function createRenderTemplateTag(_liquidEngine) {
-	return {
-		/**
-		 * @param {any} tagToken
-		 * @param {any[]} remainTokens
-		 */
-		parse(tagToken, remainTokens) {
-			this.name = tagToken.name;
-			this.argTokens = parseArgs(
-				tagToken.args,
-				this.liquid.options.operatorsTrie,
-			);
+  return {
+    /**
+     * @param {any} tagToken
+     * @param {any[]} remainTokens
+     */
+    parse(tagToken, remainTokens) {
+      this.name = tagToken.name;
+      this.argTokens = parseArgs(
+        tagToken.args,
+        this.liquid.options.operatorsTrie,
+      );
 
-			this.bodyTokens = [];
-			const endTagName = `end${this.name}`;
-			while (remainTokens.length) {
-				const token = remainTokens.shift();
-				if (token.name === endTagName) return;
-				this.bodyTokens.push(token);
-			}
-			throw new Error(`tag ${this.name} not closed`);
-		},
+      this.bodyTokens = [];
+      const endTagName = `end${this.name}`;
+      while (remainTokens.length) {
+        const token = remainTokens.shift();
+        if (token.name === endTagName) return;
+        this.bodyTokens.push(token);
+      }
+      throw new Error(`tag ${this.name} not closed`);
+    },
 
-		/**
-		 * @param {any} context
-		 */
-		async render(context) {
-			const args = await evaluateArgs(this.argTokens, context);
-			const { templateLang, data } = normalizeRenderArgs([args[0], args[1]]);
-			const body = this.bodyTokens
-				.map((/** @type {any} */ t) => t.getText())
-				.join("");
+    /**
+     * @param {any} context
+     */
+    async render(context) {
+      const args = await evaluateArgs(this.argTokens, context);
+      const { templateLang, data } = normalizeRenderArgs([args[0], args[1]]);
+      const body = this.bodyTokens
+        .map((/** @type {any} */ t) => t.getText())
+        .join("");
 
-			if (templateLang && !SUPPORTED_ENGINES.has(templateLang)) {
-				warnOnce(
-					`render-template:${templateLang}`,
-					unsupportedEngineMessage(templateLang),
-				);
-				return body;
-			}
-			if (templateLang === "html") return body;
-			return await this.liquid.parseAndRender(body, data);
-		},
-	};
+      if (templateLang && !supportedEngines.has(templateLang)) {
+        warnOnce(
+          `render-template:${templateLang}`,
+          unsupportedEngineMessage(templateLang),
+        );
+        return body;
+      }
+      if (templateLang === "html") return body;
+      return await this.liquid.parseAndRender(body, data);
+    },
+  };
 }
 
 /**
@@ -140,23 +94,23 @@ export function createRenderTemplateTag(_liquidEngine) {
  * @returns {(content: any, templateLang?: any, data?: any) => Promise<string>}
  */
 export function createRenderContentFilter(liquidEngine) {
-	return async function renderContent(content, templateLang, data) {
-		const normalized = normalizeRenderArgs([templateLang, data]);
-		const body = content == null ? "" : String(content);
+  return async function renderContent(content, templateLang, data) {
+    const normalized = normalizeRenderArgs([templateLang, data]);
+    const body = content == null ? "" : String(content);
 
-		if (
-			normalized.templateLang &&
-			!SUPPORTED_ENGINES.has(normalized.templateLang)
-		) {
-			warnOnce(
-				`render-content:${normalized.templateLang}`,
-				unsupportedEngineMessage(normalized.templateLang),
-			);
-			return body;
-		}
-		if (normalized.templateLang === "html") return body;
-		return await liquidEngine.parseAndRender(body, normalized.data);
-	};
+    if (
+      normalized.templateLang &&
+      !supportedEngines.has(normalized.templateLang)
+    ) {
+      warnOnce(
+        `render-content:${normalized.templateLang}`,
+        unsupportedEngineMessage(normalized.templateLang),
+      );
+      return body;
+    }
+    if (normalized.templateLang === "html") return body;
+    return await liquidEngine.parseAndRender(body, normalized.data);
+  };
 }
 
 /**
@@ -169,43 +123,89 @@ export function createRenderContentFilter(liquidEngine) {
  * @returns {(inputPath: any, data?: any, templateLang?: any) => Promise<string>}
  */
 export function createRenderFileShortcode(liquidEngine) {
-	return async function renderFile(inputPath, data, templateLang) {
-		if (typeof inputPath !== "string" || !inputPath) {
-			warnOnce(
-				"render-file:no-path",
-				"renderFile: missing or non-string path argument. Returning empty.",
-			);
-			return "";
-		}
+  return async function renderFile(inputPath, data, templateLang) {
+    if (typeof inputPath !== "string" || !inputPath) {
+      warnOnce(
+        "render-file:no-path",
+        "renderFile: missing or non-string path argument. Returning empty.",
+      );
+      return "";
+    }
 
-		// Normalise Eleventy-style paths (`./foo`, `/foo`) to the
-		// project-relative shape the CC API expects.
-		const normalizedPath = inputPath
-			.replace(/^\.\/+/, "")
-			.replace(/^\/+/, "");
+    // Normalise Eleventy-style paths (`./foo`, `/foo`) to the
+    // project-relative shape the CC API expects.
+    const normalizedPath = inputPath.replace(/^\.\/+/, "").replace(/^\/+/, "");
 
-		await apiLoadedPromise;
-		let body;
-		try {
-			body = await CloudCannon.file(normalizedPath).content.get();
-		} catch (err) {
-			warnOnce(
-				`render-file-missing:${inputPath}`,
-				`renderFile: failed to load "${inputPath}" via the CloudCannon API ` +
-					`(${err instanceof Error ? err.message : String(err)}).`,
-			);
-			return "";
-		}
+    await apiLoadedPromise;
+    let body;
+    try {
+      body = await CloudCannon.file(normalizedPath).content.get();
+    } catch (err) {
+      warnOnce(
+        `render-file-missing:${inputPath}`,
+        `renderFile: failed to load "${inputPath}" via the CloudCannon API ` +
+          `(${err instanceof Error ? err.message : String(err)}).`,
+      );
+      return "";
+    }
 
-		const engine =
-			(typeof templateLang === "string" && templateLang) ||
-			inferEngineFromPath(inputPath);
+    const engine =
+      (typeof templateLang === "string" && templateLang) ||
+      inferEngineFromPath(inputPath);
 
-		if (engine && !SUPPORTED_ENGINES.has(engine)) {
-			warnOnce(`render-file:${engine}`, unsupportedEngineMessage(engine));
-			return body;
-		}
-		if (engine === "html") return body;
-		return await liquidEngine.parseAndRender(body, data ?? {});
-	};
+    if (engine && !supportedEngines.has(engine)) {
+      warnOnce(`render-file:${engine}`, unsupportedEngineMessage(engine));
+      return body;
+    }
+    if (engine === "html") return body;
+    return await liquidEngine.parseAndRender(body, data ?? {});
+  };
+}
+
+/**
+ * Normalises the `(templateLang, data)` argument pair, supporting both the
+ * documented `(content, lang, data)` shape and the `(content, data)` overload
+ * where the lang is omitted and the second positional is treated as data.
+ *
+ * @param {[any, any]} args
+ * @returns {{templateLang: string | undefined, data: any}}
+ */
+function normalizeRenderArgs([templateLang, data]) {
+  if (templateLang && typeof templateLang !== "string") {
+    data = templateLang;
+    templateLang = undefined;
+  }
+  return { templateLang, data: data ?? {} };
+}
+
+/**
+ * Maps a file extension (lowercase, leading dot) to the engine name we'd use
+ * to render it. Anything not in the supported set still gets a guess so the
+ * warn-once message can name the engine — but only "liquid" / "html" actually
+ * render; the rest fall through to passthrough.
+ *
+ * @param {string} inputPath
+ * @returns {string | undefined}
+ */
+function inferEngineFromPath(inputPath) {
+  const dot = inputPath.lastIndexOf(".");
+  if (dot < 0) return undefined;
+  const ext = inputPath.slice(dot + 1).toLowerCase();
+  if (ext === "liquid") return "liquid";
+  if (ext === "html" || ext === "htm") return "html";
+  if (ext === "md") return "md";
+  if (ext === "njk") return "njk";
+  return undefined;
+}
+
+/**
+ * @param {string} engineName
+ * @returns {string}
+ */
+function unsupportedEngineMessage(engineName) {
+  return (
+    `Eleventy RenderPlugin: engine "${engineName}" is not supported in ` +
+    `live editing (only "liquid" and "html" run in the browser). ` +
+    "Returning the body unchanged."
+  );
 }

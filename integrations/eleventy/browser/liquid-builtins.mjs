@@ -11,9 +11,9 @@ import slugify from "@sindresorhus/slugify";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
 import {
-	createRenderContentFilter,
-	createRenderFileShortcode,
-	createRenderTemplateTag,
+  createRenderContentFilter,
+  createRenderFileShortcode,
+  createRenderTemplateTag,
 } from "./liquid-render.mjs";
 
 /**
@@ -24,12 +24,12 @@ import {
  * @returns {any} The original value (for chaining)
  */
 export function logFilter(value, prefix = "") {
-	if (prefix) {
-		console.log(`[${prefix}]`, value);
-	} else {
-		console.log(value);
-	}
-	return value;
+  if (prefix) {
+    console.log(`[${prefix}]`, value);
+  } else {
+    console.log(value);
+  }
+  return value;
 }
 
 /**
@@ -40,28 +40,28 @@ export function logFilter(value, prefix = "") {
  * @returns {string} Normalized URL
  */
 export function urlFilter(url, pathPrefix = "") {
-	if (!url) {
-		return "";
-	}
+  if (!url) {
+    return "";
+  }
 
-	const urlString = String(url);
+  const urlString = String(url);
 
-	if (pathPrefix) {
-		const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
+  if (pathPrefix) {
+    const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
 
-		if (urlString.startsWith("/")) {
-			return normalizedPrefix + urlString;
-		}
-		return urlString;
-	}
+    if (urlString.startsWith("/")) {
+      return normalizedPrefix + urlString;
+    }
+    return urlString;
+  }
 
-	const normalized = urlString.replace(/\/+/g, "/");
+  const normalized = urlString.replace(/\/+/g, "/");
 
-	if (normalized.length > 1 && normalized.endsWith("/")) {
-		return normalized.slice(0, -1);
-	}
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    return normalized.slice(0, -1);
+  }
 
-	return normalized;
+  return normalized;
 }
 
 /**
@@ -72,11 +72,11 @@ export function urlFilter(url, pathPrefix = "") {
  * @returns {Date | null}
  */
 function toDate(value) {
-	if (value instanceof Date)
-		return Number.isNaN(value.getTime()) ? null : value;
-	if (value === null || value === undefined || value === "") return null;
-	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? null : d;
+  if (value instanceof Date)
+    return Number.isNaN(value.getTime()) ? null : value;
+  if (value === null || value === undefined || value === "") return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /**
@@ -86,8 +86,8 @@ function toDate(value) {
  * @returns {string}
  */
 export function dateToRfc3339(date) {
-	const d = toDate(date);
-	return d ? d.toISOString() : "";
+  const d = toDate(date);
+  return d ? d.toISOString() : "";
 }
 
 /**
@@ -97,8 +97,8 @@ export function dateToRfc3339(date) {
  * @returns {string}
  */
 export function dateToRfc822(date) {
-	const d = toDate(date);
-	return d ? d.toUTCString() : "";
+  const d = toDate(date);
+  return d ? d.toUTCString() : "";
 }
 
 /**
@@ -108,8 +108,8 @@ export function dateToRfc822(date) {
  * @returns {string}
  */
 export function htmlDateString(date) {
-	const d = toDate(date);
-	return d ? d.toISOString().slice(0, 10) : "";
+  const d = toDate(date);
+  return d ? d.toISOString().slice(0, 10) : "";
 }
 
 /**
@@ -120,15 +120,15 @@ export function htmlDateString(date) {
  * @returns {Date}
  */
 export function getNewestCollectionItemDate(collection, emptyFallback) {
-	if (!Array.isArray(collection) || collection.length === 0) {
-		return toDate(emptyFallback) ?? new Date(0);
-	}
-	let newest = 0;
-	for (const item of collection) {
-		const d = toDate(item?.date);
-		if (d && d.getTime() > newest) newest = d.getTime();
-	}
-	return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
+  if (!Array.isArray(collection) || collection.length === 0) {
+    return toDate(emptyFallback) ?? new Date(0);
+  }
+  let newest = 0;
+  for (const item of collection) {
+    const d = toDate(item?.date);
+    if (d && d.getTime() > newest) newest = d.getTime();
+  }
+  return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
 }
 
 /**
@@ -140,13 +140,13 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
  * @returns {string | null}
  */
 function resolveInputPath(page) {
-	if (!page) return null;
-	if (typeof page === "string") return page;
-	if (typeof page.inputPath === "string") return page.inputPath;
-	if (page.page && typeof page.page.inputPath === "string") {
-		return page.page.inputPath;
-	}
-	return null;
+  if (!page) return null;
+  if (typeof page === "string") return page;
+  if (typeof page.inputPath === "string") return page.inputPath;
+  if (page.page && typeof page.page.inputPath === "string") {
+    return page.page.inputPath;
+  }
+  return null;
 }
 
 /**
@@ -157,17 +157,17 @@ function resolveInputPath(page) {
  * @returns {number}
  */
 function indexInCollection(collection, page) {
-	if (!Array.isArray(collection)) return -1;
-	const inputPath = resolveInputPath(page);
-	if (!inputPath) {
-		warnOnce(
-			"collection-item-no-page",
-			"Eleventy collection-item filter called without a resolvable `page` argument. " +
-				"In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
-		);
-		return -1;
-	}
-	return collection.findIndex((item) => item?.inputPath === inputPath);
+  if (!Array.isArray(collection)) return -1;
+  const inputPath = resolveInputPath(page);
+  if (!inputPath) {
+    warnOnce(
+      "collection-item-no-page",
+      "Eleventy collection-item filter called without a resolvable `page` argument. " +
+        "In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
+    );
+    return -1;
+  }
+  return collection.findIndex((item) => item?.inputPath === inputPath);
 }
 
 /**
@@ -177,8 +177,8 @@ function indexInCollection(collection, page) {
  * @param {any} page
  */
 export function getCollectionItem(collection, page) {
-	const i = indexInCollection(collection, page);
-	return i >= 0 ? collection[i] : undefined;
+  const i = indexInCollection(collection, page);
+  return i >= 0 ? collection[i] : undefined;
 }
 
 /**
@@ -188,8 +188,8 @@ export function getCollectionItem(collection, page) {
  * @param {any} page
  */
 export function getPreviousCollectionItem(collection, page) {
-	const i = indexInCollection(collection, page);
-	return i > 0 ? collection[i - 1] : undefined;
+  const i = indexInCollection(collection, page);
+  return i > 0 ? collection[i - 1] : undefined;
 }
 
 /**
@@ -199,8 +199,8 @@ export function getPreviousCollectionItem(collection, page) {
  * @param {any} page
  */
 export function getNextCollectionItem(collection, page) {
-	const i = indexInCollection(collection, page);
-	return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
+  const i = indexInCollection(collection, page);
+  return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
 }
 
 /**
@@ -211,7 +211,7 @@ export function getNextCollectionItem(collection, page) {
  * @returns {number}
  */
 export function getCollectionItemIndex(collection, page) {
-	return indexInCollection(collection, page);
+  return indexInCollection(collection, page);
 }
 
 /**
@@ -224,77 +224,61 @@ export function getCollectionItemIndex(collection, page) {
  * @returns {(value: any) => any}
  */
 function passThroughStub(filterName, reason) {
-	return (value) => {
-		warnOnce(
-			`filter-stub:${filterName}`,
-			`Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
-				"Returning the input unchanged.",
-		);
-		return value;
-	};
+  return (value) => {
+    warnOnce(
+      `filter-stub:${filterName}`,
+      `Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
+        "Returning the input unchanged.",
+    );
+    return value;
+  };
 }
+
+/** @type {Record<string, any>} */
+export const eleventyFilters = {
+  slugify,
+  slug: slugify,
+  log: logFilter,
+  url: urlFilter,
+  dateToRfc3339,
+  dateToRfc822,
+  htmlDateString,
+  getNewestCollectionItemDate,
+  getCollectionItem,
+  getPreviousCollectionItem,
+  getNextCollectionItem,
+  getCollectionItemIndex,
+  inputPathToUrl: passThroughStub(
+    "inputPathToUrl",
+    "it requires Eleventy's build-time input-path-to-url map",
+  ),
+  htmlBaseUrl: passThroughStub(
+    "htmlBaseUrl",
+    "it requires Eleventy's pathPrefix/HTML base config",
+  ),
+  serverlessUrl: passThroughStub(
+    "serverlessUrl",
+    "serverless routing is a build-time concept",
+  ),
+};
 
 /**
  * Filter names with handwritten browser ports — skipped by the auto-mirror
- * pass. Split from `builtinShortcodeNames` because the auto-mirror reads
- * filter, shortcode, and paired-shortcode registries separately.
+ * pass so the user's `eleventyConfig.addFilter` registration doesn't clobber
+ * our port. Derived from `eleventyFilters` plus `renderContent` (registered
+ * separately in `registerEleventyBuiltins` from `liquid-render.mjs`).
  *
  * @type {string[]}
  */
-export const builtinFilterNames = [
-	"slugify",
-	"slug",
-	"log",
-	"url",
-	"dateToRfc3339",
-	"dateToRfc822",
-	"htmlDateString",
-	"getNewestCollectionItemDate",
-	"getCollectionItem",
-	"getPreviousCollectionItem",
-	"getNextCollectionItem",
-	"getCollectionItemIndex",
-	"inputPathToUrl",
-	"renderContent",
-	"htmlBaseUrl",
-	"serverlessUrl",
-];
+export const builtinFilterNames = [...Object.keys(eleventyFilters), "renderContent"];
 
 /**
- * Shortcode names with handwritten ports. See `builtinFilterNames` for
- * context. `renderFile` is implemented in `liquid-render.mjs`.
+ * Shortcode names with handwritten ports. `renderFile` is implemented in
+ * `liquid-render.mjs` and registered in `registerEleventyBuiltins`.
  *
  * @type {string[]}
  */
 export const builtinShortcodeNames = ["renderFile"];
-
-/** @type {Record<string, any>} */
-export const eleventyFilters = {
-	slugify,
-	slug: slugify,
-	log: logFilter,
-	url: urlFilter,
-	dateToRfc3339,
-	dateToRfc822,
-	htmlDateString,
-	getNewestCollectionItemDate,
-	getCollectionItem,
-	getPreviousCollectionItem,
-	getNextCollectionItem,
-	getCollectionItemIndex,
-	inputPathToUrl: passThroughStub(
-		"inputPathToUrl",
-		"it requires Eleventy's build-time input-path-to-url map",
-	),
-	htmlBaseUrl: passThroughStub(
-		"htmlBaseUrl",
-		"it requires Eleventy's pathPrefix/HTML base config",
-	),
-	serverlessUrl: passThroughStub(
-		"serverlessUrl",
-		"serverless routing is a build-time concept",
-	),
-};
 
 /**
  * Registers all Eleventy built-ins on the shared Liquid engine:
@@ -308,20 +292,20 @@ export const eleventyFilters = {
  * @param {import("liquidjs").Liquid} liquidEngine - Engine returned by `createSharedLiquidEngine()`
  */
 export function registerEleventyBuiltins(liquidEngine) {
-	for (const [name, fn] of Object.entries(eleventyFilters)) {
-		liquidEngine.registerFilter(name, fn);
-	}
+  for (const [name, fn] of Object.entries(eleventyFilters)) {
+    liquidEngine.registerFilter(name, fn);
+  }
 
-	liquidEngine.registerTag(
-		"renderTemplate",
-		createRenderTemplateTag(liquidEngine),
-	);
-	liquidEngine.registerTag(
-		"renderFile",
-		createShortcodeTag(createRenderFileShortcode(liquidEngine), "renderFile"),
-	);
-	liquidEngine.registerFilter(
-		"renderContent",
-		createRenderContentFilter(liquidEngine),
-	);
+  liquidEngine.registerTag(
+    "renderTemplate",
+    createRenderTemplateTag(liquidEngine),
+  );
+  liquidEngine.registerTag(
+    "renderFile",
+    createShortcodeTag(createRenderFileShortcode(liquidEngine), "renderFile"),
+  );
+  liquidEngine.registerFilter(
+    "renderContent",
+    createRenderContentFilter(liquidEngine),
+  );
 }

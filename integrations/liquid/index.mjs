@@ -1,7 +1,11 @@
 import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
-import { collectionsProxy, pageProxy } from "./globals.mjs";
+import {
+  collectionsProxy,
+  pageProxy,
+  setEleventyData,
+} from "./globals.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
@@ -36,8 +40,8 @@ export function createSharedLiquidEngine(options) {
   log("Liquid engine instantiated");
 
   log(
-    "Available files in window.cc_files:",
-    Object.keys(window.cc_files || {}),
+    "Available files in window.cc_liquid_files:",
+    Object.keys(window.cc_liquid_files || {}),
   );
 
   sharedLiquidEngine.registerTag(
@@ -52,9 +56,9 @@ export function createSharedLiquidEngine(options) {
 /**
  * Registers a Liquid component under `key`, taking precedence over the
  * include-resolution proxy installed by `initComponentProxy` for that name.
- * Use this when you need to substitute a different template — typically via
- * `pluginOptions.liquid.componentOverrides` — for a name that would
- * otherwise resolve to its auto-discovered file via `{% include %}`.
+ * Use this when you need to pin a different template — typically via
+ * `pluginOptions.liquid.components` — for a name that would otherwise
+ * resolve to its auto-discovered file via `{% include %}`.
  *
  * @param {string} key - Unique identifier for the component
  * @param {string} contents - The Liquid template contents
@@ -131,6 +135,9 @@ export function registerEleventyData(data) {
     );
   }
   /** @type {any} */ (sharedLiquidEngine).globals.eleventy = data;
+  // Also surface to the `globals` module so the page proxy can derive
+  // `outputPath` without reaching into the engine.
+  setEleventyData(data);
   log("Registered eleventy data, version:", data?.version);
 }
 

@@ -32,8 +32,14 @@ After `npm run build`, `_site/live-editing.js` should include:
 - `registerFilter("currentPageUrl", ...)` — from the override module path
 - `registerShortcode("year", ...)` + `registerPairedShortcode("highlight", ...)` — auto-mirrored
 - `registerCustomTag("echo", ...)` — from the tag override module path
-- `registerLiquidComponent("card", ...)` — from the component override module path
-- `window.cc_files[...]` entries for every Liquid template under `src/_includes/` and `src/`
+- `registerLiquidComponent("card", ...)` — from the `pluginOptions.liquid.components` map
+- `registerProcessEnv({...})` — env allowlist + `PUBLIC_` prefix
+- `registerEleventyData({...})` — `version`, `generator`, `env.runMode` (`"serve"`), `directories`
+- `window.cc_liquid_files[...]` entries for every Liquid template under `src/_includes/` and `src/`
+
+These expectations are encoded in `verify-bundle.mjs`; run `npm test` to
+build the fixture (with sample env vars set) and assert against the
+generated bundle.
 
 The bundle will also pick up universal helpers from any 11ty plugins
 auto-loaded into the user config (in 11ty 3.x, that includes
@@ -76,6 +82,7 @@ eleventy.config.mjs         registers everything + wires the plugin
 npm install
 npm run build      # builds once into _site/
 npm run dev        # eleventy --serve, watches for changes
+npm test           # builds with sample env vars + asserts the bundle
 ```
 
 Open `_site/index.html` (or `http://localhost:8080/` during `--serve`) and

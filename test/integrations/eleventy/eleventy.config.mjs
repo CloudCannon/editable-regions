@@ -69,7 +69,7 @@ export default function (eleventyConfig) {
 				echo: "./overrides/echo-tag.mjs",
 			},
 			// Replace `_includes/card.liquid` for editor-time renders only.
-			componentOverrides: {
+			components: {
 				card: "./overrides/card-override.mjs",
 			},
 		},

@@ -51,7 +51,8 @@ implemented. The "Limitations and fallbacks" section below covers the gaps.
 npm install @cloudcannon/editable-regions
 ```
 
-Wire the plugin into your `eleventy.config.mjs`:
+Wire the plugin into your `eleventy.config.mjs`. The minimal case is one
+line — Liquid is the plugin's default language and is enabled implicitly:
 
 ```js
 import editableRegions from "@cloudcannon/editable-regions/eleventy";
@@ -59,20 +60,31 @@ import editableRegions from "@cloudcannon/editable-regions/eleventy";
 export default function (eleventyConfig) {
   // your existing filters, shortcodes, collections, etc.
 
-  eleventyConfig.addPlugin(editableRegions, {
-    liquid: {
-      extensions: [".liquid"],
-      // see "Adding custom …" sections below for filter / shortcode / tag overrides
-    },
-    env: ["NODE_ENV"],          // optional — see "Environment variables"
-    envPrefix: "PUBLIC_",       // optional — see "Environment variables"
-  });
+  eleventyConfig.addPlugin(editableRegions);
 
   return {
     dir: { input: "src", includes: "_includes", output: "_site" },
   };
 }
 ```
+
+To customise — environment variables, output path, or Liquid-specific
+options:
+
+```js
+eleventyConfig.addPlugin(editableRegions, {
+  liquid: {
+    extensions: [".liquid"],
+    // see "Adding custom …" sections below for filter / shortcode / tag overrides
+  },
+  env: ["NODE_ENV"],          // optional — see "Environment variables"
+  envPrefix: "PUBLIC_",       // optional — see "Environment variables"
+});
+```
+
+`liquid` accepts `true` (defaults), `false` (disable Liquid live editing),
+or an options object. Future languages will follow the same shape but
+default to off — users will opt in via e.g. `nunjucks: true`.
 
 After every build, the plugin emits `live-editing.js` into your output
 directory. Load it on the pages the Visual Editor will render against:
@@ -92,7 +104,7 @@ directory. Load it on the pages the Visual Editor will render against:
 | `liquid.extensions` | Template file extensions to bundle. Defaults to `[".liquid", ".html"]`. |
 | `liquid.componentDirs` | Directories to walk for component templates. Defaults to `[directories.includes, directories.input]`. |
 | `liquid.ignoreDirectories` | Directory names to skip when walking. Defaults to `[directories.output, "node_modules"]`. |
-| `liquid.componentOverrides` | Map of component name → module path. Wins over the proxy fallback. |
+| `liquid.components` | Map of component name → module path. Wins over the filesystem-resolution proxy. |
 | `liquid.filters` | Map of filter name → module path. Browser-side override. See "Adding a custom filter". |
 | `liquid.shortcodes` | Map of shortcode name → module path. Browser-side override. See "Adding a custom shortcode". |
 | `liquid.pairedShortcodes` | Same as `shortcodes`, for paired shortcodes. |
@@ -126,7 +138,7 @@ module-scoped variable that the other exports read. The generated bundle is
 expected to call it exactly once, before any `register…` call; calling it again
 would clobber the existing engine and is not guarded against.
 
-The engine uses an in-memory filesystem (`fs.mjs`) backed by `window.cc_files`,
+The engine uses an in-memory filesystem (`fs.mjs`) backed by `window.cc_liquid_files`,
 which the bundle pre-populates by `import`ing every `.liquid`/`.html` file
 under the configured component directories.
 
@@ -155,13 +167,10 @@ matter (`file.data.get()`).
 | `filePathStem` | derived from `path` | Full path minus extension, with a leading `/`. |
 | `outputFileExtension` | constant `"html"` | We don't model custom output extensions. |
 | `date` | front matter `date` | Coerced to a `Date`. Returns `undefined` if absent or unparseable; we can't see file mtime / git history from the browser. |
-| `url` | front matter `permalink`, else derived | If front matter sets `permalink`, that wins. Otherwise we apply Eleventy's default folder-style rule (e.g. `posts/foo.md` → `/posts/foo/`, `posts/index.md` → `/posts/`). Computed permalinks set by 11ty config are not seen. |
-| `outputPath` | — | Unimplemented; would need 11ty's output dir + permalink resolution. |
+| `url` | `location.pathname`, else front matter `permalink`, else derived | The visual editor renders against the page's built URL, so `location.pathname` is strictly accurate — including for computed permalinks set by 11ty config. Falls back to `permalink` / folder-style derivation if there's no `location` (e.g. tests). |
+| `outputPath` | `<eleventy.directories.output> + <url>` | Joins the build's output directory with `page.url`. URLs ending in `/` append `index.html`; non-slash URLs are appended as-is. Returns `undefined` until `registerEleventyData` has run. |
 | `templateSyntax` | — | Unimplemented. |
 | `lang` | — | Unimplemented (would need the i18n plugin's runtime state). |
-
-The proxy explicitly returns `undefined` for `then` so that awaiting
-machinery doesn't mistake the proxy itself for a thenable.
 
 ### Environment variables
 
@@ -474,7 +483,7 @@ passthrough; any other engine → warn-once and return the body unchanged.
 front matter stripped — matching how Eleventy feeds a template body to its
 engine. Any file the editor can see is reachable, not just files inside a
 configured `componentDir`. (`{% include %}` is the separate path: it goes
-through LiquidJS's filesystem, which is the build-time `cc_files` map.)
+through LiquidJS's filesystem, which is the build-time `cc_liquid_files` map.)
 
 ## Component resolution
 
@@ -489,7 +498,7 @@ the override.
    configured `root` directories and `extname` — which is how every
    auto-discovered component (from `findAllLiquidFiles`) becomes reachable
    without anyone calling `registerLiquidComponent` for it.
-2. **Explicit registrations** via `pluginOptions.liquid.componentOverrides`
+2. **Explicit registrations** via `pluginOptions.liquid.components`
    — a map of `name -> module path`. The module's default export is
    treated as Liquid template source and ends up directly in
    `window.cc_components[name]`, so the Proxy's `get` trap returns it
@@ -504,10 +513,27 @@ and logging.
 ## Virtual filesystem
 
 LiquidJS reads templates through `inMemoryFs` in `fs.mjs`, which is just a
-shim over `window.cc_files`. The bundle pre-populates that map by `import`ing
+shim over `window.cc_liquid_files`. The bundle pre-populates that map by `import`ing
 every matching template file at build time (esbuild's `text` loader inlines
 their contents). Extensions are configurable via
 `pluginOptions.liquid.extensions`.
+
+There are two distinct data sources at runtime, and they're not
+interchangeable:
+
+- **`window.cc_liquid_files`** — build-time snapshot of every template
+  under the configured component dirs. Synchronous, fast, source-text only.
+  Used by `{% include %}` resolution (via `fs.mjs`) and not much else.
+- **CloudCannon Visual Editor API** (`CloudCannon.currentFile()`,
+  `CloudCannon.file(path)`, `CloudCannon.collection(key)`, etc.) — live
+  view of the editor's file tree, including pages, data files, drafts, and
+  anything the user adds during a session. Used by the `page` and
+  `collections` proxies, and by the `renderFile` shortcode.
+
+When in doubt, prefer the API: it sees everything the editor sees and
+stays correct as the user edits. `cc_liquid_files` exists to serve LiquidJS
+its template bytes synchronously during `{% include %}`, which the API
+can't do.
 
 ## Error enhancement
 
@@ -536,8 +562,8 @@ section catalogues the gaps and the patterns for working around them.
 | Helpers from auto-loaded 11ty plugins used **inside a component** (e.g. `getBundle` / `getBundleFileUrl` / `renderTransforms` from `@11ty/eleventy-plugin-bundle`) | 11ty 3.x auto-loads several plugins that register universal helpers; the auto-mirror ships them verbatim and they'll throw if invoked from a template the editor re-renders. Layouts and pages aren't affected — the live runtime only renders components. | If you reference one of these in an editable component, add a browser-safe override via `pluginOptions.liquid.shortcodes` / `.filters`. Most users won't hit this because bundle helpers typically live in layouts. |
 | User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |
-| `page.outputPath`, `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
-| `page.url` for templates relying on computed permalinks set in `eleventy.config.mjs` | Falls back to a derived folder-style URL. | Set `permalink:` in front matter so the runtime can read it directly. |
+| `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
+| `page.url` for collection items rendered via `{% for x in collections.foo %}` (computed permalinks) | Items derive URLs from front-matter `permalink` only — computed permalinks set by 11ty config aren't visible. The *current* page's URL uses `location.pathname`, so it's always accurate. | Set `permalink:` in front matter for content you want to enumerate via `collections.*`. |
 | `page.date` from file mtime / git history | `undefined` if not in front matter. | Set `date:` in front matter. |
 | `eleventy.env.config`, `eleventy.env.root` | Deliberately omitted (absolute filesystem paths). | Don't reference these from a component. |
 | `eleventy.env.runMode`, `eleventy.env.source` | Hardcoded to `"serve"` / `"cli"`. | If you need a "we're in the editor" branch, use `ENV_CLIENT` instead. |
@@ -569,7 +595,7 @@ registration keeps working unchanged.
 
 **Replacing an entire component for live editing.** If a single component
 has too many incompatibilities to override piecemeal, register a
-component-specific renderer via `pluginOptions.liquid.componentOverrides`:
+component-specific renderer via `pluginOptions.liquid.components`:
 the module's default export is treated as Liquid template source for that
 component name, fully replacing what's on disk.
 
@@ -595,7 +621,7 @@ exports.
 | `errors.mjs` | `enhanceLiquidError` — rewrites LiquidJS errors into actionable messages. |
 | `globals.mjs` | `collectionsProxy` + `pageProxy` — the `collections` and `page` globals on the engine, backed by the CloudCannon Visual Editor API. |
 | `shortcodes.mjs` | Adapters that turn Eleventy-style shortcode functions into LiquidJS tag definitions. Also exports the shared `parseArgs` / `evaluateArgs` helpers. |
-| `fs.mjs` | LiquidJS-compatible filesystem backed by `window.cc_files`. |
+| `fs.mjs` | LiquidJS-compatible filesystem backed by `window.cc_liquid_files`. |
 | `logger.mjs` | `setVerbose` + `log` / `group` / `warnOnce` helpers used everywhere in the runtime. |
 
 `integrations/eleventy/browser/` (browser-side 11ty ports):

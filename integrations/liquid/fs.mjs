@@ -1,7 +1,7 @@
 import { log, warn } from "./logger.mjs";
 
 /**
- * In-memory filesystem for LiquidJS that reads from window.cc_files.
+ * In-memory filesystem for LiquidJS that reads from window.cc_liquid_files.
  *
  * @type {any} LiquidJS-compatible filesystem object
  */
@@ -29,10 +29,10 @@ export const inMemoryFs = {
 	 */
 	readFileSync(filePath) {
 		log("readFileSync:", filePath);
-		const fileContents = window.cc_files?.[filePath];
+		const fileContents = window.cc_liquid_files?.[filePath];
 
 		if (fileContents === undefined) {
-			const availableFiles = Object.keys(window.cc_files || {});
+			const availableFiles = Object.keys(window.cc_liquid_files || {});
 			warn("File not found:", filePath);
 			log("Available files:", availableFiles);
 			throw new Error(
@@ -85,7 +85,7 @@ export const inMemoryFs = {
 		if (!filePath || typeof filePath !== "string") {
 			return false;
 		}
-		const fileContents = window.cc_files?.[filePath];
+		const fileContents = window.cc_liquid_files?.[filePath];
 		const exists = fileContents !== null && fileContents !== undefined;
 		log("existsSync:", filePath, "=", exists);
 		return exists;
