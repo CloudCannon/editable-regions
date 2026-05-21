@@ -1,0 +1,19 @@
+---
+layout: page-shell
+---
+<article class="post">
+	{{ content }}
+	<dl class="post-navigation">
+		<dt>Current (via getCollectionItem)</dt>
+		<dd>{% assign current = collections.posts | getCollectionItem: page %}{{ current.data.title | default: "(not in collection)" }}</dd>
+
+		<dt>Previous (via getPreviousCollectionItem)</dt>
+		<dd>{% assign prev = collections.posts | getPreviousCollectionItem: page %}{{ prev.data.title | default: "(none)" }}</dd>
+
+		<dt>Next (via getNextCollectionItem)</dt>
+		<dd>{% assign next = collections.posts | getNextCollectionItem: page %}{{ next.data.title | default: "(none)" }}</dd>
+
+		<dt>Index (via getCollectionItemIndex)</dt>
+		<dd>{{ collections.posts | getCollectionItemIndex: page }}</dd>
+	</dl>
+</article>

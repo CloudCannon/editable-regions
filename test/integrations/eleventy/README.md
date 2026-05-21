@@ -1,9 +1,11 @@
 # Eleventy smoke test
 
-End-to-end fixture for the `@cloudcannon/editable-regions` Eleventy plugin.
-The package is linked via `file:../../..` so `npm install` here picks up
-local source. Run `npm run build` to produce `_site/` and inspect the
-output.
+Build-and-assert fixture for the `@cloudcannon/editable-regions` Eleventy
+plugin. The package is linked via `file:../../..` so `npm install` here
+picks up local source. `npm test` builds the fixture and grep-checks the
+generated bundle (`verify-bundle.mjs`); it does not execute the bundle in
+a browser environment. Run `npm run build` to produce `_site/` and inspect
+the server-side render.
 
 ## What's tested
 
@@ -21,6 +23,7 @@ page too.
 | `/custom-tags/` | `addLiquidTag("echo", ...)` + `pluginOptions.liquid.tags`, and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads front-matter data into the `card` component. |
 | `/render-plugin/` | RenderPlugin shims: `renderTemplate`, `renderFile`, `renderContent`. | Server-side render is provided by 11ty's `EleventyRenderPlugin` (explicitly added in the config); browser-side render is provided by our shims. |
 | `/globals/` | `eleventy`, `page`, `collections.posts`, `process.env` globals. | Server-side values are 11ty's; browser-side values come from the proxies in `integrations/liquid/globals.mjs`. |
+| `/posts/*` | `getCollectionItem` / `getPreviousCollectionItem` / `getNextCollectionItem` / `getCollectionItemIndex` against `page` — the positive case where the current page _is_ in the collection. | Each post page renders the `post` layout, which calls the four filters against `page`; values should resolve to neighbouring items, not the empty fallback. |
 | `/unsupported/` | Warn-once stub filters (`inputPathToUrl`). | Server-side: real 11ty filter. Browser-side: warn-once pass-through. |
 
 ## What the bundle should contain
@@ -61,12 +64,13 @@ src/
   globals.liquid
   unsupported.liquid
   posts/                    collection items for `collections.posts`
-    posts.json              tags every sibling .md with "posts"
+    posts.json              tags every sibling .md with "posts", layout: post
     first-post.md
     second-post.md
     third-post.md
   _includes/
     page-shell.liquid       layout used by every page
+    post.liquid             post layout — exercises collection-item filters
     card.liquid             component overridden in the browser bundle
     render-target.liquid    file fetched by renderFile
 overrides/

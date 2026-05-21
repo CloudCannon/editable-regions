@@ -31,7 +31,7 @@ export const inMemoryFs = {
 		log("readFileSync:", filePath);
 		const fileContents = window.cc_liquid_files?.[filePath];
 
-		if (fileContents === undefined) {
+		if (fileContents === undefined || fileContents === null) {
 			const availableFiles = Object.keys(window.cc_liquid_files || {});
 			warn("File not found:", filePath);
 			log("Available files:", availableFiles);

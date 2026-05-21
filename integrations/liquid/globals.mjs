@@ -120,14 +120,18 @@ async function resolvePageUrl(/** @type {any} */ file) {
  * Items mirror 11ty's collection-item shape as closely as we can from the
  * CC API: `url`, `inputPath`, `fileSlug`, `filePathStem`, `date`, `data`.
  * Computed permalinks aren't visible (we only see front-matter `permalink`
- * — there's no `currentFile()` analogue for sibling items).
+ * — there's no `currentFile()` analogue for sibling items). `outputPath`
+ * is omitted for the same reason: it's derived from `url`, so it would
+ * inherit the computed-permalink inaccuracy. `page.outputPath` is exposed
+ * because the current page's URL is read from `location.pathname`.
  *
  * @param {string} key
  * @returns {Promise<Array<{ url: string, inputPath: string, fileSlug: string, filePathStem: string, date: Date | undefined, data: any }>>}
  */
 async function resolveCollection(key) {
   await apiLoadedPromise;
-  const collection = CloudCannon.collection(key);
+  const collection = CloudCannon?.collection?.(key);
+  if (!collection) return [];
   const files = await collection.items();
   return Promise.all(
     files.map(async (file) => {

@@ -215,11 +215,11 @@ async function generateLiveEditingSource(
       normalizedExtensions,
       normalizedIgnoreDirs,
     );
-    for (const [i, path] of allLiquidFiles.entries()) {
+    for (const [i, filePath] of allLiquidFiles.entries()) {
       const id = `liquidFile_${i}`;
-      source += `import ${id} from "./${path}";
+      source += `import ${id} from "./${filePath}";
 
-      window.cc_liquid_files["${path}"] = ${id};
+      window.cc_liquid_files["${filePath}"] = ${id};
       `;
     }
 

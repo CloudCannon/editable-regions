@@ -137,9 +137,27 @@ export function createRenderFileShortcode(liquidEngine) {
     const normalizedPath = inputPath.replace(/^\.\/+/, "").replace(/^\/+/, "");
 
     await apiLoadedPromise;
+    const file = CloudCannon?.file?.(normalizedPath);
+    if (!file) {
+      warnOnce(
+        `render-file-missing:${inputPath}`,
+        `renderFile: CloudCannon API not available; cannot load "${inputPath}".`,
+      );
+      return "";
+    }
+
+    // Fetch the file's own front matter alongside its body so we can mirror
+    // 11ty's data cascade — the file's data is the base, the caller's `data`
+    // arg overrides on top. `content.get()` returns the body with front
+    // matter stripped, matching how Eleventy feeds a template body to its
+    // engine.
     let body;
+    let frontMatter;
     try {
-      body = await CloudCannon.file(normalizedPath).content.get();
+      [body, frontMatter] = await Promise.all([
+        file.content.get(),
+        file.data.get(),
+      ]);
     } catch (err) {
       warnOnce(
         `render-file-missing:${inputPath}`,
@@ -158,7 +176,8 @@ export function createRenderFileShortcode(liquidEngine) {
       return body;
     }
     if (engine === "html") return body;
-    return await liquidEngine.parseAndRender(body, data ?? {});
+    const mergedData = { ...(frontMatter ?? {}), ...(data ?? {}) };
+    return await liquidEngine.parseAndRender(body, mergedData);
   };
 }
 

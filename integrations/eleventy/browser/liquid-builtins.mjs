@@ -7,7 +7,8 @@
  * everything up.
  */
 
-import slugify from "@sindresorhus/slugify";
+import sindresorhusSlugify from "@sindresorhus/slugify";
+import simovSlugify from "slugify";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
 import {
@@ -33,35 +34,67 @@ export function logFilter(value, prefix = "") {
 }
 
 /**
- * Normalizes URL paths (simplified browser version of Eleventy's url filter).
+ * Browser port of Eleventy's `slug` filter
+ * (`@11ty/eleventy/src/Filters/Slug.js`) — the permissive variant. Backed by
+ * `simov/slugify`, which keeps characters like `+`, `@`, `.` and has built-in
+ * word substitutions (`&` → `and`, `%` → `percent`).
+ *
+ * @param {unknown} str
+ * @param {Record<string, any>} [options]
+ * @returns {string}
+ */
+export function slugFilter(str, options = {}) {
+  return simovSlugify(`${str}`, { replacement: "-", lower: true, ...options });
+}
+
+/**
+ * Browser port of Eleventy's `slugify` filter
+ * (`@11ty/eleventy/src/Filters/Slugify.js`) — the strict ASCII-safe variant.
+ * Backed by `@sindresorhus/slugify`, which treats non-alphanumerics as
+ * separators and transliterates many scripts.
+ *
+ * @param {unknown} str
+ * @param {Record<string, any>} [options]
+ * @returns {string}
+ */
+export function slugifyFilter(str, options = {}) {
+  return sindresorhusSlugify(`${str}`, { decamelize: false, ...options });
+}
+
+/**
+ * Browser port of Eleventy's `url` filter
+ * (`@11ty/eleventy/src/Filters/Url.js`). Absolute URLs and protocol-relative
+ * URLs pass through unchanged; root-relative URLs get `pathPrefix` prepended
+ * when one is supplied. Eleventy's filter throws if `pathPrefix` is missing
+ * because the config wires one in automatically — in the browser we don't
+ * have that, so the no-prefix branch returns the input unchanged rather than
+ * exploding.
  *
  * @param {string} url - URL to normalize
  * @param {string} [pathPrefix] - Optional path prefix to prepend
  * @returns {string} Normalized URL
  */
 export function urlFilter(url, pathPrefix = "") {
-  if (!url) {
-    return "";
-  }
-
+  if (!url) return "";
   const urlString = String(url);
 
-  if (pathPrefix) {
-    const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
+  if (isAbsoluteUrl(urlString)) return urlString;
+  if (urlString.startsWith("//") && urlString !== "//") return urlString;
 
-    if (urlString.startsWith("/")) {
-      return normalizedPrefix + urlString;
-    }
-    return urlString;
+  if (!pathPrefix) return urlString;
+  const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
+  if (urlString.startsWith("/")) return `${normalizedPrefix}${urlString}`;
+  return urlString;
+}
+
+/** Matches Eleventy's `Util/ValidUrl.js`: parseable by `new URL()` → absolute. */
+function isAbsoluteUrl(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
   }
-
-  const normalized = urlString.replace(/\/+/g, "/");
-
-  if (normalized.length > 1 && normalized.endsWith("/")) {
-    return normalized.slice(0, -1);
-  }
-
-  return normalized;
 }
 
 /**
@@ -236,8 +269,8 @@ function passThroughStub(filterName, reason) {
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
-  slugify,
-  slug: slugify,
+  slug: slugFilter,
+  slugify: slugifyFilter,
   log: logFilter,
   url: urlFilter,
   dateToRfc3339,
@@ -302,7 +335,7 @@ export function registerEleventyBuiltins(liquidEngine) {
   );
   liquidEngine.registerTag(
     "renderFile",
-    createShortcodeTag(createRenderFileShortcode(liquidEngine), "renderFile"),
+    createShortcodeTag("renderFile", createRenderFileShortcode(liquidEngine)),
   );
   liquidEngine.registerFilter(
     "renderContent",

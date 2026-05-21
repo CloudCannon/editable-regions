@@ -14,11 +14,11 @@ import { group, groupEnd, log } from "./logger.mjs";
  *
  * Usage: {% shortcodeName arg1, arg2, "literal" %}
  *
+ * @param {string} shortcodeName - The shortcode name (used for logging)
  * @param {any} shortcodeFn - The shortcode function (arg1, arg2, ...) => string
- * @param {string} shortcodeName - The shortcode name for logging
  * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions} LiquidJS tag implementation
  */
-export function createShortcodeTag(shortcodeFn, shortcodeName) {
+export function createShortcodeTag(shortcodeName, shortcodeFn) {
   /** @type {any} */
   const tag = {
     /**

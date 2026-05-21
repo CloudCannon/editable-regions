@@ -199,7 +199,7 @@ export function registerShortcode(name, fn) {
       `sharedLiquidEngine not defined when registering shortcode ${name}`,
     );
   }
-  sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
+  sharedLiquidEngine.registerTag(name, createShortcodeTag(name, fn));
 }
 
 /**
