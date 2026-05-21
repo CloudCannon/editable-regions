@@ -1,7 +1,7 @@
 # Liquid live-editing runtime
 
 Browser-side Liquid engine used by the CloudCannon Visual Editor. The Eleventy
-plugin (`integrations/eleventy/index.mjs`) generates a `live-editing.js` bundle at
+plugin (`integrations/eleventy/index.mjs`) generates a `register-components.js` bundle at
 build time; this directory is what that bundle pulls in.
 
 ## Contents
@@ -15,6 +15,7 @@ build time; this directory is what that bundle pulls in.
   - [`page` properties](#page-properties)
   - [Environment variables](#environment-variables)
   - [Eleventy global](#eleventy-global)
+  - [`pkg` global](#pkg-global)
 - [Filters](#filters)
   - [Adding a custom filter](#adding-a-custom-filter)
   - [Overriding a built-in](#overriding-a-built-in)
@@ -86,18 +87,37 @@ eleventyConfig.addPlugin(editableRegions, {
 or an options object. Future languages will follow the same shape but
 default to off — users will opt in via e.g. `nunjucks: true`.
 
-After every build, the plugin emits `live-editing.js` into your output
-directory. Load it on the pages the Visual Editor will render against:
+After every build, the plugin emits `register-components.js` into your
+output directory. The filename and location are configurable via the
+`output` plugin option (see the table below) — the default sits next to
+the rest of your built assets so it's reachable as
+`/register-components.js`.
+
+Load it on every page the Visual Editor will render against, guarded on
+the editor's runtime flag so production pages don't pay the cost outside
+the editor:
 
 ```html
-<script src="/live-editing.js" defer></script>
+<script>
+  if (window.inEditorMode) {
+    import("/register-components.js").catch((error) => {
+      console.warn("Failed to load CloudCannon component registration:", error);
+    });
+  }
+</script>
 ```
+
+`window.inEditorMode` is set to `true` by the CloudCannon Visual Editor
+before page scripts run; outside the editor it's `undefined`, so the
+dynamic import never fires. If you'd rather always load the bundle
+(useful while iterating locally), a plain `<script src="/register-components.js" defer>`
+works too.
 
 ### Plugin options at a glance
 
 | Option | Purpose |
 | --- | --- |
-| `output` | Where to write the bundle. Defaults to `<output>/live-editing.js`. |
+| `output` | Where to write the bundle. Defaults to `register-components.js` inside Eleventy's `dir.output`. |
 | `verbose` | Enable verbose browser logging. |
 | `env` | Allowlist of `process.env` names to expose. See "Environment variables". |
 | `envPrefix` | Auto-include any env var matching this prefix. See "Environment variables". |
@@ -109,34 +129,64 @@ directory. Load it on the pages the Visual Editor will render against:
 | `liquid.shortcodes` | Map of shortcode name → module path. Browser-side override. See "Adding a custom shortcode". |
 | `liquid.pairedShortcodes` | Same as `shortcodes`, for paired shortcodes. |
 | `liquid.tags` | Map of tag name → factory module path. **Required** for any custom tag — not auto-mirrored. |
+| `liquid.pageMap` | Ship a build-time `inputPath → { url, outputPath }` map (default `true`). Used by the page / collections proxies and `inputPathToUrl` to resolve computed permalinks accurately. Costs ~100 bytes per page in the bundle; set to `false` for very large sites that don't need editor-time URL accuracy. |
 
 ## How it fits together
 
 ```
-eleventy.config.mjs            (user)
-        │  registers filters / shortcodes / tags via the Eleventy API
+eleventy.config.mjs + _includes/**, src/**    (user)
+        │  config registers filters / shortcodes / tags via the Eleventy API;
+        │  components are template files on disk under the configured
+        │  componentDirs (defaults: `dir.includes` and `dir.input`), matching
+        │  `liquid.extensions` (defaults: `.liquid`, `.html`).
         ▼
 integrations/eleventy/index.mjs       (build-time)
-        │  walks Eleventy's registries, serializes functions via
-        │  fn.toString(), emits import + register calls for the bundle
+        │  - walks Eleventy's registries (filters / shortcodes / paired
+        │    shortcodes) and serializes each function via fn.toString();
+        │  - walks the componentDirs and inlines every matching template
+        │    file as a string, keyed by path, into `window.cc_liquid_files`;
+        │  - emits import + register calls for everything into one bundle.
         ▼
-live-editing.js                       (browser)
+register-components.js                (browser)
         │  loaded by the Visual Editor
         ▼
 integrations/liquid/index.mjs         (browser engine, host-agnostic)
 integrations/eleventy/browser/*.mjs   (browser 11ty ports — filters, RenderPlugin shims)
         │  instantiates a shared Liquid engine, registers everything,
-        │  exposes components on window.cc_components
+        │  installs a Proxy on `window.cc_components` that resolves each
+        │  component name on demand via `{% include %}` against the
+        │  in-memory filesystem populated above.
         ▼
 Visual Editor renders components via window.cc_components[name](props)
 ```
 
+So filters / shortcodes / tags are picked up from your Eleventy config at
+build time; components are picked up from the filesystem walk at build
+time. Both end up wired into the same bundle. See "Component resolution"
+and the auto-mirror notes under "Filters" for the gory details.
+
+### A note on dependencies
+
+The package declares only `esbuild` as a runtime dependency, even though
+the generated `register-components.js` bundle pulls in `liquidjs`, `slugify`, and
+`@sindresorhus/slugify`. That's deliberate: this plugin only runs in
+projects that have `@11ty/eleventy` installed, and 11ty itself pulls all
+three in transitively. esbuild resolves them from the consumer's
+`node_modules` at bundle time, so consumers never need to declare them.
+
+The tradeoff is that it's not obvious from `package.json` alone — anyone
+reading `liquid-builtins.mjs` or `integrations/liquid/index.mjs` will see
+imports that aren't listed anywhere in our dependency graph. If we ever
+decouple from the "11ty is always present" assumption (e.g. a host that
+doesn't pre-install liquidjs), we'd promote these to `peerDependencies`.
+
 ## Entry point
 
 `createSharedLiquidEngine(options)` builds a Liquid engine and stores it in a
-module-scoped variable that the other exports read. The generated bundle is
-expected to call it exactly once, before any `register…` call; calling it again
-would clobber the existing engine and is not guarded against.
+module-scoped variable that the other exports read. The contract is: call
+it exactly once, before any `register…` call. A second call replaces the
+engine in place, which silently splits any state already captured against
+the first one — don't do it.
 
 The engine uses an in-memory filesystem (`fs.mjs`) backed by `window.cc_liquid_files`,
 which the bundle pre-populates by `import`ing every `.liquid`/`.html` file
@@ -152,7 +202,8 @@ Globals are passed to `new Liquid({ globals })` inside `createSharedLiquidEngine
 | `ENV_CLIENT` | Implemented | Always `true` in this bundle. Templates can branch on it to opt out of build-only logic. |
 | `page` | Partial | `Proxy` backed by `CloudCannon.currentFile()`. See below for which properties are supported. |
 | `process.env` | Opt-in | Build-time-filtered subset of the host's `process.env`, exposed only when the user configures `pluginOptions.env` and/or `pluginOptions.envPrefix`. See "Environment variables" below. |
-| `eleventy` | Partial | Static object built at build time. See "Eleventy global" below. `pkg` is intentionally not shipped (deprecated upstream, and its data has no business on the client). |
+| `eleventy` | Partial | Static object built at build time. See "Eleventy global" below. |
+| `pkg` | Stripped | Project `package.json` minus `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, and `scripts`. See "`pkg` global" below. |
 
 ### `page` properties
 
@@ -167,8 +218,8 @@ matter (`file.data.get()`).
 | `filePathStem` | derived from `path` | Full path minus extension, with a leading `/`. |
 | `outputFileExtension` | constant `"html"` | We don't model custom output extensions. |
 | `date` | front matter `date` | Coerced to a `Date`. Returns `undefined` if absent or unparseable; we can't see file mtime / git history from the browser. |
-| `url` | `location.pathname`, else front matter `permalink`, else derived | The visual editor renders against the page's built URL, so `location.pathname` is strictly accurate — including for computed permalinks set by 11ty config. Falls back to `permalink` / folder-style derivation if there's no `location` (e.g. tests). |
-| `outputPath` | `<eleventy.directories.output> + <url>` | Joins the build's output directory with `page.url`. URLs ending in `/` append `index.html`; non-slash URLs are appended as-is. Returns `undefined` until `registerEleventyData` has run. |
+| `url` | live `permalink`, else build-time page map, else folder-style derivation | Priority: live front-matter `permalink` (captures editor-time edits) → build-time page-map lookup (captures computed permalinks) → 11ty's folder-style default. The map ships by default; opt out via `liquid.pageMap: false`. |
+| `outputPath` | live `permalink` joined with `directories.output`, else build-time page map, else folder-style default joined with `directories.output` | Same priority hierarchy as `url`. Build-map lookup uses 11ty's exact `outputPath` (so `index.html` joining matches what 11ty wrote). Returns `undefined` only if neither the map nor `registerEleventyData` have run. |
 | `templateSyntax` | — | Unimplemented. |
 | `lang` | — | Unimplemented (would need the i18n plugin's runtime state). |
 
@@ -200,6 +251,12 @@ does:
 <a href="{{ process.env.API_BASE_URL }}">…</a>
 ```
 
+> ⚠️ **Never allowlist secrets.** Anything that ends up in `env` or matches
+> `envPrefix` is embedded verbatim into the static JS bundle the browser
+> downloads. Treat this option the same as Vite's `PUBLIC_` prefix or
+> Next's `NEXT_PUBLIC_` prefix: public-by-design only. Keep API keys,
+> tokens, signing secrets, and database URLs out of it.
+
 Notes:
 - Reading `process.env` happens once, in Node, at build time. The browser
   never sees the host process; only the values you allowlist make it into
@@ -208,8 +265,6 @@ Notes:
   which would defeat the point).
 - Names listed in `env` that aren't actually set in `process.env` are
   silently dropped — no template-time error.
-- Whatever you ship in here ends up in static JS that the browser downloads.
-  Don't allowlist secrets.
 
 ### Eleventy global
 
@@ -226,6 +281,33 @@ built once at build time:
 | `eleventy.directories` | from the build's `directories` payload | `{ input, includes, data, output }`. |
 | `eleventy.serverless` | — | Deprecated upstream, not shipped. |
 
+### `pkg` global
+
+11ty exposes the project's `package.json` as the `pkg` global by default
+(`config.keys.package = "pkg"`). We mirror that — `pkg.name`, `pkg.version`,
+`pkg.description`, `pkg.author`, `pkg.homepage`, and any other top-level
+fields the consumer has set are available in editable templates the same
+way they are server-side.
+
+The bundle strips five fields before embedding `pkg`, because they
+typically dominate `package.json` size and aren't used from templates:
+
+- `dependencies`
+- `devDependencies`
+- `peerDependencies`
+- `optionalDependencies`
+- `scripts`
+
+Reading one of these from a template returns `undefined` and emits a
+warn-once message at the browser console explaining why. Reads of any
+other absent field (typos, conditional checks against unset fields) return
+`undefined` silently — we only special-case the names we deliberately
+strip, so existing `{% if pkg.foo %}` patterns keep working without noise.
+
+If `package.json` is missing or malformed at build time, the bundle skips
+`registerPkg` entirely and `pkg` is `undefined` in templates.
+
+
 ## Filters
 
 Filters come from three sources, resolved in order so later sources win on
@@ -235,8 +317,11 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
    reimplementations of common Eleventy built-ins: `slugify`/`slug`, `url`,
    `dateToRfc3339`, `dateToRfc822`, `htmlDateString`,
    `getNewestCollectionItemDate`, the four collection-item filters, and a
-   `log` pass-through. Filters that depend on build-time-only state
-   (`inputPathToUrl`, `htmlBaseUrl`, `serverlessUrl`) are registered as
+   `log` pass-through. `inputPathToUrl` is backed by the build-time page
+   map (`liquid.pageMap`) — it resolves to the correct URL for any file
+   that was in the last build, including permalinks computed by JS config
+   or `eleventyComputed`. Filters that still depend on build-time-only
+   state we don't model (`htmlBaseUrl`, `serverlessUrl`) are registered as
    warn-once pass-throughs that return their input unchanged. The
    RenderPlugin filter `renderContent` is registered as a real shim that
    parse-and-renders its input via the shared Liquid engine — see
@@ -248,8 +333,7 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
 2. **Auto-mirrored from Eleventy's registry**. At build time the plugin
    walks `eleventyConfig.universal.filters` and
    `eleventyConfig.liquid.filters` and embeds each function verbatim via
-   `fn.toString()`. There's no portability heuristic — the function is
-   shipped as-is. If it depends on Eleventy build-time state (`this.ctx`,
+   `fn.toString()`. If the function depends on Eleventy build-time state (`this.ctx`,
    `process`, `require`, `__dirname`, a closed-over Node import, …) it'll
    throw at render time in the browser, which is the signal to add an
    override.
@@ -289,25 +373,38 @@ override:
 
 ```js
 // eleventy.config.mjs
+import { readFileSync } from "node:fs";
+eleventyConfig.addFilter("siteConfig", (key) => {
+  // Reads from disk — fine server-side, throws in the browser.
+  return JSON.parse(readFileSync("./site-config.json", "utf8"))[key];
+});
+
 eleventyConfig.addPlugin(editableRegions, {
   liquid: {
     filters: {
-      currentPageUrl: "./live-editing-overrides/current-page-url.mjs",
+      siteConfig: "./live-editing-overrides/site-config.mjs",
     },
   },
 });
 ```
 
 ```js
-// live-editing-overrides/current-page-url.mjs
-export default function () {
-  return globalThis.location?.pathname ?? "";
+// live-editing-overrides/site-config.mjs
+import config from "../site-config.json"; // esbuild inlines this at build time
+export default function siteConfig(key) {
+  return config[key];
 }
 ```
 
 The override module's default export is registered against the live-editing
 engine in place of the original. The Eleventy server-side filter is
 untouched.
+
+> Aside: if you have an existing filter that returns the current page's URL
+> via `this.page.url`, your template can use the `page` global directly
+> instead — `{{ page.url }}` works server-side and in the editor. Avoid
+> writing a browser-side override that reads `location.pathname`; inside
+> CloudCannon's Visual Editor that returns CC's editor-shell URL, not the site URL.
 
 ### Overriding a built-in
 
@@ -556,18 +653,20 @@ section catalogues the gaps and the patterns for working around them.
 
 | Area | What happens | Fallback |
 | --- | --- | --- |
-| `inputPathToUrl`, `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged (they depend on Eleventy build-time state we don't have). | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
+| `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged. `htmlBaseUrl` depends on the configured `pathPrefix` (we don't expose it yet); `serverlessUrl` is a build-time concept with no editor equivalent. | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
+| `inputPathToUrl` filter when the source file wasn't in the last build, or `liquid.pageMap: false` is set | Falls back to warn-once and returns the input path unchanged. The build-time page map is what makes this filter work; without it (or for files added since the last build), there's no URL to look up. | Re-build to pick up new pages, or enable `pageMap` if you'd opted out. |
 | `renderTemplate` / `renderFile` / `renderContent` with a non-Liquid engine arg (e.g. `"njk"`, `"md"`) | Warn-once and return the body unchanged. We only ship LiquidJS in the bundle. | Switch the template to Liquid, or guard the call with `{% if ENV_CLIENT %}` so it only runs at build time. |
 | Mirrored filters/shortcodes that touch `this.ctx`, `process`, `require`, `__dirname`, or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
 | Helpers from auto-loaded 11ty plugins used **inside a component** (e.g. `getBundle` / `getBundleFileUrl` / `renderTransforms` from `@11ty/eleventy-plugin-bundle`) | 11ty 3.x auto-loads several plugins that register universal helpers; the auto-mirror ships them verbatim and they'll throw if invoked from a template the editor re-renders. Layouts and pages aren't affected — the live runtime only renders components. | If you reference one of these in an editable component, add a browser-safe override via `pluginOptions.liquid.shortcodes` / `.filters`. Most users won't hit this because bundle helpers typically live in layouts. |
 | User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |
 | `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
-| `page.url` for collection items rendered via `{% for x in collections.foo %}` (computed permalinks) | Items derive URLs from front-matter `permalink` only — computed permalinks set by 11ty config aren't visible. The *current* page's URL uses `location.pathname`, so it's always accurate. | Set `permalink:` in front matter for content you want to enumerate via `collections.*`. |
+| `page.url` and `collections.x[i].url` with computed permalinks when `liquid.pageMap: false` | With the page map disabled, both fall back to front-matter `permalink` or folder-style default. Computed permalinks (JS config / `eleventyComputed`) aren't visible in that mode. With the default `pageMap: true`, both resolve correctly. | Leave `pageMap` enabled (the default), or set front-matter `permalink:` explicitly. |
 | `page.date` from file mtime / git history | `undefined` if not in front matter. | Set `date:` in front matter. |
 | `eleventy.env.config`, `eleventy.env.root` | Deliberately omitted (absolute filesystem paths). | Don't reference these from a component. |
 | `eleventy.env.runMode`, `eleventy.env.source` | Hardcoded to `"serve"` / `"cli"`. | If you need a "we're in the editor" branch, use `ENV_CLIENT` instead. |
-| `pkg`, `pagination`, `eleventy.serverless` | Not exposed. | `pkg` data → put it in `_data/`. Pagination is build-time-only. |
+| `pkg.dependencies`, `pkg.devDependencies`, `pkg.peerDependencies`, `pkg.optionalDependencies`, `pkg.scripts` | Stripped from the embedded `pkg` global to keep the bundle small. Accessing one returns `undefined` and warns once at the console. | If a template genuinely needs one of these in the editor, open an issue — we'll consider a way to opt in. |
+| `pagination`, `eleventy.serverless` | Not exposed. | Pagination is a build-time-only data cascade; serverless was removed upstream. |
 | Layout files | Not rendered by the live runtime; the page's HTML stays as Eleventy built it. | Layout-dependent logic should live in the component, not the layout, if you want it editable. |
 
 ### Patterns

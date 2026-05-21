@@ -2,11 +2,11 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
-import { createIncludeWithTag } from "../liquid/index.mjs";
+import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
 import {
   builtinFilterNames,
   builtinShortcodeNames,
-} from "./browser/liquid-builtins.mjs";
+} from "./browser/builtin-names.mjs";
 
 /**
  * @typedef {import("../../types/eleventy").LiquidOptions} LiquidOptions
@@ -97,7 +97,7 @@ export default function (eleventyConfig, pluginOptions) {
 
   eleventyConfig.addLiquidTag("includeWith", createIncludeWithTag);
 
-  eleventyConfig.on("eleventy.after", async ({ directories, dir }) => {
+  eleventyConfig.on("eleventy.after", async ({ directories, dir, results }) => {
     // `directories` is the 11ty 3.x event-payload shape; `dir` is the
     // legacy shape (still passed in 3.x). `eleventyConfig.dir` is the
     // same legacy shape reached via the config closure — last-resort
@@ -113,6 +113,7 @@ export default function (eleventyConfig, pluginOptions) {
       dirs,
       eleventyConfig,
       normalizedExtensions,
+      results,
     );
 
     // esbuild only matches the final extension, so .bookshop.liquid -> .liquid
@@ -129,7 +130,7 @@ export default function (eleventyConfig, pluginOptions) {
       },
       loader,
       bundle: true,
-      outfile: options.output ?? `${dirs.output}/live-editing.js`,
+      outfile: options.output ?? `${dirs.output}/register-components.js`,
     });
   });
 }
@@ -142,6 +143,7 @@ export default function (eleventyConfig, pluginOptions) {
  * @param {EleventyDirectories} directories - Eleventy directory configuration
  * @param {EleventyConfig} eleventyConfig - Eleventy config, used to read registered filters
  * @param {string[]} normalizedExtensions - Lowercase, leading-dot file extensions to bundle
+ * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results - 11ty's `eleventy.after` build results
  * @returns {Promise<string>} Generated JavaScript source code
  */
 async function generateLiveEditingSource(
@@ -149,6 +151,7 @@ async function generateLiveEditingSource(
   directories,
   eleventyConfig,
   normalizedExtensions,
+  results,
 ) {
   let source = "";
 
@@ -170,7 +173,7 @@ async function generateLiveEditingSource(
     );
 
     source += `
-      import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, registerPkg, registerPageMap, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
       import { registerEleventyBuiltins } from '@cloudcannon/editable-regions/eleventy/browser';
 
       setVerbose(${Boolean(options.verbose)});
@@ -204,6 +207,26 @@ async function generateLiveEditingSource(
     // on `eleventy.version` / `eleventy.env.runMode` see something sensible.
     const eleventyData = buildEleventyData(directories);
     source += `\nregisterEleventyData(${JSON.stringify(eleventyData)});\n`;
+
+    // 11ty exposes the project's package.json as the `pkg` global by
+    // default. We mirror that, minus the heavy fields (see `buildPkg`).
+    const pkg = buildPkg();
+    if (pkg) {
+      source += `\nregisterPkg(${JSON.stringify(pkg)});\n`;
+    }
+
+    // Build-time page map: inputPath -> { url, outputPath }, extracted
+    // from 11ty's `eleventy.after` `results` payload. Lets the page /
+    // collections proxies and `inputPathToUrl` resolve correctly for
+    // permalinks computed by JS config or `eleventyComputed`. Opt-out via
+    // `liquid.pageMap: false` for very large sites where the bundle-size
+    // cost outweighs the accuracy win.
+    if (liquidOptions.pageMap !== false) {
+      const pageMap = buildPageMap(results);
+      if (Object.keys(pageMap).length > 0) {
+        source += `\nregisterPageMap(${JSON.stringify(pageMap)});\n`;
+      }
+    }
 
     // Walk every liquid file under the component dirs (not just components
     // — anything `{% include %}`-able) and pre-populate `window.cc_liquid_files`.
@@ -313,6 +336,80 @@ function buildEleventyData(directories) {
       output: directories.output,
     },
   };
+}
+
+/**
+ * Compacts 11ty's `eleventy.after` `results` array into the page-map shape
+ * the browser runtime consumes: a plain object keyed by normalized input
+ * path. Paths are stripped of any leading `./` or `/` so the lookup side
+ * (see `normalizeInputPath` in `liquid/page-map.mjs`) can match values
+ * sourced from the CC API, which uses the no-leading-`./` form.
+ *
+ * Pagination produces multiple entries with the same `inputPath` — we
+ * keep the first one. The page proxy and `inputPathToUrl` are about
+ * resolving _a_ canonical URL for an input file; the paginated cursor
+ * state (`pagination.items`, `pagination.pageNumber`) is build-time-only
+ * and not something we model in the editor.
+ *
+ * Entries without a usable `inputPath` are skipped. Returns an empty
+ * object if `results` is absent or malformed — callers treat that the
+ * same as "the user opted out of the page map".
+ *
+ * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results
+ * @returns {Record<string, { url?: string, outputPath?: string }>}
+ */
+function buildPageMap(results) {
+  if (!Array.isArray(results)) return {};
+  /** @type {Record<string, { url?: string, outputPath?: string }>} */
+  const map = {};
+  for (const entry of results) {
+    if (!entry || typeof entry.inputPath !== "string") continue;
+    const key = entry.inputPath.replace(/^\.\//, "").replace(/^\/+/, "");
+    if (!key || key in map) continue;
+    map[key] = {
+      url: typeof entry.url === "string" ? entry.url : undefined,
+      outputPath:
+        typeof entry.outputPath === "string" ? entry.outputPath : undefined,
+    };
+  }
+  return map;
+}
+
+/**
+ * Reads the consumer's project `package.json` and returns the subset
+ * we want to expose as the `pkg` global in templates, mirroring 11ty's
+ * default `pkg` exposure (`config.keys.package = "pkg"` in 11ty 3.x).
+ *
+ * Strips `dependencies`, `devDependencies`, `peerDependencies`,
+ * `optionalDependencies`, and `scripts` before embedding — these dominate
+ * `package.json` size and are essentially never read from templates. The
+ * runtime wrap (see `wrapPkgWithStripWarning` in `liquid/index.mjs`)
+ * surfaces a warn-once if a template does access one of these fields.
+ *
+ * Returns `null` if `package.json` is missing or malformed so the bundle
+ * still builds; `pkg` will be absent from the engine globals in that case.
+ *
+ * @returns {Record<string, any> | null}
+ */
+function buildPkg() {
+  try {
+    const contents = fs.readFileSync(
+      path.join(process.cwd(), "package.json"),
+      "utf8",
+    );
+    const raw = JSON.parse(contents);
+    const {
+      dependencies: _dependencies,
+      devDependencies: _devDependencies,
+      peerDependencies: _peerDependencies,
+      optionalDependencies: _optionalDependencies,
+      scripts: _scripts,
+      ...rest
+    } = raw;
+    return rest;
+  } catch {
+    return null;
+  }
 }
 
 /**

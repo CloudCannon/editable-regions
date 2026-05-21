@@ -1,11 +1,19 @@
 ---
 title: Custom tags
 layout: page-shell
-cardProps:
-  title: Spread title
-  body: Body from includeWith
+customTagsDemo:
+  echoValue: "live edited echo value"
+  cardProps:
+    title: "Spread title"
+    body: "Body from includeWith"
 ---
-<p>echo tag: {% echo title %}</p>
 
-<p>includeWith spreads an object into the include's scope:</p>
-{% includeWith "card", cardProps %}
+<p>
+	Edit <code>customTagsDemo.*</code> in front matter to re-render the
+	custom <code>echo</code> tag and the <code>includeWith</code>-spread
+	card component.
+</p>
+
+<div data-editable="component" data-component="custom-tags-demo" data-prop="customTagsDemo">
+	{% includeWith "custom-tags-demo", customTagsDemo %}
+</div>

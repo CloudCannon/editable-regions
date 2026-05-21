@@ -11,14 +11,6 @@ export default function (eleventyConfig) {
 	// the browser engine without any further configuration.
 	eleventyConfig.addFilter("shout", (s) => String(s).toUpperCase());
 
-	// Auto-mirror sanity: a filter that references Eleventy's filter `this`
-	// ships verbatim — it'll throw at render time in the browser (no
-	// `this.page` there), which is the signal to add an override via
-	// `pluginOptions.liquid.filters` (wired below).
-	eleventyConfig.addFilter("currentPageUrl", function () {
-		return this.page.url;
-	});
-
 	// Shortcode auto-mirror.
 	eleventyConfig.addShortcode("year", () => new Date().getFullYear());
 
@@ -59,10 +51,6 @@ export default function (eleventyConfig) {
 		verbose: true,
 		liquid: {
 			extensions: [".liquid"],
-			// Browser-side override for the unportable filter above.
-			filters: {
-				currentPageUrl: "./overrides/current-page-url.mjs",
-			},
 			// Custom tags are never auto-mirrored — register the browser-side
 			// factory explicitly.
 			tags: {

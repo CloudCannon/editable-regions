@@ -1,4 +1,4 @@
-import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
+import { Liquid } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
 import {
@@ -6,11 +6,24 @@ import {
   pageProxy,
   setEleventyData,
 } from "./globals.mjs";
-import { group, groupEnd, log } from "./logger.mjs";
+import { createIncludeWithTag } from "./include-with-tag.mjs";
+import { group, groupEnd, log, warnOnce } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
+// Re-export so browser-bundle consumers can keep importing from the package
+// root — the definition lives in `./include-with-tag.mjs` so the Node-side
+// Eleventy plugin can import it without pulling in browser-runtime modules.
+export { createIncludeWithTag } from "./include-with-tag.mjs";
+// `registerPageMap` is part of the runtime's public surface; the storage
+// lives in `./page-map.mjs` so non-engine consumers (`globals.mjs`,
+// `liquid-builtins.mjs`) can read it without an import cycle through here.
+export { registerPageMap } from "./page-map.mjs";
+
+// `registerPkg` is defined below alongside the other engine-globals
+// register functions (`registerEleventyData`, `registerProcessEnv`). The
+// bundle's emitted import line pulls it from here.
 
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
@@ -134,7 +147,7 @@ export function registerEleventyData(data) {
       "sharedLiquidEngine not defined when registering eleventy data",
     );
   }
-  /** @type {any} */ (sharedLiquidEngine).globals.eleventy = data;
+  /** @type {any} */ (sharedLiquidEngine).options.globals.eleventy = data;
   // Also surface to the `globals` module so the page proxy can derive
   // `outputPath` without reaching into the engine.
   setEleventyData(data);
@@ -157,8 +170,77 @@ export function registerProcessEnv(env) {
       "sharedLiquidEngine not defined when registering process.env",
     );
   }
-  /** @type {any} */ (sharedLiquidEngine).globals.process = { env };
+  /** @type {any} */ (sharedLiquidEngine).options.globals.process = { env };
   log("Registered", Object.keys(env).length, "process.env vars");
+}
+
+/**
+ * Field names stripped from the user's `package.json` before it's embedded
+ * in the bundle. These tend to dominate `package.json` size (hundreds of
+ * dependency entries, dozens of npm scripts) and aren't typically read
+ * from templates. Accessing one of these from a template returns
+ * `undefined` and warns once (see `wrapPkgWithStripWarning` below).
+ */
+const STRIPPED_PKG_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "scripts",
+];
+
+/**
+ * Wraps the embedded `pkg` value in a Proxy so reads of known-stripped
+ * fields surface a useful warn-once message instead of silently returning
+ * `undefined`. Unknown property reads (typos, conditional checks against
+ * fields not present in the user's package.json) still return `undefined`
+ * silently — we only special-case the names we deliberately strip.
+ *
+ * @param {Record<string, any>} pkg
+ * @returns {Record<string, any>}
+ */
+function wrapPkgWithStripWarning(pkg) {
+  const stripped = new Set(STRIPPED_PKG_FIELDS);
+  return new Proxy(pkg, {
+    get(target, key, receiver) {
+      if (
+        typeof key === "string" &&
+        stripped.has(key) &&
+        !(key in target)
+      ) {
+        warnOnce(
+          `pkg-stripped:${key}`,
+          `pkg.${key} isn't available in live editing. The editable-regions ` +
+            `Eleventy plugin strips ${STRIPPED_PKG_FIELDS.join(", ")} from ` +
+            "the embedded package.json to keep the bundle small. If your " +
+            "template needs this field, open an issue.",
+        );
+        return undefined;
+      }
+      return Reflect.get(target, key, receiver);
+    },
+  });
+}
+
+/**
+ * Sets the `pkg` global on the shared Liquid engine, mirroring 11ty's
+ * default exposure of the project `package.json` as the `pkg` global. The
+ * generator (`integrations/eleventy/index.mjs:buildPkg`) reads
+ * `package.json` once at build time and strips the heavy fields listed in
+ * `STRIPPED_PKG_FIELDS`; this function wraps the result in a Proxy so
+ * reads of those stripped fields surface a helpful warning instead of
+ * silent `undefined`.
+ *
+ * @param {Record<string, any>} pkg
+ * @returns {void}
+ */
+export function registerPkg(pkg) {
+  if (!sharedLiquidEngine) {
+    throw new Error("sharedLiquidEngine not defined when registering pkg");
+  }
+  /** @type {any} */ (sharedLiquidEngine).options.globals.pkg =
+    wrapPkgWithStripWarning(pkg ?? {});
+  log("Registered pkg, fields:", Object.keys(pkg ?? {}).length);
 }
 
 /**
@@ -242,102 +324,6 @@ export function registerCustomTag(name, factory) {
     );
   }
   sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
-}
-
-/**
- * Creates an includeWith tag for spreading object props into includes.
- * Like Astro's {...props} spread for Liquid includes.
- *
- * Usage: {% includeWith "path/to/partial", objectToSpread %}
- *
- * @param {any} _liquidEngine - The LiquidJS engine instance (provided by LiquidJS, accessed via this.liquid)
- * @returns {any} Tag implementation with parse and render methods
- */
-export function createIncludeWithTag(_liquidEngine) {
-  return {
-    /**
-     * Parses the includeWith tag arguments.
-     * @param {any} tagToken - The tag token from LiquidJS parser
-     */
-    parse(tagToken) {
-      log("includeWith parsing tag with args:", tagToken.args);
-      const tokenizer = new Tokenizer(
-        tagToken.args,
-        this.liquid.options.operatorsTrie,
-      );
-
-      this.pathToken = tokenizer.readValue();
-      if (!this.pathToken)
-        throw new Error("includeWith: missing path argument");
-      log("includeWith parsed path token:", this.pathToken);
-
-      tokenizer.skipBlank();
-      if (tokenizer.peek() !== ",")
-        throw new Error("includeWith: expected comma separator");
-      tokenizer.advance();
-      tokenizer.skipBlank();
-
-      this.objectToken = tokenizer.readValue();
-      if (!this.objectToken)
-        throw new Error("includeWith: missing object argument");
-      log("includeWith parsed object token:", this.objectToken);
-    },
-
-    /**
-     * Renders the included template with spread props.
-     * @param {any} context - The LiquidJS render context
-     */
-    async render(context) {
-      group("includeWith rendering");
-      log("Evaluating path token...");
-      const path = await toPromise(evalToken(this.pathToken, context));
-      log("Path resolved to:", path);
-
-      log("Evaluating object token...");
-      const obj = await toPromise(evalToken(this.objectToken, context));
-      log("Object resolved to:", obj);
-
-      if (!path || typeof path !== "string") {
-        groupEnd();
-        throw new Error(`includeWith: invalid path "${path}"`);
-      }
-      if (!obj || typeof obj !== "object") {
-        log("Object is not valid, returning empty");
-        groupEnd();
-        return;
-      }
-
-      log(
-        "Including:",
-        path,
-        "with",
-        Object.keys(obj).length,
-        "props:",
-        Object.keys(obj),
-      );
-
-      context.push(obj);
-      try {
-        log("Parsing file:", path);
-        const templates = await this.liquid.parseFile(path);
-        log("File parsed, template count:", templates?.length || 0);
-
-        log("Rendering templates...");
-        const result = await this.liquid.render(templates, context);
-        log("Rendered result preview:", result?.substring?.(0, 200) || result);
-        groupEnd();
-        return result;
-      } catch (err) {
-        const error = /** @type {Error} */ (err);
-        log("Error during render:", error.message);
-        log("Full error:", error);
-        groupEnd();
-        throw enhanceLiquidError(err, `includeWith "${path}"`);
-      } finally {
-        context.pop();
-      }
-    },
-  };
 }
 
 /**

@@ -1,0 +1,33 @@
+<section class="auto-mirror">
+	<h2>Auto-mirrored filters</h2>
+	<dl>
+		<dt><code>shout("{{ shoutInput }}")</code></dt>
+		<dd>{{ shoutInput | shout }}</dd>
+	</dl>
+</section>
+
+<section class="page-global">
+	<h2>page global (no filter needed)</h2>
+	<dl>
+		<dt><code>page.url</code></dt>
+		<dd>{{ page.url }}</dd>
+	</dl>
+</section>
+
+<section class="builtins">
+	<h2>Built-in filters</h2>
+	<dl>
+		<dt><code>slugify("{{ slugifyInput }}")</code></dt>
+		<dd>{{ slugifyInput | slugify }}</dd>
+		<dt><code>slug("{{ slugInput }}")</code></dt>
+		<dd>{{ slugInput | slug }}</dd>
+		<dt><code>url("{{ urlInput }}")</code></dt>
+		<dd>{{ urlInput | url }}</dd>
+		<dt><code>dateToRfc3339({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | dateToRfc3339 }}</dd>
+		<dt><code>dateToRfc822({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | dateToRfc822 }}</dd>
+		<dt><code>htmlDateString({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | htmlDateString }}</dd>
+	</dl>
+</section>

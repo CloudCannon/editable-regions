@@ -10,12 +10,19 @@
 import sindresorhusSlugify from "@sindresorhus/slugify";
 import simovSlugify from "slugify";
 import { warnOnce } from "../../liquid/logger.mjs";
+import { getPageMap, normalizeInputPath } from "../../liquid/page-map.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
+import { builtinFilterNames, builtinShortcodeNames } from "./builtin-names.mjs";
 import {
   createRenderContentFilter,
   createRenderFileShortcode,
   createRenderTemplateTag,
 } from "./liquid-render.mjs";
+
+// Re-export so existing browser-bundle consumers keep working. The lists
+// themselves live in `./builtin-names.mjs` so the Node-side Eleventy plugin
+// can import them without dragging slugify into config-load.
+export { builtinFilterNames, builtinShortcodeNames };
 
 /**
  * Logs value to console (pass-through filter).
@@ -267,6 +274,36 @@ function passThroughStub(filterName, reason) {
   };
 }
 
+/**
+ * Browser port of the `inputPathToUrl` plugin filter. Resolves against the
+ * build-time page map (`registerPageMap`), which captures every page 11ty
+ * produced — including those with permalinks computed by JS config or
+ * `eleventyComputed`. Misses pass through with a warn-once so just-added
+ * files that weren't in the last build degrade gracefully rather than
+ * throwing.
+ *
+ * If the host opted out of the page map (`liquid.pageMap: false`) the map
+ * is empty and every call misses; behave the same as the legacy stub.
+ *
+ * @param {unknown} inputPath
+ * @returns {string}
+ */
+export function inputPathToUrlFilter(inputPath) {
+  if (typeof inputPath !== "string" || !inputPath) {
+    return typeof inputPath === "string" ? inputPath : "";
+  }
+  const entry = getPageMap()[normalizeInputPath(inputPath)];
+  if (entry?.url) return entry.url;
+  warnOnce(
+    `input-path-to-url-miss:${inputPath}`,
+    `inputPathToUrl: no build-time URL recorded for "${inputPath}". ` +
+      "This usually means the file wasn't in the last build, or the page " +
+      "map is disabled via `liquid.pageMap: false`. Returning the input " +
+      "unchanged.",
+  );
+  return inputPath;
+}
+
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
   slug: slugFilter,
@@ -281,10 +318,7 @@ export const eleventyFilters = {
   getPreviousCollectionItem,
   getNextCollectionItem,
   getCollectionItemIndex,
-  inputPathToUrl: passThroughStub(
-    "inputPathToUrl",
-    "it requires Eleventy's build-time input-path-to-url map",
-  ),
+  inputPathToUrl: inputPathToUrlFilter,
   htmlBaseUrl: passThroughStub(
     "htmlBaseUrl",
     "it requires Eleventy's pathPrefix/HTML base config",
@@ -294,24 +328,6 @@ export const eleventyFilters = {
     "serverless routing is a build-time concept",
   ),
 };
-
-/**
- * Filter names with handwritten browser ports — skipped by the auto-mirror
- * pass so the user's `eleventyConfig.addFilter` registration doesn't clobber
- * our port. Derived from `eleventyFilters` plus `renderContent` (registered
- * separately in `registerEleventyBuiltins` from `liquid-render.mjs`).
- *
- * @type {string[]}
- */
-export const builtinFilterNames = [...Object.keys(eleventyFilters), "renderContent"];
-
-/**
- * Shortcode names with handwritten ports. `renderFile` is implemented in
- * `liquid-render.mjs` and registered in `registerEleventyBuiltins`.
- *
- * @type {string[]}
- */
-export const builtinShortcodeNames = ["renderFile"];
 
 /**
  * Registers all Eleventy built-ins on the shared Liquid engine:

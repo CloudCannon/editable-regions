@@ -1,18 +1,19 @@
 ---
 title: RenderPlugin shims
 layout: page-shell
-templateData:
-  who: world
-renderTargetData:
-  title: Override title
+renderPluginDemo:
+  templateData:
+    who: "world"
+  renderTargetData:
+    title: "Override title"
+  renderContentBody: "raw <strong>{{ title }}</strong>"
 ---
-<p>renderTemplate (paired tag):</p>
-{% renderTemplate "liquid", templateData %}
-	<span data-render-template>hello {{ who }}</span>
-{% endrenderTemplate %}
 
-<p>renderFile (shortcode — browser path fetches via CloudCannon API):</p>
-{% renderFile "src/_includes/render-target.liquid", renderTargetData %}
+<p>
+	Edit <code>renderPluginDemo.*</code> in front matter to see the three
+	RenderPlugin shims re-render via the browser ports.
+</p>
 
-<p>renderContent (filter):</p>
-{{ "raw <strong>{{ title }}</strong>" | renderContent: "liquid", page }}
+<div data-editable="component" data-component="render-plugin-demo" data-prop="renderPluginDemo">
+	{% includeWith "render-plugin-demo", renderPluginDemo %}
+</div>

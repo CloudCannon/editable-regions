@@ -6,6 +6,7 @@
  */
 
 import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
+import { getPageMap, normalizeInputPath } from "./page-map.mjs";
 
 /**
  * Snapshot of Eleventy build-time data registered by the host (currently
@@ -47,18 +48,49 @@ function deriveDefaultUrl(/** @type {string} */ inputPath) {
 }
 
 /**
- * Resolves the URL for a file with no live render to look at — i.e.
- * collection items. Reads front-matter `permalink`, else applies 11ty's
- * folder-style default. Computed permalinks (set by JS config or
- * `eleventyComputed`) aren't visible here.
+ * Resolves the URL for an Eleventy input file. Priority:
+ *
+ *   1. Live front-matter `permalink` — wins so editor-time edits show
+ *      immediately, before the user re-builds.
+ *   2. Build-time page map (`registerPageMap`) — captures permalinks
+ *      computed by JS config or `eleventyComputed`, which front-matter
+ *      can't see.
+ *   3. 11ty's folder-style default — last-resort derivation.
+ *
+ * When `pageMap` is disabled in plugin options the map is empty, and step
+ * 2 always misses; everything else still works.
  */
-function derivePermalinkUrl(
+function resolveUrl(
   /** @type {Record<string, any> | null | undefined} */ data,
   /** @type {string} */ inputPath,
 ) {
   const permalink = data?.permalink;
   if (typeof permalink === "string") return permalink;
+  const mapped = getPageMap()[normalizeInputPath(inputPath)];
+  if (mapped?.url) return mapped.url;
   return deriveDefaultUrl(inputPath);
+}
+
+/**
+ * Same priority layering as `resolveUrl` but for the output path: live
+ * front-matter `permalink` → joined with the build's output dir;
+ * build-time map → its exact `outputPath`; folder-style default → joined
+ * with the output dir. Returns `undefined` if neither the map nor the
+ * eleventy data have run yet and we can't compose a path.
+ */
+function resolveOutputPath(
+  /** @type {Record<string, any> | null | undefined} */ data,
+  /** @type {string} */ inputPath,
+) {
+  const outputDir = eleventyData?.directories?.output;
+  const permalink = data?.permalink;
+  if (typeof permalink === "string") {
+    return outputDir ? joinOutputPath(outputDir, permalink) : undefined;
+  }
+  const mapped = getPageMap()[normalizeInputPath(inputPath)];
+  if (mapped?.outputPath) return mapped.outputPath;
+  if (!outputDir) return undefined;
+  return joinOutputPath(outputDir, deriveDefaultUrl(inputPath));
 }
 
 /** Basename minus extension. Matches 11ty's `fileSlug` derivation. */
@@ -99,17 +131,14 @@ function joinOutputPath(
 
 /**
  * Resolves the built URL of the file the editor is currently rendering
- * against. Prefers `globalThis.location.pathname` — strictly more accurate
- * than any front-matter derivation, including for computed permalinks,
- * because the editor literally loaded against the built page. Falls back
- * to `permalink` / folder-style derivation if no location is available
- * (e.g. tests).
+ * against. We can't read `location.pathname` — inside the CloudCannon
+ * Visual Editor that returns the editor-shell URL, not the site URL — so
+ * we use the live-permalink / build-map / folder-default hierarchy
+ * documented on `resolveUrl`.
  */
 async function resolvePageUrl(/** @type {any} */ file) {
-  const fromLocation = globalThis.location?.pathname;
-  if (fromLocation) return fromLocation;
   const data = (await file.data.get()) ?? {};
-  return derivePermalinkUrl(data, file.path);
+  return resolveUrl(data, file.path);
 }
 
 /**
@@ -117,16 +146,15 @@ async function resolvePageUrl(/** @type {any} */ file) {
  * suitable for Liquid templates. Each item is realized to plain data so
  * Liquid filters/iteration work without further awaiting nested fields.
  *
- * Items mirror 11ty's collection-item shape as closely as we can from the
- * CC API: `url`, `inputPath`, `fileSlug`, `filePathStem`, `date`, `data`.
- * Computed permalinks aren't visible (we only see front-matter `permalink`
- * — there's no `currentFile()` analogue for sibling items). `outputPath`
- * is omitted for the same reason: it's derived from `url`, so it would
- * inherit the computed-permalink inaccuracy. `page.outputPath` is exposed
- * because the current page's URL is read from `location.pathname`.
+ * Items mirror 11ty's collection-item shape: `url`, `outputPath`,
+ * `inputPath`, `fileSlug`, `filePathStem`, `date`, `data`. URLs and
+ * output paths follow the priority hierarchy on `resolveUrl` /
+ * `resolveOutputPath`, so computed permalinks become visible whenever the
+ * build-time page map has run (it's emitted by the Eleventy plugin unless
+ * `pageMap` is opted out).
  *
  * @param {string} key
- * @returns {Promise<Array<{ url: string, inputPath: string, fileSlug: string, filePathStem: string, date: Date | undefined, data: any }>>}
+ * @returns {Promise<Array<{ url: string, outputPath: string | undefined, inputPath: string, fileSlug: string, filePathStem: string, date: Date | undefined, data: any }>>}
  */
 async function resolveCollection(key) {
   await apiLoadedPromise;
@@ -137,7 +165,8 @@ async function resolveCollection(key) {
     files.map(async (file) => {
       const data = (await file.data.get()) ?? {};
       return {
-        url: derivePermalinkUrl(data, file.path),
+        url: resolveUrl(data, file.path),
+        outputPath: resolveOutputPath(data, file.path),
         inputPath: file.path,
         fileSlug: deriveFileSlug(file.path),
         filePathStem: deriveFilePathStem(file.path),
@@ -180,10 +209,8 @@ async function resolvePageProperty(key) {
     case "url":
       return resolvePageUrl(file);
     case "outputPath": {
-      const outputDir = eleventyData?.directories?.output;
-      if (!outputDir) return undefined;
-      const url = await resolvePageUrl(file);
-      return joinOutputPath(outputDir, url);
+      const data = (await file.data.get()) ?? {};
+      return resolveOutputPath(data, file.path);
     }
     default:
       return undefined;

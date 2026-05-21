@@ -3,17 +3,14 @@ layout: page-shell
 ---
 <article class="post">
 	{{ content }}
-	<dl class="post-navigation">
-		<dt>Current (via getCollectionItem)</dt>
-		<dd>{% assign current = collections.posts | getCollectionItem: page %}{{ current.data.title | default: "(not in collection)" }}</dd>
 
-		<dt>Previous (via getPreviousCollectionItem)</dt>
-		<dd>{% assign prev = collections.posts | getPreviousCollectionItem: page %}{{ prev.data.title | default: "(none)" }}</dd>
+	<p>
+		The collection-item filters below run via our browser ports when the
+		block re-renders client-side. Edit this post's front matter (title,
+		date) to confirm the re-render goes through.
+	</p>
 
-		<dt>Next (via getNextCollectionItem)</dt>
-		<dd>{% assign next = collections.posts | getNextCollectionItem: page %}{{ next.data.title | default: "(none)" }}</dd>
-
-		<dt>Index (via getCollectionItemIndex)</dt>
-		<dd>{{ collections.posts | getCollectionItemIndex: page }}</dd>
-	</dl>
+	<div data-editable="component" data-component="post-meta">
+		{% include "post-meta" %}
+	</div>
 </article>

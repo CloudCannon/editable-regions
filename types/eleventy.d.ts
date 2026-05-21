@@ -23,10 +23,19 @@ export interface LiquidOptions {
 	 * any tag you want available during live editing here.
 	 */
 	tags?: Record<string, string>;
+	/**
+	 * Ship a build-time `inputPath -> { url, outputPath }` map in the bundle
+	 * so the page / collections proxies and the `inputPathToUrl` filter can
+	 * resolve correctly for permalinks computed by JS config or
+	 * `eleventyComputed`. Default `true`. Set to `false` on very large sites
+	 * where the bundle-size cost (~100 bytes per page) outweighs the
+	 * accuracy win.
+	 */
+	pageMap?: boolean;
 }
 
 export interface PluginOptions {
-	/** Output path for the generated bundle. Defaults to `<output>/live-editing.js`. */
+	/** Output path for the generated bundle. Defaults to `register-components.js` inside Eleventy's `dir.output`. */
 	output?: string;
 	/** Enable verbose browser logging. */
 	verbose?: boolean;

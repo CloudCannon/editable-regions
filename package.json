@@ -67,7 +67,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.4.10",
 		"@cloudcannon/javascript-api": "0.0.14",
-		"@sindresorhus/slugify": "3.0.0",
+		"@sindresorhus/slugify": "^2.2.1",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "25.5.0",
 		"@types/react": "19.2.14",
@@ -75,6 +75,7 @@
 		"astro": "6.1.2",
 		"js-beautify": "1.15.4",
 		"liquidjs": "10.25.5",
+		"slugify": "1.6.9",
 		"typescript": "6.0.2"
 	},
 	"dependencies": {

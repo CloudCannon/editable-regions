@@ -10,29 +10,37 @@ the server-side render.
 ## What's tested
 
 The plugin's responsibilities split into two halves: it generates a
-`live-editing.js` browser bundle, and it leaves Eleventy's normal
+`register-components.js` browser bundle, and it leaves Eleventy's normal
 server-side build untouched. Each top-level page in `src/` exercises one
 surface in **both halves** at once — the page renders server-side via
-Eleventy and loads `/live-editing.js` so the browser-side wiring is on the
+Eleventy and loads `/register-components.js` so the browser-side wiring is on the
 page too.
 
-| Page | Surface | What it confirms |
-| --- | --- | --- |
-| `/filters/` | Auto-mirrored filters (`shout`, `currentPageUrl`), browser-side override (`currentPageUrl`), and the built-in date/slug filters. | `shout` mirrors automatically. `currentPageUrl` ships as-is via auto-mirror but is shadowed by the override module in the browser. Built-ins (`slugify`, `dateToRfc*`, `htmlDateString`) render. |
-| `/shortcodes/` | `addShortcode("year")`, `addPairedShortcode("highlight")`. | Both surfaces auto-mirror end to end. |
-| `/custom-tags/` | `addLiquidTag("echo", ...)` + `pluginOptions.liquid.tags`, and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads front-matter data into the `card` component. |
-| `/render-plugin/` | RenderPlugin shims: `renderTemplate`, `renderFile`, `renderContent`. | Server-side render is provided by 11ty's `EleventyRenderPlugin` (explicitly added in the config); browser-side render is provided by our shims. |
-| `/globals/` | `eleventy`, `page`, `collections.posts`, `process.env` globals. | Server-side values are 11ty's; browser-side values come from the proxies in `integrations/liquid/globals.mjs`. |
-| `/posts/*` | `getCollectionItem` / `getPreviousCollectionItem` / `getNextCollectionItem` / `getCollectionItemIndex` against `page` — the positive case where the current page _is_ in the collection. | Each post page renders the `post` layout, which calls the four filters against `page`; values should resolve to neighbouring items, not the empty fallback. |
-| `/unsupported/` | Warn-once stub filters (`inputPathToUrl`). | Server-side: real 11ty filter. Browser-side: warn-once pass-through. |
+**Every test page (except `/location-probe/`) wraps its demo in
+`data-editable="component"` so the block re-renders client-side via
+`window.cc_components[name](props)`.** That's the load-bearing bit: it's
+how we actually exercise our browser ports rather than 11ty's server
+filters. Demo inputs are grouped under one front-matter object per page
+(e.g. `filtersDemo`, `customTagsDemo`) — editing any of those in CC
+re-renders the corresponding component.
+
+| Page | Front-matter key | Surface | What it confirms |
+| --- | --- | --- | --- |
+| `/filters/` | `filtersDemo` | Auto-mirrored filter (`shout`), the `page.url` global (no custom filter), and the built-in `slugify` / `slug` / `url` / date filters. | `shout` mirrors automatically. `page.url` derives from front-matter `permalink` / page-map / folder-default. Built-ins render via our ports. |
+| `/shortcodes/` | `shortcodesDemo` | `addShortcode("year")`, `addPairedShortcode("highlight")`. | Both surfaces auto-mirror end to end. Editing the highlight colour/content re-renders. |
+| `/custom-tags/` | `customTagsDemo` | `addLiquidTag("echo", ...)` + `pluginOptions.liquid.tags`, and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads `customTagsDemo.cardProps` into the `card` component. |
+| `/render-plugin/` | `renderPluginDemo` | RenderPlugin shims: `renderTemplate`, `renderFile`, `renderContent`. | Server-side: 11ty's `EleventyRenderPlugin` (explicitly added in the config). Browser-side: our shims via the component re-render. |
+| `/globals/` | `globalsDemo` | `eleventy`, `page`, `pkg`, `collections.posts`, `process.env` globals. The `globalsDemo.note` field is editable to trigger re-renders. | Server-side values are 11ty's. Browser-side values come from the proxies in `integrations/liquid/globals.mjs` plus the static globals registered by `registerEleventyData` / `registerPkg`. |
+| `/posts/*` | (post front matter) | `getCollectionItem` / `getPreviousCollectionItem` / `getNextCollectionItem` / `getCollectionItemIndex` via the `post-meta` component. | Editing a post's front matter re-renders the metadata block via the browser ports — exercises our collection-item filters in the positive case. |
+| `/unsupported/` | `unsupportedDemo` | `inputPathToUrl` (a default 11ty 3.x filter). | Server-side: real 11ty filter. Browser-side: page-map lookup, or warn-once pass-through on miss. Editing the input path re-runs the lookup. |
+| `/location-probe/` | — | Diagnostic-only — surfaces `window.location.*`, `document.referrer`, `window.inEditorMode`, and `window.CloudCannonAPI`. | Used to verify what the browser sees inside CC's Visual Editor. Inline script, no component re-render. |
 
 ## What the bundle should contain
 
-After `npm run build`, `_site/live-editing.js` should include:
+After `npm run build`, `_site/register-components.js` should include:
 
 - `createSharedLiquidEngine({...})` and `registerEleventyBuiltins(liquidEngine)` calls
 - `registerFilter("shout", ...)` — auto-mirrored
-- `registerFilter("currentPageUrl", ...)` — from the override module path
 - `registerShortcode("year", ...)` + `registerPairedShortcode("highlight", ...)` — auto-mirrored
 - `registerCustomTag("echo", ...)` — from the tag override module path
 - `registerLiquidComponent("card", ...)` — from the `pluginOptions.liquid.components` map
@@ -63,21 +71,29 @@ src/
   render-plugin.liquid
   globals.liquid
   unsupported.liquid
+  location-probe.liquid     diagnostic — what does the browser see?
   posts/                    collection items for `collections.posts`
     posts.json              tags every sibling .md with "posts", layout: post
     first-post.md
     second-post.md
     third-post.md
   _includes/
-    page-shell.liquid       layout used by every page
-    post.liquid             post layout — exercises collection-item filters
-    card.liquid             component overridden in the browser bundle
-    render-target.liquid    file fetched by renderFile
+    page-shell.liquid           layout used by every page
+    post.liquid                 post layout — wraps post-meta in a component
+    card.liquid                 component overridden in the browser bundle
+    render-target.liquid        file fetched by renderFile
+    filters-demo.liquid         per-page demo component (live-edits `filtersDemo`)
+    shortcodes-demo.liquid      per-page demo component (live-edits `shortcodesDemo`)
+    custom-tags-demo.liquid     per-page demo component (live-edits `customTagsDemo`)
+    render-plugin-demo.liquid   per-page demo component (live-edits `renderPluginDemo`)
+    globals-demo.liquid         per-page demo component (live-edits `globalsDemo`)
+    unsupported-demo.liquid     per-page demo component (live-edits `unsupportedDemo`)
+    post-meta.liquid            component used by the post layout for nav/index
 overrides/
-  current-page-url.mjs      browser-side filter for `currentPageUrl`
   echo-tag.mjs              factory for the `echo` Liquid tag
   card-override.mjs         browser-side template source for the `card` component
 eleventy.config.mjs         registers everything + wires the plugin
+cloudcannon.config.yml      minimal CC config so the fixture is openable in the Visual Editor
 ```
 
 ## Running
