@@ -21,6 +21,6 @@ collections_config:
 
   posts:
     path: src/posts
-    url: /[slug]/
+    url: /posts/[slug]/
     glob:
       - "*.md"

@@ -172,41 +172,32 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
 }
 
 /**
- * Resolves the `inputPath` identifier for a `page`-ish argument passed to a
- * collection-item filter. Accepts a full page object, a collection item
- * (which has `inputPath` at the top level), or a raw string path.
+ * Finds the index of `page` in `collection` by matching `inputPath`.
  *
- * @param {any} page
- * @returns {string | null}
- */
-function resolveInputPath(page) {
-  if (!page) return null;
-  if (typeof page === "string") return page;
-  if (typeof page.inputPath === "string") return page.inputPath;
-  if (page.page && typeof page.page.inputPath === "string") {
-    return page.page.inputPath;
-  }
-  return null;
-}
-
-/**
- * Finds the index of the current page in a collection by matching `inputPath`.
+ * `await page.inputPath` covers both shapes we get in practice: our `page`
+ * global is a Proxy that returns Promises (await resolves to the string),
+ * and a collection item is a plain object whose `inputPath` is already a
+ * string (await on a non-thenable is a no-op). Upstream 11ty trusts
+ * `page` to be a page object with string properties and compares with an
+ * outputPath/url tie-breaker; in the editor each inputPath maps to one
+ * canonical item so inputPath-only is enough.
  *
  * @param {Array<{inputPath?: string}>} collection
  * @param {any} page
- * @returns {number}
+ * @returns {Promise<number>}
  */
-function indexInCollection(collection, page) {
+async function indexInCollection(collection, page) {
   if (!Array.isArray(collection)) return -1;
-  const inputPath = resolveInputPath(page);
-  if (!inputPath) {
+  if (!page) {
     warnOnce(
       "collection-item-no-page",
-      "Eleventy collection-item filter called without a resolvable `page` argument. " +
+      "Eleventy collection-item filter called without a `page` argument. " +
         "In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
     );
     return -1;
   }
+  const inputPath = await page.inputPath;
+  if (typeof inputPath !== "string" || !inputPath) return -1;
   return collection.findIndex((item) => item?.inputPath === inputPath);
 }
 
@@ -216,8 +207,8 @@ function indexInCollection(collection, page) {
  * @param {any[]} collection
  * @param {any} page
  */
-export function getCollectionItem(collection, page) {
-  const i = indexInCollection(collection, page);
+export async function getCollectionItem(collection, page) {
+  const i = await indexInCollection(collection, page);
   return i >= 0 ? collection[i] : undefined;
 }
 
@@ -227,8 +218,8 @@ export function getCollectionItem(collection, page) {
  * @param {any[]} collection
  * @param {any} page
  */
-export function getPreviousCollectionItem(collection, page) {
-  const i = indexInCollection(collection, page);
+export async function getPreviousCollectionItem(collection, page) {
+  const i = await indexInCollection(collection, page);
   return i > 0 ? collection[i - 1] : undefined;
 }
 
@@ -238,8 +229,8 @@ export function getPreviousCollectionItem(collection, page) {
  * @param {any[]} collection
  * @param {any} page
  */
-export function getNextCollectionItem(collection, page) {
-  const i = indexInCollection(collection, page);
+export async function getNextCollectionItem(collection, page) {
+  const i = await indexInCollection(collection, page);
   return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
 }
 
@@ -248,9 +239,9 @@ export function getNextCollectionItem(collection, page) {
  *
  * @param {any[]} collection
  * @param {any} page
- * @returns {number}
+ * @returns {Promise<number>}
  */
-export function getCollectionItemIndex(collection, page) {
+export async function getCollectionItemIndex(collection, page) {
   return indexInCollection(collection, page);
 }
 
