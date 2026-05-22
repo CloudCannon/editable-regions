@@ -19,22 +19,15 @@ let pageMap = {};
 
 /**
  * Stores the build-time page map. Called by the generated bundle exactly
- * once, after `createSharedLiquidEngine`. Replacing the map is a no-op
- * concern: the bundle only emits one call per build.
+ * once, after `createSharedLiquidEngine`.
  *
  * @param {Record<string, PageMapEntry> | null | undefined} map
- * @returns {void}
  */
 export function registerPageMap(map) {
   pageMap = map ?? {};
 }
 
-/**
- * Returns the registered page map. Returns an empty object before
- * `registerPageMap` runs so consumers can do safe lookups without guarding.
- *
- * @returns {Record<string, PageMapEntry>}
- */
+/** Returns an empty object before `registerPageMap` runs, so lookups are safe to do unguarded. */
 export function getPageMap() {
   return pageMap;
 }
@@ -46,7 +39,6 @@ export function getPageMap() {
  * `currentFile().path`) without each caller doing its own stripping.
  *
  * @param {string | null | undefined} p
- * @returns {string}
  */
 export function normalizeInputPath(p) {
   if (typeof p !== "string" || !p) return "";

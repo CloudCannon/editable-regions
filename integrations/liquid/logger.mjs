@@ -5,12 +5,7 @@
 
 let verboseEnabled = false;
 
-/**
- * Enables or disables verbose logging.
- *
- * @param {boolean} enabled - Whether to enable verbose logging
- * @returns {void}
- */
+/** @param {boolean} enabled */
 export function setVerbose(enabled) {
 	verboseEnabled = enabled;
 	if (enabled) {
@@ -18,105 +13,59 @@ export function setVerbose(enabled) {
 	}
 }
 
-/**
- * Returns whether verbose logging is enabled.
- *
- * @returns {boolean}
- */
 export function isVerbose() {
 	return verboseEnabled;
 }
 
-/**
- * Log only when verbose mode is enabled.
- * Use for diagnostic information during development.
- *
- * @param {...any} args - Arguments to log
- * @returns {void}
- */
-export function log(...args) {
+/** Log only when verbose mode is enabled. */
+export function log(/** @type {any[]} */ ...args) {
 	if (verboseEnabled) {
 		console.log(...args);
 	}
 }
 
-/**
- * Always log warnings.
- *
- * @param {...any} args - Arguments to log
- * @returns {void}
- */
-export function warn(...args) {
+export function warn(/** @type {any[]} */ ...args) {
 	console.warn(...args);
 }
 
 const warnedKeys = new Set();
 
-/**
- * Warn exactly once per key for the lifetime of the page.
- *
- * @param {string} key - Deduplication key
- * @param {...any} args - Arguments to pass to `warn`
- * @returns {void}
- */
-export function warnOnce(key, ...args) {
+/** Warn exactly once per key for the lifetime of the page. */
+export function warnOnce(
+	/** @type {string} */ key,
+	/** @type {any[]} */ ...args
+) {
 	if (warnedKeys.has(key)) return;
 	warnedKeys.add(key);
 	warn(...args);
 }
 
-/**
- * Always log errors.
- *
- * @param {...any} args - Arguments to log
- * @returns {void}
- */
-export function error(...args) {
+export function error(/** @type {any[]} */ ...args) {
 	console.error(...args);
 }
 
-/**
- * Group logs (only in verbose mode).
- *
- * @param {string} label - Group label
- * @returns {void}
- */
-export function group(label) {
+/** Group logs (only in verbose mode). */
+export function group(/** @type {string} */ label) {
 	if (verboseEnabled) {
 		console.group(label);
 	}
 }
 
-/**
- * End a console group (only in verbose mode).
- *
- * @returns {void}
- */
 export function groupEnd() {
 	if (verboseEnabled) {
 		console.groupEnd();
 	}
 }
 
-/**
- * Start timing an operation (only in verbose mode).
- *
- * @param {string} label - Timer label
- * @returns {void}
- */
-export function time(label) {
+/** Start timing an operation (only in verbose mode). */
+export function time(/** @type {string} */ label) {
 	if (verboseEnabled) {
 		console.time(label);
 	}
 }
 
-/**
- * End timing an operation (only in verbose mode).
- *
- * @param {string} label - Timer label
- * @returns {void}
- */
-export function timeEnd(label) {
+/** End timing an operation (only in verbose mode). */
+export function timeEnd(/** @type {string} */ label) {
 	if (verboseEnabled) {
 		console.timeEnd(label);
 	}

@@ -16,10 +16,10 @@ import {
 
 /**
  * @typedef {Object} EleventyDirectories
- * @property {string} input - Input directory
- * @property {string} includes - Includes directory (normalized, relative to project root)
- * @property {string} data - Data directory
- * @property {string} output - Output directory
+ * @property {string} input
+ * @property {string} includes - Normalized, relative to project root
+ * @property {string} data
+ * @property {string} output
  */
 
 /**
@@ -29,6 +29,7 @@ import {
  * @typedef {Object} EleventyEventPayload
  * @property {EleventyDirectories} [directories]
  * @property {EleventyDirectories} [dir]
+ * @property {Array<{inputPath?: string, outputPath?: string, url?: string}>} [results]
  */
 
 /**
@@ -81,12 +82,11 @@ import {
  */
 
 /**
- * Eleventy plugin for CloudCannon editable regions.
- * Registers Liquid tags and builds live-editing client bundle.
+ * Eleventy plugin for CloudCannon editable regions. Registers Liquid tags
+ * and builds the live-editing client bundle.
  *
- * @param {EleventyConfig} eleventyConfig - Eleventy configuration object
- * @param {PluginOptions} [pluginOptions] - Plugin configuration options
- * @returns {void}
+ * @param {EleventyConfig} eleventyConfig
+ * @param {PluginOptions} [pluginOptions]
  */
 export default function (eleventyConfig, pluginOptions) {
   const options = normalizePluginOptions(pluginOptions);
@@ -136,15 +136,15 @@ export default function (eleventyConfig, pluginOptions) {
 }
 
 /**
- * Creates the JavaScript source code for the live-editing client bundle.
- * Generates imports for components, filters, shortcodes, and tags.
+ * Builds the JS source for the live-editing client bundle. Emits imports
+ * and `register*` calls for components, filters, shortcodes, and tags.
  *
- * @param {NormalizedPluginOptions} options - Normalized plugin options
- * @param {EleventyDirectories} directories - Eleventy directory configuration
- * @param {EleventyConfig} eleventyConfig - Eleventy config, used to read registered filters
- * @param {string[]} normalizedExtensions - Lowercase, leading-dot file extensions to bundle
- * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results - 11ty's `eleventy.after` build results
- * @returns {Promise<string>} Generated JavaScript source code
+ * @param {NormalizedPluginOptions} options
+ * @param {EleventyDirectories} directories
+ * @param {EleventyConfig} eleventyConfig
+ * @param {string[]} normalizedExtensions - Lowercase, leading-dot
+ * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results - From `eleventy.after`
+ * @returns {Promise<string>}
  */
 async function generateLiveEditingSource(
   options,
@@ -273,16 +273,14 @@ async function generateLiveEditingSource(
 }
 
 /**
- * Builds the `process.env` subset to ship to the browser, given the user's
- * allowlist and optional prefix. Treats both inputs as opt-in: with neither
- * set, the result is empty and no `process` global is registered.
+ * Builds the `process.env` subset to ship to the browser. Both inputs are
+ * opt-in: with neither set, the result is empty.
  *
  * Empty-string prefixes are ignored — `"".startsWith("")` is true for every
  * env var, which would silently leak the entire host environment.
  *
- * @param {string[] | undefined} allowlist - Explicit names to include
- * @param {string | undefined} prefix - Names with this prefix are auto-included
- * @returns {Record<string, string>}
+ * @param {string[] | undefined} allowlist
+ * @param {string | undefined} prefix
  */
 function collectExposedEnv(allowlist, prefix) {
   /** @type {Record<string, string>} */
@@ -305,20 +303,18 @@ function collectExposedEnv(allowlist, prefix) {
 }
 
 /**
- * Builds the static `eleventy` global that the live-editing bundle exposes
- * in place of Eleventy's build-time data of the same name. Mirrors the parts
- * of https://www.11ty.dev/docs/data-eleventy-supplied/ that make sense in a
+ * Builds the static `eleventy` global that the bundle exposes in place of
+ * Eleventy's build-time data of the same name. Mirrors the parts of
+ * https://www.11ty.dev/docs/data-eleventy-supplied/ that make sense in a
  * browser, with deliberate omissions:
  *   - `env.config` and `env.root` are dropped (absolute filesystem paths
  *     don't belong in client JS).
- *   - `env.runMode` is hardcoded to `"serve"` — we're not in any of 11ty's
- *     real run modes, but "serve" is the dev-mode analogue and gives
- *     templates branching on this the right code path.
+ *   - `env.runMode` is hardcoded to `"serve"` — the dev-mode analogue, so
+ *     templates branching on this take the right code path.
  *   - `env.source` is hardcoded to `"cli"`.
  *   - `serverless` is omitted (deprecated upstream).
  *
  * @param {EleventyDirectories} directories
- * @returns {{version: string, generator: string, env: {runMode: string, source: string}, directories: EleventyDirectories}}
  */
 function buildEleventyData(directories) {
   const version = readEleventyVersion();
@@ -341,22 +337,18 @@ function buildEleventyData(directories) {
 /**
  * Compacts 11ty's `eleventy.after` `results` array into the page-map shape
  * the browser runtime consumes: a plain object keyed by normalized input
- * path. Paths are stripped of any leading `./` or `/` so the lookup side
- * (see `normalizeInputPath` in `liquid/page-map.mjs`) can match values
- * sourced from the CC API, which uses the no-leading-`./` form.
+ * path (leading `./` and `/` stripped, matching `normalizeInputPath` in
+ * `liquid/page-map.mjs` and the CC API's path form).
  *
- * Pagination produces multiple entries with the same `inputPath` — we
- * keep the first one. The page proxy and `inputPathToUrl` are about
- * resolving _a_ canonical URL for an input file; the paginated cursor
- * state (`pagination.items`, `pagination.pageNumber`) is build-time-only
- * and not something we model in the editor.
+ * Pagination produces multiple entries with the same `inputPath` — we keep
+ * the first. The page proxy and `inputPathToUrl` resolve _a_ canonical URL
+ * for an input file; paginated cursor state is build-time-only and not
+ * modelled in the editor.
  *
- * Entries without a usable `inputPath` are skipped. Returns an empty
- * object if `results` is absent or malformed — callers treat that the
+ * Returns `{}` if `results` is absent or malformed — callers treat that the
  * same as "the user opted out of the page map".
  *
  * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results
- * @returns {Record<string, { url?: string, outputPath?: string }>}
  */
 function buildPageMap(results) {
   if (!Array.isArray(results)) return {};
@@ -376,20 +368,15 @@ function buildPageMap(results) {
 }
 
 /**
- * Reads the consumer's project `package.json` and returns the subset
- * we want to expose as the `pkg` global in templates, mirroring 11ty's
- * default `pkg` exposure (`config.keys.package = "pkg"` in 11ty 3.x).
+ * Reads the project `package.json` and returns the subset to expose as the
+ * `pkg` global, mirroring 11ty's default. Strips the heavy fields that
+ * dominate size and are essentially never read from templates
+ * (`dependencies`, `devDependencies`, `peerDependencies`,
+ * `optionalDependencies`, `scripts`); the runtime wrap
+ * (`wrapPkgWithStripWarning`) warn-onces if a template reads one.
  *
- * Strips `dependencies`, `devDependencies`, `peerDependencies`,
- * `optionalDependencies`, and `scripts` before embedding — these dominate
- * `package.json` size and are essentially never read from templates. The
- * runtime wrap (see `wrapPkgWithStripWarning` in `liquid/index.mjs`)
- * surfaces a warn-once if a template does access one of these fields.
- *
- * Returns `null` if `package.json` is missing or malformed so the bundle
- * still builds; `pkg` will be absent from the engine globals in that case.
- *
- * @returns {Record<string, any> | null}
+ * Returns `null` on missing/malformed input so the bundle still builds;
+ * `pkg` is simply absent from the engine globals in that case.
  */
 function buildPkg() {
   try {
@@ -413,12 +400,8 @@ function buildPkg() {
 }
 
 /**
- * Reads the installed Eleventy version from its `package.json`. Resolved
- * from this module's location, which works for the typical hoisted-deps
- * layout. Returns `"unknown"` if Eleventy can't be resolved (e.g. the
- * package isn't installed where we'd expect) so the bundle still builds.
- *
- * @returns {string}
+ * Reads the installed Eleventy version from its `package.json`. Returns
+ * `"unknown"` if Eleventy can't be resolved so the bundle still builds.
  */
 function readEleventyVersion() {
   try {
@@ -432,12 +415,9 @@ function readEleventyVersion() {
 }
 
 /**
- * Find all component files across multiple directories.
- *
- * @param {string[]} componentDirs - Directories to search
- * @param {string[]} extensions - File extensions to match
- * @param {string[]} ignoreDirectories - Directory names to skip
- * @returns {Promise<string[]>} Array of file paths
+ * @param {string[]} componentDirs
+ * @param {string[]} extensions
+ * @param {string[]} ignoreDirectories
  */
 async function findAllLiquidFiles(
   componentDirs,
@@ -459,13 +439,11 @@ async function findAllLiquidFiles(
 }
 
 /**
- * Recursively find all matching files in a single directory.
- *
- * @param {Object} options - Search options
- * @param {string} options.directory - Directory to search
- * @param {string[]} [options.extensions] - File extensions to match
- * @param {string[]} [options.ignoreDirectories] - Directory names to skip
- * @returns {Promise<string[]>} Array of file paths
+ * @param {Object} options
+ * @param {string} options.directory
+ * @param {string[]} [options.extensions]
+ * @param {string[]} [options.ignoreDirectories]
+ * @returns {Promise<string[]>}
  */
 async function findFilesInDirectory({
   directory,
@@ -493,8 +471,7 @@ async function findFilesInDirectory({
         });
         files.push(...subFiles);
       } else if (entry.isFile()) {
-        // Check if filename ends with any of the configured extensions
-        // This handles both simple (.liquid) and compound (.bookshop.liquid) extensions
+        // Handles both simple (.liquid) and compound (.bookshop.liquid) extensions
         const filenameLower = entry.name.toLowerCase();
         const hasValidExtension = extensions.some((ext) =>
           filenameLower.endsWith(ext),
@@ -530,27 +507,26 @@ const handwrittenBrowserPorts = {
 };
 
 /**
- * Auto-mirrors all functions registered in the user's Eleventy config into
- * the browser bundle — filters, shortcodes, and paired shortcodes. For each
- * kind, pulls from both `universal` (cross-engine) and the liquid-specific
+ * Auto-mirrors functions registered in the user's Eleventy config (filters,
+ * shortcodes, paired shortcodes) into the browser bundle. For each kind,
+ * pulls from `universal` (cross-engine) merged with the liquid-specific
  * registry; liquid-specific wins on name collisions.
  *
- * Two skip sources, both handled here so the caller doesn't repeat itself:
- *   - the kind's built-in list (names already covered by handwritten ports)
- *   - names the user has overridden via `pluginOptions.liquid.<kind>`
- *     (registered separately by `emitOverrideRegistrations` so overrides win)
+ * Skips two sets: handwritten browser ports, and names the user overrode
+ * via `pluginOptions.liquid.<kind>` (emitted separately by
+ * `emitOverrideRegistrations` so overrides win).
  *
- * Every surviving entry is unwrapped from Eleventy's benchmark closure and
- * embedded verbatim via `fn.toString()`. If a function depends on
- * Eleventy build-time state (`this.ctx`, `process`, `require`, ...) it'll
- * throw at render time in the browser — that's the signal to register an
- * override. We deliberately don't try to detect this at build time: any
- * regex-based check would have false positives that block portable code
- * and false negatives that ship broken code anyway.
+ * Surviving entries are unwrapped from Eleventy's benchmark closure and
+ * embedded verbatim via `fn.toString()`. A function depending on Eleventy
+ * build-time state (`this.ctx`, `process`, `require`, …) will throw at
+ * render time in the browser — that's the signal to register an override.
+ * We deliberately don't detect this at build time: regex-based checks would
+ * have false positives that block portable code and false negatives that
+ * ship broken code anyway.
  *
  * @param {EleventyConfig} eleventyConfig
- * @param {LiquidOptions | undefined} liquidOptions - Used to find user-supplied overrides to skip
- * @returns {string} JS source to append to the bundle (empty if nothing to register)
+ * @param {LiquidOptions | undefined} liquidOptions - Source of override-name skip list
+ * @returns {string} JS source (empty if nothing to register)
  */
 function emitAutoMirroredRegistrations(eleventyConfig, liquidOptions) {
   let out = "";
@@ -608,14 +584,13 @@ const overrideRegisterFns = {
 };
 
 /**
- * Emits the `import` + register-call pair for each user-supplied override in
+ * Emits the `import` + register-call pair for each override in
  * `pluginOptions.liquid`. Each entry produces:
  *
  *   import override_0 from "./path/to/file";
  *   registerFilter("name", override_0);
  *
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string}
  */
 function emitOverrideRegistrations(liquidOptions) {
   let out = "";
@@ -633,13 +608,12 @@ function emitOverrideRegistrations(liquidOptions) {
 }
 
 /**
- * Emits the `import` + `registerLiquidComponent` pair for each entry in
- * `pluginOptions.liquid.components`. Distinct from `emitOverrideRegistrations`
+ * Emits `import` + `registerLiquidComponent` for each entry in
+ * `pluginOptions.liquid.components`. Separate from `emitOverrideRegistrations`
  * because components aren't auto-mirrored from 11ty config — see the comment
- * on `overrideSpecs`.
+ * on `overrideRegisterFns`.
  *
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string}
  */
 function emitComponentRegistrations(liquidOptions) {
   let out = "";
@@ -652,11 +626,9 @@ function emitComponentRegistrations(liquidOptions) {
 }
 
 /**
- * Normalises user-supplied plugin options into the internal shape. Each
- * supported language is resolved to either an options object (enabled) or
- * `false` (disabled). Liquid is the plugin's default language and is
- * enabled implicitly — only `liquid: false` opts out. Future languages
- * default to off and must be opted in.
+ * Each supported language resolves to an options object (enabled) or `false`
+ * (disabled). Liquid is the default and is enabled implicitly — only
+ * `liquid: false` opts out. Future languages default to off.
  *
  * @param {PluginOptions | undefined} pluginOptions
  * @returns {NormalizedPluginOptions}

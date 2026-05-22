@@ -25,11 +25,10 @@ import {
 export { builtinFilterNames, builtinShortcodeNames };
 
 /**
- * Logs value to console (pass-through filter).
+ * Pass-through filter — logs and returns the value.
  *
- * @param {any} value - Value to log
- * @param {string} [prefix] - Optional prefix for the log message
- * @returns {any} The original value (for chaining)
+ * @param {any} value
+ * @param {string} [prefix]
  */
 export function logFilter(value, prefix = "") {
   if (prefix) {
@@ -41,28 +40,26 @@ export function logFilter(value, prefix = "") {
 }
 
 /**
- * Browser port of Eleventy's `slug` filter
- * (`@11ty/eleventy/src/Filters/Slug.js`) — the permissive variant. Backed by
- * `simov/slugify`, which keeps characters like `+`, `@`, `.` and has built-in
- * word substitutions (`&` → `and`, `%` → `percent`).
+ * Permissive variant of Eleventy's `slug` filter
+ * (`@11ty/eleventy/src/Filters/Slug.js`). Backed by `simov/slugify`, which
+ * keeps characters like `+`, `@`, `.` and has built-in word substitutions
+ * (`&` → `and`, `%` → `percent`).
  *
  * @param {unknown} str
  * @param {Record<string, any>} [options]
- * @returns {string}
  */
 export function slugFilter(str, options = {}) {
   return simovSlugify(`${str}`, { replacement: "-", lower: true, ...options });
 }
 
 /**
- * Browser port of Eleventy's `slugify` filter
- * (`@11ty/eleventy/src/Filters/Slugify.js`) — the strict ASCII-safe variant.
- * Backed by `@sindresorhus/slugify`, which treats non-alphanumerics as
- * separators and transliterates many scripts.
+ * Strict ASCII-safe variant of Eleventy's `slugify` filter
+ * (`@11ty/eleventy/src/Filters/Slugify.js`). Backed by
+ * `@sindresorhus/slugify`, which treats non-alphanumerics as separators and
+ * transliterates many scripts.
  *
  * @param {unknown} str
  * @param {Record<string, any>} [options]
- * @returns {string}
  */
 export function slugifyFilter(str, options = {}) {
   return sindresorhusSlugify(`${str}`, { decamelize: false, ...options });
@@ -77,9 +74,8 @@ export function slugifyFilter(str, options = {}) {
  * have that, so the no-prefix branch returns the input unchanged rather than
  * exploding.
  *
- * @param {string} url - URL to normalize
- * @param {string} [pathPrefix] - Optional path prefix to prepend
- * @returns {string} Normalized URL
+ * @param {string} url
+ * @param {string} [pathPrefix]
  */
 export function urlFilter(url, pathPrefix = "") {
   if (!url) return "";
@@ -95,7 +91,7 @@ export function urlFilter(url, pathPrefix = "") {
 }
 
 /** Matches Eleventy's `Util/ValidUrl.js`: parseable by `new URL()` → absolute. */
-function isAbsoluteUrl(url) {
+function isAbsoluteUrl(/** @type {string} */ url) {
   try {
     new URL(url);
     return true;
@@ -104,14 +100,8 @@ function isAbsoluteUrl(url) {
   }
 }
 
-/**
- * Coerces an input (Date, ISO string, epoch number) into a Date.
- * Returns `null` for unusable inputs so filters can bail gracefully.
- *
- * @param {any} value
- * @returns {Date | null}
- */
-function toDate(value) {
+/** Coerces an input (Date, ISO string, epoch number) into a Date; `null` for unusable input. */
+function toDate(/** @type {any} */ value) {
   if (value instanceof Date)
     return Number.isNaN(value.getTime()) ? null : value;
   if (value === null || value === undefined || value === "") return null;
@@ -119,45 +109,27 @@ function toDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/**
- * ISO 8601 / RFC 3339 date string (e.g. "2026-04-21T00:00:00.000Z").
- *
- * @param {Date | string | number} date
- * @returns {string}
- */
-export function dateToRfc3339(date) {
+/** ISO 8601 / RFC 3339 (e.g. "2026-04-21T00:00:00.000Z"). */
+export function dateToRfc3339(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
   return d ? d.toISOString() : "";
 }
 
-/**
- * RFC 822 / RFC 1123 date string (e.g. "Tue, 21 Apr 2026 00:00:00 GMT").
- *
- * @param {Date | string | number} date
- * @returns {string}
- */
-export function dateToRfc822(date) {
+/** RFC 822 / RFC 1123 (e.g. "Tue, 21 Apr 2026 00:00:00 GMT"). */
+export function dateToRfc822(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
   return d ? d.toUTCString() : "";
 }
 
-/**
- * HTML date string in `YYYY-MM-DD` form, used for `<time datetime>` attributes.
- *
- * @param {Date | string | number} date
- * @returns {string}
- */
-export function htmlDateString(date) {
+/** `YYYY-MM-DD` form, used for `<time datetime>` attributes. */
+export function htmlDateString(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
   return d ? d.toISOString().slice(0, 10) : "";
 }
 
 /**
- * Returns the newest `date` field across a collection.
- *
  * @param {Array<{date?: any}>} collection
  * @param {Date | string | number} [emptyFallback]
- * @returns {Date}
  */
 export function getNewestCollectionItemDate(collection, emptyFallback) {
   if (!Array.isArray(collection) || collection.length === 0) {
@@ -201,61 +173,47 @@ async function indexInCollection(collection, page) {
   return collection.findIndex((item) => item?.inputPath === inputPath);
 }
 
-/**
- * Returns the current item in a collection.
- *
- * @param {any[]} collection
- * @param {any} page
- */
-export async function getCollectionItem(collection, page) {
+export async function getCollectionItem(
+  /** @type {any[]} */ collection,
+  /** @type {any} */ page,
+) {
   const i = await indexInCollection(collection, page);
   return i >= 0 ? collection[i] : undefined;
 }
 
-/**
- * Returns the previous sequential item in a collection.
- *
- * @param {any[]} collection
- * @param {any} page
- */
-export async function getPreviousCollectionItem(collection, page) {
+export async function getPreviousCollectionItem(
+  /** @type {any[]} */ collection,
+  /** @type {any} */ page,
+) {
   const i = await indexInCollection(collection, page);
   return i > 0 ? collection[i - 1] : undefined;
 }
 
-/**
- * Returns the next sequential item in a collection.
- *
- * @param {any[]} collection
- * @param {any} page
- */
-export async function getNextCollectionItem(collection, page) {
+export async function getNextCollectionItem(
+  /** @type {any[]} */ collection,
+  /** @type {any} */ page,
+) {
   const i = await indexInCollection(collection, page);
   return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
 }
 
-/**
- * Returns the 0-based index of the current item in a collection.
- *
- * @param {any[]} collection
- * @param {any} page
- * @returns {Promise<number>}
- */
-export async function getCollectionItemIndex(collection, page) {
+export async function getCollectionItemIndex(
+  /** @type {any[]} */ collection,
+  /** @type {any} */ page,
+) {
   return indexInCollection(collection, page);
 }
 
 /**
- * Builds a pass-through filter that warns once on first use.
- * Used for Eleventy filters that depend on build-time internals we don't have
- * in the browser.
+ * Builds a pass-through filter that warns once on first use. Used for
+ * Eleventy filters that depend on build-time internals we don't have in the
+ * browser.
  *
  * @param {string} filterName
  * @param {string} reason - Human-readable explanation of the limitation
- * @returns {(value: any) => any}
  */
 function passThroughStub(filterName, reason) {
-  return (value) => {
+  return (/** @type {any} */ value) => {
     warnOnce(
       `filter-stub:${filterName}`,
       `Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
@@ -277,7 +235,6 @@ function passThroughStub(filterName, reason) {
  * is empty and every call misses; behave the same as the legacy stub.
  *
  * @param {unknown} inputPath
- * @returns {string}
  */
 export function inputPathToUrlFilter(inputPath) {
   if (typeof inputPath !== "string" || !inputPath) {
@@ -321,15 +278,10 @@ export const eleventyFilters = {
 };
 
 /**
- * Registers all Eleventy built-ins on the shared Liquid engine:
- *   - the plain filters from `eleventyFilters` (slugify, url, dateToRfc3339, …)
- *   - the RenderPlugin shims: `renderTemplate` (tag), `renderFile`
- *     (shortcode), `renderContent` (filter)
+ * Wires the plain filters from `eleventyFilters` plus the RenderPlugin shims
+ * (`renderTemplate`, `renderFile`, `renderContent`) onto the shared engine.
  *
- * The shims live in `./liquid-render.mjs`; this is the single entry point
- * that wires both groups onto the engine.
- *
- * @param {import("liquidjs").Liquid} liquidEngine - Engine returned by `createSharedLiquidEngine()`
+ * @param {import("liquidjs").Liquid} liquidEngine
  */
 export function registerEleventyBuiltins(liquidEngine) {
   for (const [name, fn] of Object.entries(eleventyFilters)) {

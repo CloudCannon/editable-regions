@@ -1,42 +1,34 @@
 import { Liquid } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
-import {
-  collectionsProxy,
-  pageProxy,
-  setEleventyData,
-} from "./globals.mjs";
+import { collectionsProxy, pageProxy, setEleventyData } from "./globals.mjs";
 import { createIncludeWithTag } from "./include-with-tag.mjs";
 import { group, groupEnd, log, warnOnce } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
 // Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
+
 // Re-export so browser-bundle consumers can keep importing from the package
 // root — the definition lives in `./include-with-tag.mjs` so the Node-side
 // Eleventy plugin can import it without pulling in browser-runtime modules.
 export { createIncludeWithTag } from "./include-with-tag.mjs";
+
 // `registerPageMap` is part of the runtime's public surface; the storage
 // lives in `./page-map.mjs` so non-engine consumers (`globals.mjs`,
 // `liquid-builtins.mjs`) can read it without an import cycle through here.
 export { registerPageMap } from "./page-map.mjs";
 
-// `registerPkg` is defined below alongside the other engine-globals
-// register functions (`registerEleventyData`, `registerProcessEnv`). The
-// bundle's emitted import line pulls it from here.
-
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
 /**
- * Creates and configures the shared Liquid engine instance. Host-agnostic
- * — the host (Eleventy, Jekyll, …) is expected to wire up its own filters,
- * shortcodes, and built-in ports after this call via the registration
- * functions exported below. The returned engine should be passed to any
- * host-side wiring (e.g. `registerEleventyBuiltins(engine)`).
+ * Creates and configures the shared Liquid engine. Host-agnostic — the host
+ * (Eleventy, Jekyll, …) wires up its own filters, shortcodes, and built-in
+ * ports after this call via the registration functions below (e.g.
+ * `registerEleventyBuiltins(engine)`).
  *
- * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)` (`root`, `extname`, `strictFilters`, etc.)
- * @returns {import("liquidjs").Liquid}
+ * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)`
  */
 export function createSharedLiquidEngine(options) {
   log("Creating shared Liquid engine");
@@ -73,9 +65,8 @@ export function createSharedLiquidEngine(options) {
  * `pluginOptions.liquid.components` — for a name that would otherwise
  * resolve to its auto-discovered file via `{% include %}`.
  *
- * @param {string} key - Unique identifier for the component
- * @param {string} contents - The Liquid template contents
- * @returns {void}
+ * @param {string} key
+ * @param {string} contents
  */
 export function registerLiquidComponent(key, contents) {
   log("Registering component:", key);
@@ -133,13 +124,11 @@ export function initComponentProxy() {
 }
 
 /**
- * Sets the `eleventy` global on the shared Liquid engine, mirroring the
- * subset of https://www.11ty.dev/docs/data-eleventy-supplied/ that makes
- * sense in a browser. The bundle generator builds the data at build time;
- * this function is a thin setter.
+ * Sets the `eleventy` global on the shared engine, mirroring the
+ * browser-applicable subset of https://www.11ty.dev/docs/data-eleventy-supplied/.
+ * The bundle generator builds the data at build time; this is a thin setter.
  *
  * @param {{version: string, generator: string, env: {runMode: string, source: string}, directories: Record<string, string>}} data
- * @returns {void}
  */
 export function registerEleventyData(data) {
   if (!sharedLiquidEngine) {
@@ -155,14 +144,12 @@ export function registerEleventyData(data) {
 }
 
 /**
- * Sets the `process.env` global on the shared Liquid engine so templates can
- * read build-time environment variables via `{{ process.env.NAME }}`. The
- * bundle generator builds `env` from the user's allowlist
- * (`pluginOptions.env`) and/or prefix (`pluginOptions.envPrefix`) at build
- * time; this function never reads `process.env` itself.
+ * Sets the `process.env` global so templates can read build-time env vars
+ * via `{{ process.env.NAME }}`. The bundle generator builds `env` from
+ * `pluginOptions.env` / `pluginOptions.envPrefix` at build time; this
+ * function never reads `process.env` itself.
  *
  * @param {Record<string, string>} env
- * @returns {void}
  */
 export function registerProcessEnv(env) {
   if (!sharedLiquidEngine) {
@@ -190,24 +177,18 @@ const STRIPPED_PKG_FIELDS = [
 ];
 
 /**
- * Wraps the embedded `pkg` value in a Proxy so reads of known-stripped
- * fields surface a useful warn-once message instead of silently returning
- * `undefined`. Unknown property reads (typos, conditional checks against
- * fields not present in the user's package.json) still return `undefined`
- * silently — we only special-case the names we deliberately strip.
+ * Wraps `pkg` so reads of known-stripped fields warn once instead of silently
+ * returning `undefined`. Unknown property reads (typos, fields not present
+ * in the user's package.json) still return `undefined` silently — we only
+ * special-case the names we deliberately strip.
  *
  * @param {Record<string, any>} pkg
- * @returns {Record<string, any>}
  */
 function wrapPkgWithStripWarning(pkg) {
   const stripped = new Set(STRIPPED_PKG_FIELDS);
   return new Proxy(pkg, {
     get(target, key, receiver) {
-      if (
-        typeof key === "string" &&
-        stripped.has(key) &&
-        !(key in target)
-      ) {
+      if (typeof key === "string" && stripped.has(key) && !(key in target)) {
         warnOnce(
           `pkg-stripped:${key}`,
           `pkg.${key} isn't available in live editing. The editable-regions ` +
@@ -223,16 +204,12 @@ function wrapPkgWithStripWarning(pkg) {
 }
 
 /**
- * Sets the `pkg` global on the shared Liquid engine, mirroring 11ty's
- * default exposure of the project `package.json` as the `pkg` global. The
- * generator (`integrations/eleventy/index.mjs:buildPkg`) reads
- * `package.json` once at build time and strips the heavy fields listed in
- * `STRIPPED_PKG_FIELDS`; this function wraps the result in a Proxy so
- * reads of those stripped fields surface a helpful warning instead of
- * silent `undefined`.
+ * Sets the `pkg` global, mirroring 11ty's default exposure of `package.json`.
+ * The generator (`integrations/eleventy/index.mjs:buildPkg`) strips the heavy
+ * fields listed in `STRIPPED_PKG_FIELDS`; `wrapPkgWithStripWarning` makes
+ * reads of those names warn instead of silently returning `undefined`.
  *
  * @param {Record<string, any>} pkg
- * @returns {void}
  */
 export function registerPkg(pkg) {
   if (!sharedLiquidEngine) {
@@ -245,14 +222,12 @@ export function registerPkg(pkg) {
 
 /**
  * Registers a Liquid filter. Called by both the build-time auto-mirror pass
- * (with the user's `eleventyConfig.addFilter` function) and by user-supplied
- * browser overrides (`pluginOptions.liquid.filters`). The Eleventy plugin
- * emits one call per name; overrides emitted last win on collision, but the
- * mirror pass already skips override names so collisions shouldn't arise.
+ * and by user-supplied browser overrides (`pluginOptions.liquid.filters`).
+ * Overrides emitted last would win on collision, but the mirror pass already
+ * skips override names so collisions shouldn't arise.
  *
  * @param {string} name
  * @param {any} fn
- * @returns {void}
  */
 export function registerFilter(name, fn) {
   log("Registering filter:", name);
@@ -265,14 +240,12 @@ export function registerFilter(name, fn) {
 }
 
 /**
- * Registers a Liquid shortcode. Same dual-caller pattern as
- * `registerFilter` — used by both the auto-mirror pass and user overrides.
+ * Registers a Liquid shortcode. Same dual-caller pattern as `registerFilter`.
  *
  * Usage in templates: {% shortcodeName arg1, arg2 %}
  *
  * @param {string} name
  * @param {any} fn - (arg1, arg2, ...) => string
- * @returns {void}
  */
 export function registerShortcode(name, fn) {
   log("Registering shortcode:", name);
@@ -285,14 +258,13 @@ export function registerShortcode(name, fn) {
 }
 
 /**
- * Registers a Liquid paired shortcode (with content between tags). Same
- * dual-caller pattern as `registerFilter`.
+ * Registers a Liquid paired shortcode. Same dual-caller pattern as
+ * `registerFilter`.
  *
  * Usage in templates: {% shortcodeName arg %}content{% endshortcodeName %}
  *
  * @param {string} name
  * @param {any} fn - (content, arg1, ...) => string
- * @returns {void}
  */
 export function registerPairedShortcode(name, fn) {
   log("Registering paired shortcode:", name);
@@ -305,16 +277,14 @@ export function registerPairedShortcode(name, fn) {
 }
 
 /**
- * Registers a custom tag with full LiquidJS parser access.
- *
- * Custom tags are more powerful than shortcodes - they receive full access to
- * the LiquidJS parser and can implement complex parsing/rendering logic.
+ * Registers a custom tag with full LiquidJS parser access — more powerful
+ * than a shortcode, since the factory receives the engine and can implement
+ * arbitrary parse/render logic.
  *
  * Usage in templates: {% tagName args %}
  *
- * @param {string} name - The tag name
- * @param {any} factory - Factory function (liquidEngine) => { parse(), render() }
- * @returns {void}
+ * @param {string} name
+ * @param {any} factory - (liquidEngine) => { parse(), render() }
  */
 export function registerCustomTag(name, factory) {
   log("Registering custom tag:", name);
@@ -327,14 +297,12 @@ export function registerCustomTag(name, factory) {
 }
 
 /**
- * Returns the async render function used by both code paths that produce
- * a component renderer: the include-resolution proxy installed by
- * `initComponentProxy` (the primary path) and explicit registrations made
- * via `registerLiquidComponent`. Wraps `parseAndRender` with logging,
- * error mapping, and HTMLElement output.
+ * Wraps `parseAndRender` with logging, error mapping, and HTMLElement output.
+ * Used by both the include-resolution proxy (`initComponentProxy`, the
+ * primary path) and explicit registrations (`registerLiquidComponent`).
  *
- * @param {string} name - Component name; used for log groups and error messages
- * @param {string} templateSource - Liquid source to render (a literal template, or `{% include "name" %}`)
+ * @param {string} name
+ * @param {string} templateSource - A literal template, or `{% include "name" %}`
  * @returns {(props: Record<string, any>) => Promise<HTMLElement>}
  */
 function createComponentRenderer(name, templateSource) {
@@ -368,4 +336,3 @@ function createComponentRenderer(name, templateSource) {
     return rootEl;
   };
 }
-

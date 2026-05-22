@@ -14,27 +14,21 @@ import { group, groupEnd, log } from "./logger.mjs";
  *
  * Usage: {% shortcodeName arg1, arg2, "literal" %}
  *
- * @param {string} shortcodeName - The shortcode name (used for logging)
- * @param {any} shortcodeFn - The shortcode function (arg1, arg2, ...) => string
- * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions} LiquidJS tag implementation
+ * @param {string} shortcodeName
+ * @param {any} shortcodeFn - (arg1, arg2, ...) => string
+ * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions}
  */
 export function createShortcodeTag(shortcodeName, shortcodeFn) {
   /** @type {any} */
   const tag = {
-    /**
-     * @param {any} tagToken - The tag token from LiquidJS parser
-     */
-    parse(tagToken) {
+    parse(/** @type {any} */ tagToken) {
       this.argTokens = parseArgs(
         tagToken.args,
         this.liquid.options.operatorsTrie,
       );
     },
 
-    /**
-     * @param {any} context - The LiquidJS render context
-     */
-    async render(context) {
+    async render(/** @type {any} */ context) {
       log(`Executing shortcode "${shortcodeName}"`);
       const args = await evaluateArgs(this.argTokens, context);
       log("Shortcode args:", args);
@@ -51,60 +45,43 @@ export function createShortcodeTag(shortcodeName, shortcodeFn) {
  *
  * Usage: {% shortcodeName arg1 %}content{% endshortcodeName %}
  *
- * @param {string} tagName - The shortcode/tag name (needed to find end tag)
- * @param {any} shortcodeFn - The shortcode function (content, arg1, ...) => string
- * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions} LiquidJS tag implementation
+ * @param {string} tagName
+ * @param {any} shortcodeFn - (content, arg1, ...) => string
+ * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions}
  */
 export function createPairedShortcodeTag(tagName, shortcodeFn) {
   const endTagName = `end${tagName}`;
 
   /** @type {any} */
   const tag = {
-    /**
-     * @param {any} tagToken - The tag token from LiquidJS parser
-     * @param {any} remainTokens - Remaining tokens to parse
-     */
-    parse(tagToken, remainTokens) {
+    parse(/** @type {any} */ tagToken, /** @type {any} */ remainTokens) {
       this.argTokens = parseArgs(
         tagToken.args,
         this.liquid.options.operatorsTrie,
       );
       this.templates = [];
 
-      // Consume tokens until we find the end tag
       while (remainTokens.length) {
         const token = remainTokens.shift();
-
-        // Check if this is our end tag
-        if (token.name === endTagName) {
-          break;
-        }
-
-        // Parse this token into a template and add to our templates
+        if (token.name === endTagName) break;
         const template = this.liquid.parser.parseToken(token, remainTokens);
         this.templates.push(template);
       }
     },
 
-    /**
-     * @param {any} context - The LiquidJS render context
-     */
-    async render(context) {
+    async render(/** @type {any} */ context) {
       group(`Paired shortcode "${tagName}"`);
       log("Inner templates to render:", this.templates.length);
 
-      // Render the content between the tags
-      // NOTE: renderTemplates returns a generator, must use toPromise() to resolve it
+      // renderTemplates returns a generator — toPromise resolves it.
       const content = await toPromise(
         this.liquid.renderer.renderTemplates(this.templates, context),
       );
       log("Content resolved:", content);
 
-      // Evaluate arguments
       const args = await evaluateArgs(this.argTokens, context);
       log("Args:", args);
 
-      // Call shortcode with content as first argument, then other args
       const result = await shortcodeFn(content, ...args);
       log("Final HTML:", result?.substring?.(0, 100) || result);
       groupEnd();
@@ -116,12 +93,12 @@ export function createPairedShortcodeTag(tagName, shortcodeFn) {
 }
 
 /**
- * Parses comma-separated arguments from a tag's args string.
- * Handles quoted strings and variable references.
+ * Parses comma-separated arguments from a tag's args string. Handles quoted
+ * strings and variable references.
  *
- * @param {string} argsString - Raw arguments string from tagToken.args
- * @param {any} operatorsTrie - Liquid options operatorsTrie
- * @returns {any[]} Array of parsed tokens
+ * @param {string} argsString
+ * @param {any} operatorsTrie
+ * @returns {any[]}
  */
 export function parseArgs(argsString, operatorsTrie) {
   if (!argsString || !argsString.trim()) {
@@ -151,9 +128,9 @@ export function parseArgs(argsString, operatorsTrie) {
 /**
  * Evaluates parsed tokens against the render context.
  *
- * @param {any[]} tokens - Array of parsed tokens
- * @param {any} context - LiquidJS render context
- * @returns {Promise<any[]>} Array of evaluated values
+ * @param {any[]} tokens
+ * @param {any} context
+ * @returns {Promise<any[]>}
  */
 export async function evaluateArgs(tokens, context) {
   const values = [];

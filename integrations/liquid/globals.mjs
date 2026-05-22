@@ -9,23 +9,16 @@ import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { getPageMap, normalizeInputPath } from "./page-map.mjs";
 
 /**
- * Snapshot of Eleventy build-time data registered by the host (currently
- * just the Eleventy integration). Read lazily by the page proxy when
- * deriving values that need it — most notably `page.outputPath`, which
- * needs `directories.output`.
+ * Snapshot of Eleventy build-time data, read lazily by the page proxy for
+ * values that need it — most notably `page.outputPath`, which needs
+ * `directories.output`. Set via `setEleventyData` from `liquid/index.mjs`;
+ * one-way data flow, no circular import.
  *
  * @type {{ directories?: { output?: string } } | null}
  */
 let eleventyData = null;
 
-/**
- * Setter called by the host wiring (`registerEleventyData` in
- * `liquid/index.mjs`) to expose the build-time `eleventy` payload to this
- * module. Keeps `globals.mjs` decoupled from the engine module — one-way
- * data flow, no circular import.
- *
- * @param {{ directories?: { output?: string } } | null} data
- */
+/** @param {{ directories?: { output?: string } } | null} data */
 export function setEleventyData(data) {
   eleventyData = data;
 }
@@ -184,7 +177,6 @@ async function resolveCollection(key) {
  * (`templateSyntax`, `lang`).
  *
  * @param {string} key
- * @returns {Promise<any>}
  */
 async function resolvePageProperty(key) {
   await apiLoadedPromise;

@@ -37,16 +37,12 @@ const supportedEngines = new Set(["liquid", "html"]);
  * body is compiled in the requested engine, not pre-rendered by the outer
  * scope) and renders it against `data` via the shared engine.
  *
- * @param {any} _liquidEngine - LiquidJS engine (unused; reached via `this.liquid`)
- * @returns {any} Tag implementation with parse and render methods
+ * @param {any} _liquidEngine - Unused; reached via `this.liquid`
+ * @returns {any}
  */
 export function createRenderTemplateTag(_liquidEngine) {
   return {
-    /**
-     * @param {any} tagToken
-     * @param {any[]} remainTokens
-     */
-    parse(tagToken, remainTokens) {
+    parse(/** @type {any} */ tagToken, /** @type {any[]} */ remainTokens) {
       this.name = tagToken.name;
       this.argTokens = parseArgs(
         tagToken.args,
@@ -63,10 +59,7 @@ export function createRenderTemplateTag(_liquidEngine) {
       throw new Error(`tag ${this.name} not closed`);
     },
 
-    /**
-     * @param {any} context
-     */
-    async render(context) {
+    async render(/** @type {any} */ context) {
       const args = await evaluateArgs(this.argTokens, context);
       const { templateLang, data } = normalizeRenderArgs([args[0], args[1]]);
       const body = this.bodyTokens
@@ -87,14 +80,17 @@ export function createRenderTemplateTag(_liquidEngine) {
 }
 
 /**
- * Builds the `renderContent` filter, capturing the shared Liquid engine in
- * a closure so we can call `parseAndRender` against it at filter time.
+ * Builds the `renderContent` filter, capturing the shared engine so we can
+ * call `parseAndRender` against it at filter time.
  *
- * @param {any} liquidEngine - LiquidJS engine instance
- * @returns {(content: any, templateLang?: any, data?: any) => Promise<string>}
+ * @param {any} liquidEngine
  */
 export function createRenderContentFilter(liquidEngine) {
-  return async function renderContent(content, templateLang, data) {
+  return async function renderContent(
+    /** @type {any} */ content,
+    /** @type {any} */ templateLang,
+    /** @type {any} */ data,
+  ) {
     const normalized = normalizeRenderArgs([templateLang, data]);
     const body = content == null ? "" : String(content);
 
@@ -119,11 +115,14 @@ export function createRenderContentFilter(liquidEngine) {
  * body with `data`. The engine is taken from `templateLang` when supplied,
  * otherwise inferred from the file extension.
  *
- * @param {any} liquidEngine - LiquidJS engine instance
- * @returns {(inputPath: any, data?: any, templateLang?: any) => Promise<string>}
+ * @param {any} liquidEngine
  */
 export function createRenderFileShortcode(liquidEngine) {
-  return async function renderFile(inputPath, data, templateLang) {
+  return async function renderFile(
+    /** @type {any} */ inputPath,
+    /** @type {any} */ data,
+    /** @type {any} */ templateLang,
+  ) {
     if (typeof inputPath !== "string" || !inputPath) {
       warnOnce(
         "render-file:no-path",
@@ -198,13 +197,11 @@ function normalizeRenderArgs([templateLang, data]) {
 }
 
 /**
- * Maps a file extension (lowercase, leading dot) to the engine name we'd use
- * to render it. Anything not in the supported set still gets a guess so the
- * warn-once message can name the engine — but only "liquid" / "html" actually
- * render; the rest fall through to passthrough.
+ * Anything not in the supported set still gets a guess so the warn-once
+ * message can name the engine — but only "liquid" / "html" actually render;
+ * the rest fall through to passthrough.
  *
  * @param {string} inputPath
- * @returns {string | undefined}
  */
 function inferEngineFromPath(inputPath) {
   const dot = inputPath.lastIndexOf(".");
@@ -217,11 +214,7 @@ function inferEngineFromPath(inputPath) {
   return undefined;
 }
 
-/**
- * @param {string} engineName
- * @returns {string}
- */
-function unsupportedEngineMessage(engineName) {
+function unsupportedEngineMessage(/** @type {string} */ engineName) {
   return (
     `Eleventy RenderPlugin: engine "${engineName}" is not supported in ` +
     `live editing (only "liquid" and "html" run in the browser). ` +

@@ -3,31 +3,18 @@ import { log, warn } from "./logger.mjs";
 /**
  * In-memory filesystem for LiquidJS that reads from window.cc_liquid_files.
  *
- * @type {any} LiquidJS-compatible filesystem object
+ * @type {any}
  */
 export const inMemoryFs = {
 	sep: "/",
 
-	/**
-	 * Gets the directory name from a file path.
-	 *
-	 * @param {string} filePath - The file path
-	 * @returns {string} The directory portion of the path
-	 */
-	dirname(filePath) {
+	dirname(/** @type {string} */ filePath) {
 		const parts = filePath.split("/");
 		parts.pop();
 		return parts.join("/") || "/";
 	},
 
-	/**
-	 * Synchronously reads a file from the in-memory store.
-	 *
-	 * @param {string} filePath - The file path to read
-	 * @returns {string} The file contents
-	 * @throws {Error} If the file is not found
-	 */
-	readFileSync(filePath) {
+	readFileSync(/** @type {string} */ filePath) {
 		log("readFileSync:", filePath);
 		const fileContents = window.cc_liquid_files?.[filePath];
 
@@ -44,14 +31,7 @@ export const inMemoryFs = {
 		return fileContents;
 	},
 
-	/**
-	 * Asynchronously reads a file from the in-memory store.
-	 *
-	 * @param {string} filePath - The file path to read
-	 * @returns {Promise<string>} The file contents
-	 * @throws {Error} If filePath is empty or the file is not found
-	 */
-	async readFile(filePath) {
+	async readFile(/** @type {string} */ filePath) {
 		log("readFile:", filePath);
 		if (!filePath) {
 			throw new Error("readFile called with empty path");
@@ -59,13 +39,7 @@ export const inMemoryFs = {
 		return this.readFileSync(filePath);
 	},
 
-	/**
-	 * Asynchronously checks if a file exists.
-	 *
-	 * @param {string} filePath - The file path to check
-	 * @returns {Promise<boolean>} True if the file exists
-	 */
-	async exists(filePath) {
+	async exists(/** @type {string} */ filePath) {
 		if (!filePath || typeof filePath !== "string") {
 			log("exists: invalid path", filePath);
 			return false;
@@ -75,13 +49,7 @@ export const inMemoryFs = {
 		return result;
 	},
 
-	/**
-	 * Synchronously checks if a file exists.
-	 *
-	 * @param {string} filePath - The file path to check
-	 * @returns {boolean} True if the file exists
-	 */
-	existsSync(filePath) {
+	existsSync(/** @type {string} */ filePath) {
 		if (!filePath || typeof filePath !== "string") {
 			return false;
 		}
@@ -92,16 +60,14 @@ export const inMemoryFs = {
 	},
 
 	/**
-	 * Resolves a file path by joining the root with the file name and extension.
-	 * LiquidJS calls this once per root directory and checks exists() on the
+	 * LiquidJS calls this once per root directory and checks `exists()` on the
 	 * result, so no directory searching is needed here.
-	 *
-	 * @param {string} root - The root directory provided by LiquidJS
-	 * @param {string} file - The file name to resolve
-	 * @param {string} [ext] - The file extension (defaults to ".liquid")
-	 * @returns {string} The resolved file path
 	 */
-	resolve(root, file, ext) {
+	resolve(
+		/** @type {string} */ root,
+		/** @type {string} */ file,
+		/** @type {string} */ ext,
+	) {
 		const extension = ext || ".liquid";
 		const fileWithExt = file.endsWith(extension) ? file : `${file}${extension}`;
 		const normalizedRoot = root.replace(/^\.\//, "").replace(/\/*$/, "/");
@@ -110,20 +76,12 @@ export const inMemoryFs = {
 		return resolved;
 	},
 
-	/**
-	 * Returns file stat (always returns isFile: true for compatibility).
-	 *
-	 * @returns {Promise<{isFile: () => boolean}>}
-	 */
+	// `statAsync`/`statSync` always claim isFile: true — the in-memory store
+	// is flat, so anything we'd be asked to stat is a file.
 	async statAsync() {
 		return { isFile: () => true };
 	},
 
-	/**
-	 * Returns file stat synchronously (always returns isFile: true for compatibility).
-	 *
-	 * @returns {{isFile: () => boolean}}
-	 */
 	statSync() {
 		return { isFile: () => true };
 	},

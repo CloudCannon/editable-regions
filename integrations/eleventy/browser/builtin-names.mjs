@@ -1,12 +1,9 @@
 /**
  * Names of the filters and shortcodes that have handwritten browser ports in
  * `./liquid-builtins.mjs` (and the RenderPlugin shims in `./liquid-render.mjs`).
- *
- * Kept in this file — separate from the implementations — so the Node-side
- * Eleventy plugin (`integrations/eleventy/index.mjs`) can import the skip
- * lists without transitively pulling in browser-only dependencies
- * (`slugify`, `@sindresorhus/slugify`) at config-load time. The implementation
- * file imports these too, so this stays the single source of truth.
+ * Kept separate from the implementations so the Node-side Eleventy plugin
+ * can import the skip lists without transitively pulling in the browser-only
+ * `slugify` dependencies at config-load time.
  *
  * If you add a filter/shortcode to `liquid-builtins.mjs`, add its name here.
  */

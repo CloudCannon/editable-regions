@@ -16,16 +16,12 @@ import { group, groupEnd, log } from "./logger.mjs";
  *
  * Usage: {% includeWith "path/to/partial", objectToSpread %}
  *
- * @param {any} _liquidEngine - The LiquidJS engine instance (provided by LiquidJS, accessed via this.liquid)
- * @returns {any} Tag implementation with parse and render methods
+ * @param {any} _liquidEngine - Unused; engine reached via `this.liquid`
+ * @returns {any}
  */
 export function createIncludeWithTag(_liquidEngine) {
   return {
-    /**
-     * Parses the includeWith tag arguments.
-     * @param {any} tagToken - The tag token from LiquidJS parser
-     */
-    parse(tagToken) {
+    parse(/** @type {any} */ tagToken) {
       log("includeWith parsing tag with args:", tagToken.args);
       const tokenizer = new Tokenizer(
         tagToken.args,
@@ -49,11 +45,7 @@ export function createIncludeWithTag(_liquidEngine) {
       log("includeWith parsed object token:", this.objectToken);
     },
 
-    /**
-     * Renders the included template with spread props.
-     * @param {any} context - The LiquidJS render context
-     */
-    async render(context) {
+    async render(/** @type {any} */ context) {
       group("includeWith rendering");
       log("Evaluating path token...");
       const path = await toPromise(evalToken(this.pathToken, context));
