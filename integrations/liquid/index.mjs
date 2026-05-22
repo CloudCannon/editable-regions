@@ -23,9 +23,10 @@ export { registerPageMap } from "./page-map.mjs";
 let sharedLiquidEngine = null;
 
 /**
- * Creates and configures the shared Liquid engine. Host-agnostic — the host
- * (Eleventy, Jekyll, …) wires up its own filters, shortcodes, and built-in
- * ports after this call via the registration functions below (e.g.
+ * Creates and configures the shared Liquid engine. Bundles `includeWith` —
+ * a convenience tag for spreading an object into `{% include %}` rather
+ * than listing each prop by hand; host-specific filters, shortcodes, and
+ * built-in ports are wired up afterwards by the host (e.g.
  * `registerEleventyBuiltins(engine)`).
  *
  * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)`

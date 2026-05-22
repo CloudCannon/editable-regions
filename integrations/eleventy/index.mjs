@@ -88,7 +88,7 @@ import {
  * @param {EleventyConfig} eleventyConfig
  * @param {PluginOptions} [pluginOptions]
  */
-export default function (eleventyConfig, pluginOptions) {
+export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
   const options = normalizePluginOptions(pluginOptions);
 
   // No supported languages enabled — nothing to register or bundle.
@@ -103,6 +103,7 @@ export default function (eleventyConfig, pluginOptions) {
     // same legacy shape reached via the config closure — last-resort
     // fallback for any 11ty version that doesn't pass it on the event.
     const dirs = directories ?? dir ?? eleventyConfig.dir;
+
     const rawExtensions = liquidOptions.extensions ?? [".liquid", ".html"];
     const normalizedExtensions = rawExtensions.map((ext) =>
       ext.startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
@@ -133,6 +134,48 @@ export default function (eleventyConfig, pluginOptions) {
       outfile: options.output ?? `${dirs.output}/register-components.js`,
     });
   });
+}
+
+/**
+ * Each supported language resolves to an options object (enabled) or `false`
+ * (disabled). Liquid is the default and is enabled implicitly — only
+ * `liquid: false` opts out. Future languages default to off.
+ *
+ * @param {PluginOptions | undefined} pluginOptions
+ * @returns {NormalizedPluginOptions}
+ */
+function normalizePluginOptions(pluginOptions) {
+  const opts = pluginOptions ?? {};
+  return {
+    ...opts,
+    liquid: /** @type {LiquidOptions | false} */ (
+      normalizeLanguageOption(opts.liquid, { defaultOn: true })
+    ),
+    // Future opt-in language follows the same shape, but defaults to off:
+    //
+    // nunjucks: /** @type {NunjucksOptions | false} */ (
+    //   normalizeLanguageOption(opts.nunjucks, { defaultOn: false })
+    // ),
+  };
+}
+
+/**
+ * Resolves a per-language option:
+ *   - `false` → disabled
+ *   - `true` → enabled with default options
+ *   - object → enabled with those options
+ *   - `undefined` → uses `defaultOn` (Liquid defaults on; future langs off)
+ *
+ * @template {object} Options
+ * @param {Options | boolean | undefined} value
+ * @param {{ defaultOn: boolean }} opts
+ * @returns {Options | false}
+ */
+function normalizeLanguageOption(value, { defaultOn }) {
+  if (value === false) return false;
+  if (value === true) return /** @type {Options} */ ({});
+  if (value == null) return defaultOn ? /** @type {Options} */ ({}) : false;
+  return value;
 }
 
 /**
@@ -186,8 +229,8 @@ async function generateLiveEditingSource(
 			});
 
 			// Wire up Eleventy's built-in filters/shortcodes (browser ports) +
-			// RenderPlugin shims. The engine itself is host-agnostic; this is
-			// what makes it behave like Eleventy.
+			// RenderPlugin shims. This is what makes it behave like Eleventy; 
+      // The engine itself is host-agnostic; 
 			registerEleventyBuiltins(liquidEngine);
 
     	window.cc_liquid_files = {};
@@ -238,6 +281,7 @@ async function generateLiveEditingSource(
       normalizedExtensions,
       normalizedIgnoreDirs,
     );
+
     for (const [i, filePath] of allLiquidFiles.entries()) {
       const id = `liquidFile_${i}`;
       source += `import ${id} from "./${filePath}";
@@ -285,13 +329,16 @@ async function generateLiveEditingSource(
 function collectExposedEnv(allowlist, prefix) {
   /** @type {Record<string, string>} */
   const out = {};
+
   if (Array.isArray(allowlist)) {
     for (const name of allowlist) {
       if (typeof name !== "string") continue;
+
       const value = process.env[name];
       if (typeof value === "string") out[name] = value;
     }
   }
+
   if (typeof prefix === "string" && prefix.length > 0) {
     for (const [name, value] of Object.entries(process.env)) {
       if (name.startsWith(prefix) && typeof value === "string") {
@@ -312,12 +359,13 @@ function collectExposedEnv(allowlist, prefix) {
  *   - `env.runMode` is hardcoded to `"serve"` — the dev-mode analogue, so
  *     templates branching on this take the right code path.
  *   - `env.source` is hardcoded to `"cli"`.
- *   - `serverless` is omitted (deprecated upstream).
+ *   - `serverless` is omitted (the plugin was removed from Eleventy core in 3.0).
  *
  * @param {EleventyDirectories} directories
  */
 function buildEleventyData(directories) {
   const version = readEleventyVersion();
+
   return {
     version,
     generator: `Eleventy v${version}`,
@@ -332,39 +380,6 @@ function buildEleventyData(directories) {
       output: directories.output,
     },
   };
-}
-
-/**
- * Compacts 11ty's `eleventy.after` `results` array into the page-map shape
- * the browser runtime consumes: a plain object keyed by normalized input
- * path (leading `./` and `/` stripped, matching `normalizeInputPath` in
- * `liquid/page-map.mjs` and the CC API's path form).
- *
- * Pagination produces multiple entries with the same `inputPath` — we keep
- * the first. The page proxy and `inputPathToUrl` resolve _a_ canonical URL
- * for an input file; paginated cursor state is build-time-only and not
- * modelled in the editor.
- *
- * Returns `{}` if `results` is absent or malformed — callers treat that the
- * same as "the user opted out of the page map".
- *
- * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results
- */
-function buildPageMap(results) {
-  if (!Array.isArray(results)) return {};
-  /** @type {Record<string, { url?: string, outputPath?: string }>} */
-  const map = {};
-  for (const entry of results) {
-    if (!entry || typeof entry.inputPath !== "string") continue;
-    const key = entry.inputPath.replace(/^\.\//, "").replace(/^\/+/, "");
-    if (!key || key in map) continue;
-    map[key] = {
-      url: typeof entry.url === "string" ? entry.url : undefined,
-      outputPath:
-        typeof entry.outputPath === "string" ? entry.outputPath : undefined,
-    };
-  }
-  return map;
 }
 
 /**
@@ -385,6 +400,7 @@ function buildPkg() {
       "utf8",
     );
     const raw = JSON.parse(contents);
+
     const {
       dependencies: _dependencies,
       devDependencies: _devDependencies,
@@ -393,6 +409,7 @@ function buildPkg() {
       scripts: _scripts,
       ...rest
     } = raw;
+
     return rest;
   } catch {
     return null;
@@ -406,12 +423,51 @@ function buildPkg() {
 function readEleventyVersion() {
   try {
     const require = createRequire(import.meta.url);
+
     /** @type {{version: string}} */
     const pkg = require("@11ty/eleventy/package.json");
     return pkg.version;
   } catch {
     return "unknown";
   }
+}
+
+/**
+ * Compacts 11ty's `eleventy.after` `results` array into the page-map shape
+ * the browser runtime consumes: a plain object keyed by normalized input
+ * path (leading `./` and `/` stripped, matching `normalizeInputPath` in
+ * `liquid/page-map.mjs` and the CC API's path form).
+ *
+ * Pagination produces multiple entries with the same `inputPath` — we keep
+ * the first. The page proxy and `inputPathToUrl` resolve _a_ canonical URL
+ * for an input file; paginated cursor state is build-time-only and not
+ * modelled in the editor.
+ *
+ * Returns `{}` if `results` is absent or malformed — callers treat that the
+ * same as "the user opted out of the page map".
+ *
+ * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results
+ */
+function buildPageMap(results) {
+  if (!Array.isArray(results)) return {};
+
+  /** @type {Record<string, { url?: string, outputPath?: string }>} */
+  const map = {};
+
+  for (const entry of results) {
+    if (!entry || typeof entry.inputPath !== "string") continue;
+
+    const key = entry.inputPath.replace(/^\.\//, "").replace(/^\/+/, "");
+    if (!key || key in map) continue;
+
+    map[key] = {
+      url: typeof entry.url === "string" ? entry.url : undefined,
+      outputPath:
+        typeof entry.outputPath === "string" ? entry.outputPath : undefined,
+    };
+  }
+
+  return map;
 }
 
 /**
@@ -435,6 +491,7 @@ async function findAllLiquidFiles(
 
     allFiles.push(...files);
   }
+
   return allFiles;
 }
 
@@ -464,6 +521,7 @@ async function findFilesInDirectory({
         if (ignoreDirectories.includes(entry.name.toLowerCase())) {
           continue;
         }
+
         const subFiles = await findFilesInDirectory({
           directory: fullPath,
           extensions,
@@ -595,15 +653,20 @@ const overrideRegisterFns = {
 function emitOverrideRegistrations(liquidOptions) {
   let out = "";
   let i = 0;
+
   for (const optionKey of /** @type {Array<keyof typeof overrideRegisterFns>} */ (
     Object.keys(overrideRegisterFns)
   )) {
     const registerFn = overrideRegisterFns[optionKey];
-    for (const [name, file] of Object.entries(liquidOptions?.[optionKey] ?? {})) {
+
+    for (const [name, file] of Object.entries(
+      liquidOptions?.[optionKey] ?? {},
+    )) {
       const id = `override_${i++}`;
       out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
     }
   }
+
   return out;
 }
 
@@ -618,51 +681,11 @@ function emitOverrideRegistrations(liquidOptions) {
 function emitComponentRegistrations(liquidOptions) {
   let out = "";
   const entries = Object.entries(liquidOptions?.components ?? {});
+
   for (const [i, [name, file]] of entries.entries()) {
     const id = `component_${i}`;
     out += `\nimport ${id} from "./${file}";\nregisterLiquidComponent(${JSON.stringify(name)}, ${id});\n`;
   }
+
   return out;
-}
-
-/**
- * Each supported language resolves to an options object (enabled) or `false`
- * (disabled). Liquid is the default and is enabled implicitly — only
- * `liquid: false` opts out. Future languages default to off.
- *
- * @param {PluginOptions | undefined} pluginOptions
- * @returns {NormalizedPluginOptions}
- */
-function normalizePluginOptions(pluginOptions) {
-  const opts = pluginOptions ?? {};
-  return {
-    ...opts,
-    liquid: /** @type {LiquidOptions | false} */ (
-      normalizeLanguageOption(opts.liquid, { defaultOn: true })
-    ),
-    // Future opt-in language follows the same shape, but defaults to off:
-    //
-    // nunjucks: /** @type {NunjucksOptions | false} */ (
-    //   normalizeLanguageOption(opts.nunjucks, { defaultOn: false })
-    // ),
-  };
-}
-
-/**
- * Resolves a per-language option:
- *   - `false` → disabled
- *   - `true` → enabled with default options
- *   - object → enabled with those options
- *   - `undefined` → uses `defaultOn` (Liquid defaults on; future langs off)
- *
- * @template {object} Options
- * @param {Options | boolean | undefined} value
- * @param {{ defaultOn: boolean }} opts
- * @returns {Options | false}
- */
-function normalizeLanguageOption(value, { defaultOn }) {
-  if (value === false) return false;
-  if (value === true) return /** @type {Options} */ ({});
-  if (value == null) return defaultOn ? /** @type {Options} */ ({}) : false;
-  return value;
 }

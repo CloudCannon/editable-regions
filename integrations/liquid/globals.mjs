@@ -31,7 +31,8 @@ function stripExtension(/** @type {string} */ p) {
 /**
  * 11ty's default folder-style permalink: every input path becomes a URL with
  * a trailing slash, with `index` files mapping to the parent directory.
- * Used as the fallback when no front matter `permalink` is set.
+ * Last-resort fallback used by `resolveUrl` when neither a live front-matter
+ * `permalink` nor the build-time page map gives us an answer.
  */
 function deriveDefaultUrl(/** @type {string} */ inputPath) {
   const stem = stripExtension(inputPath).replace(/^\.?\//, "/");

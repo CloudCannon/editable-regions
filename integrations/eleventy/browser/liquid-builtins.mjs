@@ -79,14 +79,15 @@ export function slugifyFilter(str, options = {}) {
  */
 export function urlFilter(url, pathPrefix = "") {
   if (!url) return "";
-  const urlString = String(url);
 
+  const urlString = String(url);
   if (isAbsoluteUrl(urlString)) return urlString;
   if (urlString.startsWith("//") && urlString !== "//") return urlString;
-
   if (!pathPrefix) return urlString;
+
   const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
   if (urlString.startsWith("/")) return `${normalizedPrefix}${urlString}`;
+
   return urlString;
 }
 
@@ -104,7 +105,9 @@ function isAbsoluteUrl(/** @type {string} */ url) {
 function toDate(/** @type {any} */ value) {
   if (value instanceof Date)
     return Number.isNaN(value.getTime()) ? null : value;
+
   if (value === null || value === undefined || value === "") return null;
+
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -112,18 +115,21 @@ function toDate(/** @type {any} */ value) {
 /** ISO 8601 / RFC 3339 (e.g. "2026-04-21T00:00:00.000Z"). */
 export function dateToRfc3339(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
+
   return d ? d.toISOString() : "";
 }
 
 /** RFC 822 / RFC 1123 (e.g. "Tue, 21 Apr 2026 00:00:00 GMT"). */
 export function dateToRfc822(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
+
   return d ? d.toUTCString() : "";
 }
 
 /** `YYYY-MM-DD` form, used for `<time datetime>` attributes. */
 export function htmlDateString(/** @type {Date | string | number} */ date) {
   const d = toDate(date);
+
   return d ? d.toISOString().slice(0, 10) : "";
 }
 
@@ -135,24 +141,29 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
   if (!Array.isArray(collection) || collection.length === 0) {
     return toDate(emptyFallback) ?? new Date(0);
   }
+
   let newest = 0;
   for (const item of collection) {
     const d = toDate(item?.date);
     if (d && d.getTime() > newest) newest = d.getTime();
   }
+
   return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
 }
 
 /**
  * Finds the index of `page` in `collection` by matching `inputPath`.
  *
+ * Upstream 11ty also tie-breaks on `outputPath || url` because pagination
+ * produces multiple page objects sharing the same `inputPath` (one per
+ * paginated cursor). The editor doesn't model paginated cursor state — it
+ * tracks source files, and our build-time page map keeps one entry per
+ * `inputPath` — so inputPath alone uniquely identifies a collection item.
+ *
  * `await page.inputPath` covers both shapes we get in practice: our `page`
- * global is a Proxy that returns Promises (await resolves to the string),
- * and a collection item is a plain object whose `inputPath` is already a
- * string (await on a non-thenable is a no-op). Upstream 11ty trusts
- * `page` to be a page object with string properties and compares with an
- * outputPath/url tie-breaker; in the editor each inputPath maps to one
- * canonical item so inputPath-only is enough.
+ * global is a Proxy returning Promises (await resolves to the string), and
+ * a collection item is a plain object whose `inputPath` is already a string
+ * (await on a non-thenable is a no-op).
  *
  * @param {Array<{inputPath?: string}>} collection
  * @param {any} page
@@ -160,16 +171,20 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
  */
 async function indexInCollection(collection, page) {
   if (!Array.isArray(collection)) return -1;
+
   if (!page) {
     warnOnce(
       "collection-item-no-page",
       "Eleventy collection-item filter called without a `page` argument. " +
         "In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
     );
+
     return -1;
   }
+
   const inputPath = await page.inputPath;
   if (typeof inputPath !== "string" || !inputPath) return -1;
+
   return collection.findIndex((item) => item?.inputPath === inputPath);
 }
 
@@ -178,6 +193,7 @@ export async function getCollectionItem(
   /** @type {any} */ page,
 ) {
   const i = await indexInCollection(collection, page);
+
   return i >= 0 ? collection[i] : undefined;
 }
 
@@ -186,6 +202,7 @@ export async function getPreviousCollectionItem(
   /** @type {any} */ page,
 ) {
   const i = await indexInCollection(collection, page);
+
   return i > 0 ? collection[i - 1] : undefined;
 }
 
@@ -194,6 +211,7 @@ export async function getNextCollectionItem(
   /** @type {any} */ page,
 ) {
   const i = await indexInCollection(collection, page);
+
   return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
 }
 
@@ -219,6 +237,7 @@ function passThroughStub(filterName, reason) {
       `Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
         "Returning the input unchanged.",
     );
+
     return value;
   };
 }
@@ -240,8 +259,10 @@ export function inputPathToUrlFilter(inputPath) {
   if (typeof inputPath !== "string" || !inputPath) {
     return typeof inputPath === "string" ? inputPath : "";
   }
+
   const entry = getPageMap()[normalizeInputPath(inputPath)];
   if (entry?.url) return entry.url;
+
   warnOnce(
     `input-path-to-url-miss:${inputPath}`,
     `inputPathToUrl: no build-time URL recorded for "${inputPath}". ` +
@@ -249,6 +270,7 @@ export function inputPathToUrlFilter(inputPath) {
       "map is disabled via `liquid.pageMap: false`. Returning the input " +
       "unchanged.",
   );
+
   return inputPath;
 }
 
@@ -292,10 +314,12 @@ export function registerEleventyBuiltins(liquidEngine) {
     "renderTemplate",
     createRenderTemplateTag(liquidEngine),
   );
+
   liquidEngine.registerTag(
     "renderFile",
     createShortcodeTag("renderFile", createRenderFileShortcode(liquidEngine)),
   );
+
   liquidEngine.registerFilter(
     "renderContent",
     createRenderContentFilter(liquidEngine),

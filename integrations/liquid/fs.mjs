@@ -39,16 +39,6 @@ export const inMemoryFs = {
 		return this.readFileSync(filePath);
 	},
 
-	async exists(/** @type {string} */ filePath) {
-		if (!filePath || typeof filePath !== "string") {
-			log("exists: invalid path", filePath);
-			return false;
-		}
-		const result = this.existsSync(filePath);
-		log("exists:", filePath, "=", result);
-		return result;
-	},
-
 	existsSync(/** @type {string} */ filePath) {
 		if (!filePath || typeof filePath !== "string") {
 			return false;
@@ -57,6 +47,16 @@ export const inMemoryFs = {
 		const exists = fileContents !== null && fileContents !== undefined;
 		log("existsSync:", filePath, "=", exists);
 		return exists;
+	},
+
+	async exists(/** @type {string} */ filePath) {
+		if (!filePath || typeof filePath !== "string") {
+			log("exists: invalid path", filePath);
+			return false;
+		}
+		const result = this.existsSync(filePath);
+		log("exists:", filePath, "=", result);
+		return result;
 	},
 
 	/**
@@ -76,13 +76,13 @@ export const inMemoryFs = {
 		return resolved;
 	},
 
-	// `statAsync`/`statSync` always claim isFile: true — the in-memory store
+	// `statSync`/`statAsync` always claim isFile: true — the in-memory store
 	// is flat, so anything we'd be asked to stat is a file.
-	async statAsync() {
+	statSync() {
 		return { isFile: () => true };
 	},
 
-	statSync() {
+	async statAsync() {
 		return { isFile: () => true };
 	},
 };

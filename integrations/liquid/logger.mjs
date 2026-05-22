@@ -13,10 +13,6 @@ export function setVerbose(enabled) {
 	}
 }
 
-export function isVerbose() {
-	return verboseEnabled;
-}
-
 /** Log only when verbose mode is enabled. */
 export function log(/** @type {any[]} */ ...args) {
 	if (verboseEnabled) {
@@ -40,10 +36,6 @@ export function warnOnce(
 	warn(...args);
 }
 
-export function error(/** @type {any[]} */ ...args) {
-	console.error(...args);
-}
-
 /** Group logs (only in verbose mode). */
 export function group(/** @type {string} */ label) {
 	if (verboseEnabled) {
@@ -54,19 +46,5 @@ export function group(/** @type {string} */ label) {
 export function groupEnd() {
 	if (verboseEnabled) {
 		console.groupEnd();
-	}
-}
-
-/** Start timing an operation (only in verbose mode). */
-export function time(/** @type {string} */ label) {
-	if (verboseEnabled) {
-		console.time(label);
-	}
-}
-
-/** End timing an operation (only in verbose mode). */
-export function timeEnd(/** @type {string} */ label) {
-	if (verboseEnabled) {
-		console.timeEnd(label);
 	}
 }

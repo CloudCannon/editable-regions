@@ -48,14 +48,16 @@ export function createRenderTemplateTag(_liquidEngine) {
         tagToken.args,
         this.liquid.options.operatorsTrie,
       );
-
       this.bodyTokens = [];
+
       const endTagName = `end${this.name}`;
       while (remainTokens.length) {
         const token = remainTokens.shift();
         if (token.name === endTagName) return;
+
         this.bodyTokens.push(token);
       }
+
       throw new Error(`tag ${this.name} not closed`);
     },
 
@@ -73,6 +75,7 @@ export function createRenderTemplateTag(_liquidEngine) {
         );
         return body;
       }
+
       if (templateLang === "html") return body;
       return await this.liquid.parseAndRender(body, data);
     },
@@ -102,9 +105,12 @@ export function createRenderContentFilter(liquidEngine) {
         `render-content:${normalized.templateLang}`,
         unsupportedEngineMessage(normalized.templateLang),
       );
+
       return body;
     }
+
     if (normalized.templateLang === "html") return body;
+
     return await liquidEngine.parseAndRender(body, normalized.data);
   };
 }
@@ -128,6 +134,7 @@ export function createRenderFileShortcode(liquidEngine) {
         "render-file:no-path",
         "renderFile: missing or non-string path argument. Returning empty.",
       );
+
       return "";
     }
 
@@ -136,6 +143,7 @@ export function createRenderFileShortcode(liquidEngine) {
     const normalizedPath = inputPath.replace(/^\.\/+/, "").replace(/^\/+/, "");
 
     await apiLoadedPromise;
+
     const file = CloudCannon?.file?.(normalizedPath);
     if (!file) {
       warnOnce(
@@ -152,6 +160,7 @@ export function createRenderFileShortcode(liquidEngine) {
     // engine.
     let body;
     let frontMatter;
+
     try {
       [body, frontMatter] = await Promise.all([
         file.content.get(),
@@ -163,6 +172,7 @@ export function createRenderFileShortcode(liquidEngine) {
         `renderFile: failed to load "${inputPath}" via the CloudCannon API ` +
           `(${err instanceof Error ? err.message : String(err)}).`,
       );
+
       return "";
     }
 
@@ -172,10 +182,14 @@ export function createRenderFileShortcode(liquidEngine) {
 
     if (engine && !supportedEngines.has(engine)) {
       warnOnce(`render-file:${engine}`, unsupportedEngineMessage(engine));
+
       return body;
     }
+
     if (engine === "html") return body;
+
     const mergedData = { ...(frontMatter ?? {}), ...(data ?? {}) };
+
     return await liquidEngine.parseAndRender(body, mergedData);
   };
 }
@@ -193,6 +207,7 @@ function normalizeRenderArgs([templateLang, data]) {
     data = templateLang;
     templateLang = undefined;
   }
+
   return { templateLang, data: data ?? {} };
 }
 
@@ -206,6 +221,7 @@ function normalizeRenderArgs([templateLang, data]) {
 function inferEngineFromPath(inputPath) {
   const dot = inputPath.lastIndexOf(".");
   if (dot < 0) return undefined;
+
   const ext = inputPath.slice(dot + 1).toLowerCase();
   if (ext === "liquid") return "liquid";
   if (ext === "html" || ext === "htm") return "html";
