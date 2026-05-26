@@ -1,7 +1,29 @@
-<dl>
-	<dt>Plain shortcode <code>year</code></dt>
-	<dd>{% year %}</dd>
+<section class="auto-mirror">
+	<h2>Auto-mirrored shortcode: <code>year</code></h2>
+	<dl>
+		<dt>{% year %}</dt>
+	</dl>
+</section>
 
-	<dt>Paired shortcode <code>highlight {{ highlightColor }}</code></dt>
-	<dd>{% highlight highlightColor %}{{ highlightContent }}{% endhighlight %}</dd>
-</dl>
+<section class="override">
+	<h2>Override shortcode: <code>buildTime</code></h2>
+	<p>Closes over a module-level <code>buildInfo</code> object — not serialisable. Browser override uses <code>new Date().toISOString()</code>; value will differ from the server render (build time vs. re-render time).</p>
+	<dl>
+		<dt>{% buildTime %}</dt>
+	</dl>
+</section>
+
+<section class="auto-mirror">
+	<h2>Auto-mirrored paired shortcode: <code>highlight</code></h2>
+	<dl>
+		<dt>{% highlight highlightColor %}{{ highlightContent }}{% endhighlight %}</dt>
+	</dl>
+</section>
+
+<section class="override">
+	<h2>Override paired shortcode: <code>box</code></h2>
+	<p>Closes over a module-level <code>buildInfo</code> object — not serialisable. Browser override drops the <code>data-stamp</code> attribute.</p>
+	<dl>
+		<dt>{% box %}{{ highlightContent }}{% endbox %}</dt>
+	</dl>
+</section>

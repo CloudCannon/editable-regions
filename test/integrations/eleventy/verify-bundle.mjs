@@ -32,7 +32,12 @@ const expectations = [
   { name: "auto-mirrored shortcode `year`", match: 'registerShortcode("year"' },
   { name: "auto-mirrored paired shortcode `highlight`", match: 'registerPairedShortcode("highlight"' },
 
-  // Browser overrides
+  // Browser overrides — filters, shortcodes, paired shortcodes
+  { name: "override filter `stamp`", match: 'registerFilter("stamp"' },
+  { name: "override shortcode `buildTime`", match: 'registerShortcode("buildTime"' },
+  { name: "override paired shortcode `box`", match: 'registerPairedShortcode("box"' },
+
+  // Browser overrides — tag + component
   { name: "custom tag `echo`", match: 'registerCustomTag("echo"' },
   { name: "component `card`", match: 'registerLiquidComponent("card"' },
 

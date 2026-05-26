@@ -2,23 +2,39 @@ import { EleventyRenderPlugin } from "@11ty/eleventy";
 import editableRegions from "@cloudcannon/editable-regions/eleventy";
 import echoTagFactory from "./overrides/echo-tag.mjs";
 
+// Module-level closure — not serialisable into the browser bundle.
+// Used by the three override-path registrations below.
+const buildInfo = { stamp: `fixture@${new Date().getTime()}` };
+
 export default function (eleventyConfig) {
 	// 11ty 3.x ships RenderPlugin but doesn't auto-load it. Adding here so
 	// `renderTemplate`/`renderFile`/`renderContent` render server-side too.
 	eleventyConfig.addPlugin(EleventyRenderPlugin);
 
-	// Auto-mirror sanity: a portable user-registered filter should appear in
-	// the browser engine without any further configuration.
+	// Filter: auto-mirror (pure function, no closure).
 	eleventyConfig.addFilter("shout", (s) => String(s).toUpperCase());
 
-	// Shortcode auto-mirror.
+	// Filter: browser override (closes over buildInfo — not serialisable).
+	eleventyConfig.addFilter("stamp", (s) => `${s} [${buildInfo.stamp}]`);
+
+	// Shortcode: auto-mirror (pure function).
 	eleventyConfig.addShortcode("year", () => new Date().getFullYear());
 
-	// Paired-shortcode auto-mirror.
+	// Shortcode: browser override (closes over buildInfo — not serialisable).
+	eleventyConfig.addShortcode("buildTime", () => buildInfo.stamp);
+
+	// Paired shortcode: auto-mirror (pure function).
 	eleventyConfig.addPairedShortcode(
 		"highlight",
 		(content, color = "yellow") =>
 			`<mark style="background:${color}">${content}</mark>`,
+	);
+
+	// Paired shortcode: browser override (closes over buildInfo — not serialisable).
+	eleventyConfig.addPairedShortcode(
+		"box",
+		(content) =>
+			`<div class="box" data-stamp="${buildInfo.stamp}">${content}</div>`,
 	);
 
 	// Custom Liquid tag — server-side registration. The browser bundle gets
@@ -59,6 +75,16 @@ export default function (eleventyConfig) {
 			// Replace `_includes/card.liquid` for editor-time renders only.
 			components: {
 				card: "./overrides/card-override.mjs",
+			},
+			// Browser overrides for the three non-portable registrations above.
+			filters: {
+				stamp: "./overrides/stamp-filter.mjs",
+			},
+			shortcodes: {
+				buildTime: "./overrides/buildtime-shortcode.mjs",
+			},
+			pairedShortcodes: {
+				box: "./overrides/box-shortcode.mjs",
 			},
 		},
 		env: ["NODE_ENV"],

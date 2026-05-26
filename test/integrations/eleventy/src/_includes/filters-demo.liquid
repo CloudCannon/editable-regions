@@ -1,8 +1,17 @@
 <section class="auto-mirror">
-	<h2>Auto-mirrored filters</h2>
+	<h2>Auto-mirrored filter: <code>shout</code></h2>
 	<dl>
 		<dt><code>shout("{{ shoutInput }}")</code></dt>
 		<dd>{{ shoutInput | shout }}</dd>
+	</dl>
+</section>
+
+<section class="override">
+	<h2>Override filter: <code>stamp</code></h2>
+	<p>Closes over a module-level <code>buildInfo</code> object — not serialisable. Browser override appends <code>[browser]</code> instead of the build stamp.</p>
+	<dl>
+		<dt><code>stamp("{{ stampInput }}")</code></dt>
+		<dd>{{ stampInput | stamp }}</dd>
 	</dl>
 </section>
 
