@@ -1,6 +1,6 @@
 /**
- * @typedef {import("@cloudcannon/javascript-api").CloudCannonEditorWindow} CloudCannonEditorWindow
- * @typedef {import("@cloudcannon/javascript-api").CloudCannonJavaScriptV1API} CloudCannonJavaScriptV1API
+ * @typedef {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorWindow} CloudCannonVisualEditorWindow
+ * @typedef {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1} CloudCannonVisualEditorAPIV1
  */
 
 /**
@@ -8,7 +8,7 @@
  */
 
 /**
- * @typedef {CloudCannonEditorWindow & {
+ * @typedef {CloudCannonVisualEditorWindow & {
  *   cc_components?: Record<string, ComponentRenderer>;
  *   cc_snippets?: Record<string, ComponentRenderer>;
  * }} ExtendedWindow
@@ -17,7 +17,7 @@
 /** @type {ExtendedWindow} */
 const extendedWindow = /** @type {any} */ (window);
 
-/** @type {CloudCannonJavaScriptV1API} */
+/** @type {CloudCannonVisualEditorAPIV1} */
 let _cloudcannon;
 
 /**

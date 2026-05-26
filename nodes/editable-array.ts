@@ -1,8 +1,8 @@
 import type {
-	CloudCannonJavaScriptV1APICollection,
-	CloudCannonJavaScriptV1APIDataset,
-	CloudCannonJavaScriptV1APIFile,
-} from "@cloudcannon/javascript-api";
+	CloudCannonVisualEditorAPIV1Collection,
+	CloudCannonVisualEditorAPIV1Dataset,
+	CloudCannonVisualEditorAPIV1File,
+} from "@cloudcannon/visual-editor-api";
 import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
 import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
@@ -27,9 +27,9 @@ function isArrayDirection(value: unknown): value is ArrayDirection {
 export default class EditableArray extends Editable {
 	arrayDirection?: ArrayDirection;
 	value:
-		| CloudCannonJavaScriptV1APICollection
-		| CloudCannonJavaScriptV1APIDataset
-		| CloudCannonJavaScriptV1APIFile
+		| CloudCannonVisualEditorAPIV1Collection
+		| CloudCannonVisualEditorAPIV1Dataset
+		| CloudCannonVisualEditorAPIV1File
 		| unknown[]
 		| null
 		| undefined = undefined;
@@ -47,7 +47,7 @@ export default class EditableArray extends Editable {
 		const __base_context = {
 			...this.contextBase,
 		};
-		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
+		let value: unknown[] | CloudCannonVisualEditorAPIV1File[];
 		if (CloudCannon.isAPICollection(this.value)) {
 			value = await this.value.items();
 		} else if (CloudCannon.isAPIDataset(this.value)) {
@@ -169,7 +169,7 @@ export default class EditableArray extends Editable {
 	}
 
 	private async _update(partialSubtree?: ChildNode | null): Promise<void> {
-		let value: unknown[] | CloudCannonJavaScriptV1APIFile[];
+		let value: unknown[] | CloudCannonVisualEditorAPIV1File[];
 		const __base_context = {
 			...this.contextBase,
 		};

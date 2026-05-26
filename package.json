@@ -65,18 +65,18 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.10",
-		"@cloudcannon/javascript-api": "0.0.14",
-		"@sindresorhus/slugify": "^2.2.1",
+		"@biomejs/biome": "2.4.15",
+		"@cloudcannon/visual-editor-api": "0.0.16",
+		"@sindresorhus/slugify": "2.2.1",
 		"@types/js-beautify": "1.14.3",
-		"@types/node": "25.5.0",
-		"@types/react": "19.2.14",
+		"@types/node": "25.9.1",
+		"@types/react": "19.2.15",
 		"@types/react-dom": "19.2.3",
-		"astro": "6.1.2",
+		"astro": "6.3.7",
 		"js-beautify": "1.15.4",
-		"liquidjs": "10.25.5",
 		"slugify": "1.6.9",
-		"typescript": "6.0.2"
+		"liquidjs": "10.27.0",
+		"typescript": "6.0.3"
 	},
 	"dependencies": {
 		"esbuild": "0.28.0"

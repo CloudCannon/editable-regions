@@ -1,8 +1,8 @@
 import type {
-	CloudCannonJavaScriptV1APICollection,
-	CloudCannonJavaScriptV1APIDataset,
-	CloudCannonJavaScriptV1APIFile,
-} from "@cloudcannon/javascript-api";
+	CloudCannonVisualEditorAPIV1Collection,
+	CloudCannonVisualEditorAPIV1Dataset,
+	CloudCannonVisualEditorAPIV1File,
+} from "@cloudcannon/visual-editor-api";
 import { hasEditable } from "../helpers/checks";
 import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.mjs";
 
@@ -22,9 +22,9 @@ export interface EditableContext {
 	fullPath?: string;
 	filePath?: string;
 	isContent?: boolean;
-	file?: CloudCannonJavaScriptV1APIFile;
-	collection?: CloudCannonJavaScriptV1APICollection;
-	dataset?: CloudCannonJavaScriptV1APIDataset;
+	file?: CloudCannonVisualEditorAPIV1File;
+	collection?: CloudCannonVisualEditorAPIV1Collection;
+	dataset?: CloudCannonVisualEditorAPIV1Dataset;
 }
 
 export interface DOMListener {
@@ -35,9 +35,9 @@ export interface DOMListener {
 export interface APIListener {
 	fn: (e: any) => void;
 	obj:
-		| CloudCannonJavaScriptV1APIFile
-		| CloudCannonJavaScriptV1APICollection
-		| CloudCannonJavaScriptV1APIDataset;
+		| CloudCannonVisualEditorAPIV1File
+		| CloudCannonVisualEditorAPIV1Collection
+		| CloudCannonVisualEditorAPIV1Dataset;
 }
 
 export default class Editable {
@@ -598,7 +598,7 @@ export default class Editable {
 			options.source,
 		);
 
-		let filePromise: Promise<CloudCannonJavaScriptV1APIFile | undefined>;
+		let filePromise: Promise<CloudCannonVisualEditorAPIV1File | undefined>;
 		if (!file) {
 			if (collection && source) {
 				const parts = source.split(".");
@@ -734,9 +734,9 @@ export default class Editable {
 	}
 
 	parseSource(source?: string) {
-		let collection: CloudCannonJavaScriptV1APICollection | undefined;
-		let file: CloudCannonJavaScriptV1APIFile | undefined;
-		let dataset: CloudCannonJavaScriptV1APIDataset | undefined;
+		let collection: CloudCannonVisualEditorAPIV1Collection | undefined;
+		let file: CloudCannonVisualEditorAPIV1File | undefined;
+		let dataset: CloudCannonVisualEditorAPIV1Dataset | undefined;
 		let absolute = false;
 		let currentFile = false;
 
