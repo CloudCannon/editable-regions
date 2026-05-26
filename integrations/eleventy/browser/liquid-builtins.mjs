@@ -14,9 +14,9 @@ import { getPageMap, normalizeInputPath } from "../../liquid/page-map.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
 import { builtinFilterNames, builtinShortcodeNames } from "./builtin-names.mjs";
 import {
-  createRenderContentFilter,
-  createRenderFileShortcode,
-  createRenderTemplateTag,
+	createRenderContentFilter,
+	createRenderFileShortcode,
+	createRenderTemplateTag,
 } from "./liquid-render.mjs";
 
 // Re-export so existing browser-bundle consumers keep working. The lists
@@ -31,12 +31,12 @@ export { builtinFilterNames, builtinShortcodeNames };
  * @param {string} [prefix]
  */
 export function logFilter(value, prefix = "") {
-  if (prefix) {
-    console.log(`[${prefix}]`, value);
-  } else {
-    console.log(value);
-  }
-  return value;
+	if (prefix) {
+		console.log(`[${prefix}]`, value);
+	} else {
+		console.log(value);
+	}
+	return value;
 }
 
 /**
@@ -49,7 +49,7 @@ export function logFilter(value, prefix = "") {
  * @param {Record<string, any>} [options]
  */
 export function slugFilter(str, options = {}) {
-  return simovSlugify(`${str}`, { replacement: "-", lower: true, ...options });
+	return simovSlugify(`${str}`, { replacement: "-", lower: true, ...options });
 }
 
 /**
@@ -62,7 +62,7 @@ export function slugFilter(str, options = {}) {
  * @param {Record<string, any>} [options]
  */
 export function slugifyFilter(str, options = {}) {
-  return sindresorhusSlugify(`${str}`, { decamelize: false, ...options });
+	return sindresorhusSlugify(`${str}`, { decamelize: false, ...options });
 }
 
 /**
@@ -78,59 +78,59 @@ export function slugifyFilter(str, options = {}) {
  * @param {string} [pathPrefix]
  */
 export function urlFilter(url, pathPrefix = "") {
-  if (!url) return "";
+	if (!url) return "";
 
-  const urlString = String(url);
-  if (isAbsoluteUrl(urlString)) return urlString;
-  if (urlString.startsWith("//") && urlString !== "//") return urlString;
-  if (!pathPrefix) return urlString;
+	const urlString = String(url);
+	if (isAbsoluteUrl(urlString)) return urlString;
+	if (urlString.startsWith("//") && urlString !== "//") return urlString;
+	if (!pathPrefix) return urlString;
 
-  const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
-  if (urlString.startsWith("/")) return `${normalizedPrefix}${urlString}`;
+	const normalizedPrefix = `/${pathPrefix.replace(/^\/+|\/+$/g, "")}`;
+	if (urlString.startsWith("/")) return `${normalizedPrefix}${urlString}`;
 
-  return urlString;
+	return urlString;
 }
 
 /** Matches Eleventy's `Util/ValidUrl.js`: parseable by `new URL()` → absolute. */
 function isAbsoluteUrl(/** @type {string} */ url) {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
+	try {
+		new URL(url);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** Coerces an input (Date, ISO string, epoch number) into a Date; `null` for unusable input. */
 function toDate(/** @type {any} */ value) {
-  if (value instanceof Date)
-    return Number.isNaN(value.getTime()) ? null : value;
+	if (value instanceof Date)
+		return Number.isNaN(value.getTime()) ? null : value;
 
-  if (value === null || value === undefined || value === "") return null;
+	if (value === null || value === undefined || value === "") return null;
 
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+	const d = new Date(value);
+	return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /** ISO 8601 / RFC 3339 (e.g. "2026-04-21T00:00:00.000Z"). */
 export function dateToRfc3339(/** @type {Date | string | number} */ date) {
-  const d = toDate(date);
+	const d = toDate(date);
 
-  return d ? d.toISOString() : "";
+	return d ? d.toISOString() : "";
 }
 
 /** RFC 822 / RFC 1123 (e.g. "Tue, 21 Apr 2026 00:00:00 GMT"). */
 export function dateToRfc822(/** @type {Date | string | number} */ date) {
-  const d = toDate(date);
+	const d = toDate(date);
 
-  return d ? d.toUTCString() : "";
+	return d ? d.toUTCString() : "";
 }
 
 /** `YYYY-MM-DD` form, used for `<time datetime>` attributes. */
 export function htmlDateString(/** @type {Date | string | number} */ date) {
-  const d = toDate(date);
+	const d = toDate(date);
 
-  return d ? d.toISOString().slice(0, 10) : "";
+	return d ? d.toISOString().slice(0, 10) : "";
 }
 
 /**
@@ -138,17 +138,17 @@ export function htmlDateString(/** @type {Date | string | number} */ date) {
  * @param {Date | string | number} [emptyFallback]
  */
 export function getNewestCollectionItemDate(collection, emptyFallback) {
-  if (!Array.isArray(collection) || collection.length === 0) {
-    return toDate(emptyFallback) ?? new Date(0);
-  }
+	if (!Array.isArray(collection) || collection.length === 0) {
+		return toDate(emptyFallback) ?? new Date(0);
+	}
 
-  let newest = 0;
-  for (const item of collection) {
-    const d = toDate(item?.date);
-    if (d && d.getTime() > newest) newest = d.getTime();
-  }
+	let newest = 0;
+	for (const item of collection) {
+		const d = toDate(item?.date);
+		if (d && d.getTime() > newest) newest = d.getTime();
+	}
 
-  return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
+	return newest ? new Date(newest) : (toDate(emptyFallback) ?? new Date(0));
 }
 
 /**
@@ -170,56 +170,56 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
  * @returns {Promise<number>}
  */
 async function indexInCollection(collection, page) {
-  if (!Array.isArray(collection)) return -1;
+	if (!Array.isArray(collection)) return -1;
 
-  if (!page) {
-    warnOnce(
-      "collection-item-no-page",
-      "Eleventy collection-item filter called without a `page` argument. " +
-        "In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
-    );
+	if (!page) {
+		warnOnce(
+			"collection-item-no-page",
+			"Eleventy collection-item filter called without a `page` argument. " +
+				"In live editing, pass the page/item explicitly (e.g. `collections.posts | getCollectionItem: page`).",
+		);
 
-    return -1;
-  }
+		return -1;
+	}
 
-  const inputPath = await page.inputPath;
-  if (typeof inputPath !== "string" || !inputPath) return -1;
+	const inputPath = await page.inputPath;
+	if (typeof inputPath !== "string" || !inputPath) return -1;
 
-  return collection.findIndex((item) => item?.inputPath === inputPath);
+	return collection.findIndex((item) => item?.inputPath === inputPath);
 }
 
 export async function getCollectionItem(
-  /** @type {any[]} */ collection,
-  /** @type {any} */ page,
+	/** @type {any[]} */ collection,
+	/** @type {any} */ page,
 ) {
-  const i = await indexInCollection(collection, page);
+	const i = await indexInCollection(collection, page);
 
-  return i >= 0 ? collection[i] : undefined;
+	return i >= 0 ? collection[i] : undefined;
 }
 
 export async function getPreviousCollectionItem(
-  /** @type {any[]} */ collection,
-  /** @type {any} */ page,
+	/** @type {any[]} */ collection,
+	/** @type {any} */ page,
 ) {
-  const i = await indexInCollection(collection, page);
+	const i = await indexInCollection(collection, page);
 
-  return i > 0 ? collection[i - 1] : undefined;
+	return i > 0 ? collection[i - 1] : undefined;
 }
 
 export async function getNextCollectionItem(
-  /** @type {any[]} */ collection,
-  /** @type {any} */ page,
+	/** @type {any[]} */ collection,
+	/** @type {any} */ page,
 ) {
-  const i = await indexInCollection(collection, page);
+	const i = await indexInCollection(collection, page);
 
-  return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
+	return i >= 0 && i < collection.length - 1 ? collection[i + 1] : undefined;
 }
 
 export async function getCollectionItemIndex(
-  /** @type {any[]} */ collection,
-  /** @type {any} */ page,
+	/** @type {any[]} */ collection,
+	/** @type {any} */ page,
 ) {
-  return indexInCollection(collection, page);
+	return indexInCollection(collection, page);
 }
 
 /**
@@ -231,15 +231,15 @@ export async function getCollectionItemIndex(
  * @param {string} reason - Human-readable explanation of the limitation
  */
 function passThroughStub(filterName, reason) {
-  return (/** @type {any} */ value) => {
-    warnOnce(
-      `filter-stub:${filterName}`,
-      `Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
-        "Returning the input unchanged.",
-    );
+	return (/** @type {any} */ value) => {
+		warnOnce(
+			`filter-stub:${filterName}`,
+			`Eleventy filter "${filterName}" is not supported in live editing (${reason}). ` +
+				"Returning the input unchanged.",
+		);
 
-    return value;
-  };
+		return value;
+	};
 }
 
 /**
@@ -256,47 +256,47 @@ function passThroughStub(filterName, reason) {
  * @param {unknown} inputPath
  */
 export function inputPathToUrlFilter(inputPath) {
-  if (typeof inputPath !== "string" || !inputPath) {
-    return typeof inputPath === "string" ? inputPath : "";
-  }
+	if (typeof inputPath !== "string" || !inputPath) {
+		return typeof inputPath === "string" ? inputPath : "";
+	}
 
-  const entry = getPageMap()[normalizeInputPath(inputPath)];
-  if (entry?.url) return entry.url;
+	const entry = getPageMap()[normalizeInputPath(inputPath)];
+	if (entry?.url) return entry.url;
 
-  warnOnce(
-    `input-path-to-url-miss:${inputPath}`,
-    `inputPathToUrl: no build-time URL recorded for "${inputPath}". ` +
-      "This usually means the file wasn't in the last build, or the page " +
-      "map is disabled via `liquid.pageMap: false`. Returning the input " +
-      "unchanged.",
-  );
+	warnOnce(
+		`input-path-to-url-miss:${inputPath}`,
+		`inputPathToUrl: no build-time URL recorded for "${inputPath}". ` +
+			"This usually means the file wasn't in the last build, or the page " +
+			"map is disabled via `liquid.pageMap: false`. Returning the input " +
+			"unchanged.",
+	);
 
-  return inputPath;
+	return inputPath;
 }
 
 /** @type {Record<string, any>} */
 export const eleventyFilters = {
-  slug: slugFilter,
-  slugify: slugifyFilter,
-  log: logFilter,
-  url: urlFilter,
-  dateToRfc3339,
-  dateToRfc822,
-  htmlDateString,
-  getNewestCollectionItemDate,
-  getCollectionItem,
-  getPreviousCollectionItem,
-  getNextCollectionItem,
-  getCollectionItemIndex,
-  inputPathToUrl: inputPathToUrlFilter,
-  htmlBaseUrl: passThroughStub(
-    "htmlBaseUrl",
-    "it requires Eleventy's pathPrefix/HTML base config",
-  ),
-  serverlessUrl: passThroughStub(
-    "serverlessUrl",
-    "serverless routing is a build-time concept",
-  ),
+	slug: slugFilter,
+	slugify: slugifyFilter,
+	log: logFilter,
+	url: urlFilter,
+	dateToRfc3339,
+	dateToRfc822,
+	htmlDateString,
+	getNewestCollectionItemDate,
+	getCollectionItem,
+	getPreviousCollectionItem,
+	getNextCollectionItem,
+	getCollectionItemIndex,
+	inputPathToUrl: inputPathToUrlFilter,
+	htmlBaseUrl: passThroughStub(
+		"htmlBaseUrl",
+		"it requires Eleventy's pathPrefix/HTML base config",
+	),
+	serverlessUrl: passThroughStub(
+		"serverlessUrl",
+		"serverless routing is a build-time concept",
+	),
 };
 
 /**
@@ -306,22 +306,22 @@ export const eleventyFilters = {
  * @param {import("liquidjs").Liquid} liquidEngine
  */
 export function registerEleventyBuiltins(liquidEngine) {
-  for (const [name, fn] of Object.entries(eleventyFilters)) {
-    liquidEngine.registerFilter(name, fn);
-  }
+	for (const [name, fn] of Object.entries(eleventyFilters)) {
+		liquidEngine.registerFilter(name, fn);
+	}
 
-  liquidEngine.registerTag(
-    "renderTemplate",
-    createRenderTemplateTag(liquidEngine),
-  );
+	liquidEngine.registerTag(
+		"renderTemplate",
+		createRenderTemplateTag(liquidEngine),
+	);
 
-  liquidEngine.registerTag(
-    "renderFile",
-    createShortcodeTag("renderFile", createRenderFileShortcode(liquidEngine)),
-  );
+	liquidEngine.registerTag(
+		"renderFile",
+		createShortcodeTag("renderFile", createRenderFileShortcode(liquidEngine)),
+	);
 
-  liquidEngine.registerFilter(
-    "renderContent",
-    createRenderContentFilter(liquidEngine),
-  );
+	liquidEngine.registerFilter(
+		"renderContent",
+		createRenderContentFilter(liquidEngine),
+	);
 }

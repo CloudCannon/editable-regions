@@ -24,12 +24,12 @@ let pageMap = {};
  * @param {Record<string, PageMapEntry> | null | undefined} map
  */
 export function registerPageMap(map) {
-  pageMap = map ?? {};
+	pageMap = map ?? {};
 }
 
 /** Returns an empty object before `registerPageMap` runs, so lookups are safe to do unguarded. */
 export function getPageMap() {
-  return pageMap;
+	return pageMap;
 }
 
 /**
@@ -41,6 +41,6 @@ export function getPageMap() {
  * @param {string | null | undefined} p
  */
 export function normalizeInputPath(p) {
-  if (typeof p !== "string" || !p) return "";
-  return p.replace(/^\.\//, "").replace(/^\/+/, "");
+	if (typeof p !== "string" || !p) return "";
+	return p.replace(/^\.\//, "").replace(/^\/+/, "");
 }

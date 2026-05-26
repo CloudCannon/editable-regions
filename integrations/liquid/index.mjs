@@ -1,18 +1,21 @@
 import { Liquid } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
-import { buildCollectionsData, buildPageData, setEleventyData } from "./globals.mjs";
+import {
+	buildCollectionsData,
+	buildPageData,
+	setEleventyData,
+} from "./globals.mjs";
 import { createIncludeWithTag } from "./include-with-tag.mjs";
 import { group, groupEnd, log, warnOnce } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
-
-// Re-export logger utilities for external use
-export { group, groupEnd, log, setVerbose } from "./logger.mjs";
 
 // Re-export so browser-bundle consumers can keep importing from the package
 // root — the definition lives in `./include-with-tag.mjs` so the Node-side
 // Eleventy plugin can import it without pulling in browser-runtime modules.
 export { createIncludeWithTag } from "./include-with-tag.mjs";
+// Re-export logger utilities for external use
+export { group, groupEnd, log, setVerbose } from "./logger.mjs";
 
 // `registerPageMap` is part of the runtime's public surface; the storage
 // lives in `./page-map.mjs` so non-engine consumers (`globals.mjs`,
@@ -32,29 +35,29 @@ let sharedLiquidEngine = null;
  * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)`
  */
 export function createSharedLiquidEngine(options) {
-  log("Creating shared Liquid engine");
+	log("Creating shared Liquid engine");
 
-  sharedLiquidEngine = new Liquid({
-    fs: inMemoryFs,
-    globals: {
-      ENV_CLIENT: true,
-    },
-    ...options,
-  });
-  log("Liquid engine instantiated");
+	sharedLiquidEngine = new Liquid({
+		fs: inMemoryFs,
+		globals: {
+			ENV_CLIENT: true,
+		},
+		...options,
+	});
+	log("Liquid engine instantiated");
 
-  log(
-    "Available files in window.cc_liquid_files:",
-    Object.keys(window.cc_liquid_files || {}),
-  );
+	log(
+		"Available files in window.cc_liquid_files:",
+		Object.keys(window.cc_liquid_files || {}),
+	);
 
-  sharedLiquidEngine.registerTag(
-    "includeWith",
-    createIncludeWithTag(sharedLiquidEngine),
-  );
-  log("includeWith tag registered");
+	sharedLiquidEngine.registerTag(
+		"includeWith",
+		createIncludeWithTag(sharedLiquidEngine),
+	);
+	log("includeWith tag registered");
 
-  return sharedLiquidEngine;
+	return sharedLiquidEngine;
 }
 
 /**
@@ -68,18 +71,18 @@ export function createSharedLiquidEngine(options) {
  * @param {string} contents
  */
 export function registerLiquidComponent(key, contents) {
-  log("Registering component:", key);
-  log("Component contents preview:", contents?.substring?.(0, 200) || contents);
+	log("Registering component:", key);
+	log("Component contents preview:", contents?.substring?.(0, 200) || contents);
 
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      `sharedLiquidEngine not defined when registering component ${key}`,
-    );
-  }
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			`sharedLiquidEngine not defined when registering component ${key}`,
+		);
+	}
 
-  window.cc_components = window.cc_components || {};
-  window.cc_components[key] = createComponentRenderer(key, contents);
-  log(`Component registered, ${key}`);
+	window.cc_components = window.cc_components || {};
+	window.cc_components[key] = createComponentRenderer(key, contents);
+	log(`Component registered, ${key}`);
 }
 
 /**
@@ -97,29 +100,29 @@ export function registerLiquidComponent(key, contents) {
  * @returns {void}
  */
 export function initComponentProxy() {
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      "sharedLiquidEngine not defined when initializing component proxy",
-    );
-  }
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when initializing component proxy",
+		);
+	}
 
-  const target = window.cc_components || {};
+	const target = window.cc_components || {};
 
-  window.cc_components = new Proxy(target, {
-    get(registered, key, receiver) {
-      // Explicit registrations take precedence over include resolution
-      if (Reflect.has(registered, key)) {
-        return Reflect.get(registered, key, receiver);
-      }
-      // Resolve via Liquid's include — the primary path for auto-discovered components
-      if (typeof key === "string") {
-        return createComponentRenderer(key, `{% include "${key}" %}`);
-      }
-      return undefined;
-    },
-  });
+	window.cc_components = new Proxy(target, {
+		get(registered, key, receiver) {
+			// Explicit registrations take precedence over include resolution
+			if (Reflect.has(registered, key)) {
+				return Reflect.get(registered, key, receiver);
+			}
+			// Resolve via Liquid's include — the primary path for auto-discovered components
+			if (typeof key === "string") {
+				return createComponentRenderer(key, `{% include "${key}" %}`);
+			}
+			return undefined;
+		},
+	});
 
-  log("Component proxy initialized");
+	log("Component proxy initialized");
 }
 
 /**
@@ -130,16 +133,16 @@ export function initComponentProxy() {
  * @param {{version: string, generator: string, env: {runMode: string, source: string}, directories: Record<string, string>}} data
  */
 export function registerEleventyData(data) {
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      "sharedLiquidEngine not defined when registering eleventy data",
-    );
-  }
-  /** @type {any} */ (sharedLiquidEngine).options.globals.eleventy = data;
-  // Also surface to the `globals` module so the page proxy can derive
-  // `outputPath` without reaching into the engine.
-  setEleventyData(data);
-  log("Registered eleventy data, version:", data?.version);
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering eleventy data",
+		);
+	}
+	/** @type {any} */ (sharedLiquidEngine).options.globals.eleventy = data;
+	// Also surface to the `globals` module so the page proxy can derive
+	// `outputPath` without reaching into the engine.
+	setEleventyData(data);
+	log("Registered eleventy data, version:", data?.version);
 }
 
 /**
@@ -151,13 +154,13 @@ export function registerEleventyData(data) {
  * @param {Record<string, string>} env
  */
 export function registerProcessEnv(env) {
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      "sharedLiquidEngine not defined when registering process.env",
-    );
-  }
-  /** @type {any} */ (sharedLiquidEngine).options.globals.process = { env };
-  log("Registered", Object.keys(env).length, "process.env vars");
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering process.env",
+		);
+	}
+	/** @type {any} */ (sharedLiquidEngine).options.globals.process = { env };
+	log("Registered", Object.keys(env).length, "process.env vars");
 }
 
 /**
@@ -168,11 +171,11 @@ export function registerProcessEnv(env) {
  * `undefined` and warns once (see `wrapPkgWithStripWarning` below).
  */
 const STRIPPED_PKG_FIELDS = [
-  "dependencies",
-  "devDependencies",
-  "peerDependencies",
-  "optionalDependencies",
-  "scripts",
+	"dependencies",
+	"devDependencies",
+	"peerDependencies",
+	"optionalDependencies",
+	"scripts",
 ];
 
 /**
@@ -184,22 +187,22 @@ const STRIPPED_PKG_FIELDS = [
  * @param {Record<string, any>} pkg
  */
 function wrapPkgWithStripWarning(pkg) {
-  const stripped = new Set(STRIPPED_PKG_FIELDS);
-  return new Proxy(pkg, {
-    get(target, key, receiver) {
-      if (typeof key === "string" && stripped.has(key) && !(key in target)) {
-        warnOnce(
-          `pkg-stripped:${key}`,
-          `pkg.${key} isn't available in live editing. The editable-regions ` +
-            `Eleventy plugin strips ${STRIPPED_PKG_FIELDS.join(", ")} from ` +
-            "the embedded package.json to keep the bundle small. If your " +
-            "template needs this field, open an issue.",
-        );
-        return undefined;
-      }
-      return Reflect.get(target, key, receiver);
-    },
-  });
+	const stripped = new Set(STRIPPED_PKG_FIELDS);
+	return new Proxy(pkg, {
+		get(target, key, receiver) {
+			if (typeof key === "string" && stripped.has(key) && !(key in target)) {
+				warnOnce(
+					`pkg-stripped:${key}`,
+					`pkg.${key} isn't available in live editing. The editable-regions ` +
+						`Eleventy plugin strips ${STRIPPED_PKG_FIELDS.join(", ")} from ` +
+						"the embedded package.json to keep the bundle small. If your " +
+						"template needs this field, open an issue.",
+				);
+				return undefined;
+			}
+			return Reflect.get(target, key, receiver);
+		},
+	});
 }
 
 /**
@@ -211,12 +214,12 @@ function wrapPkgWithStripWarning(pkg) {
  * @param {Record<string, any>} pkg
  */
 export function registerPkg(pkg) {
-  if (!sharedLiquidEngine) {
-    throw new Error("sharedLiquidEngine not defined when registering pkg");
-  }
-  /** @type {any} */ (sharedLiquidEngine).options.globals.pkg =
-    wrapPkgWithStripWarning(pkg ?? {});
-  log("Registered pkg, fields:", Object.keys(pkg ?? {}).length);
+	if (!sharedLiquidEngine) {
+		throw new Error("sharedLiquidEngine not defined when registering pkg");
+	}
+	/** @type {any} */ (sharedLiquidEngine).options.globals.pkg =
+		wrapPkgWithStripWarning(pkg ?? {});
+	log("Registered pkg, fields:", Object.keys(pkg ?? {}).length);
 }
 
 /**
@@ -229,13 +232,13 @@ export function registerPkg(pkg) {
  * @param {any} fn
  */
 export function registerFilter(name, fn) {
-  log("Registering filter:", name);
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      `sharedLiquidEngine not defined when registering filter ${name}`,
-    );
-  }
-  sharedLiquidEngine.registerFilter(name, fn);
+	log("Registering filter:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			`sharedLiquidEngine not defined when registering filter ${name}`,
+		);
+	}
+	sharedLiquidEngine.registerFilter(name, fn);
 }
 
 /**
@@ -247,13 +250,13 @@ export function registerFilter(name, fn) {
  * @param {any} fn - (arg1, arg2, ...) => string
  */
 export function registerShortcode(name, fn) {
-  log("Registering shortcode:", name);
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      `sharedLiquidEngine not defined when registering shortcode ${name}`,
-    );
-  }
-  sharedLiquidEngine.registerTag(name, createShortcodeTag(name, fn));
+	log("Registering shortcode:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			`sharedLiquidEngine not defined when registering shortcode ${name}`,
+		);
+	}
+	sharedLiquidEngine.registerTag(name, createShortcodeTag(name, fn));
 }
 
 /**
@@ -266,13 +269,13 @@ export function registerShortcode(name, fn) {
  * @param {any} fn - (content, arg1, ...) => string
  */
 export function registerPairedShortcode(name, fn) {
-  log("Registering paired shortcode:", name);
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      `sharedLiquidEngine not defined when registering paired shortcode ${name}`,
-    );
-  }
-  sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
+	log("Registering paired shortcode:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			`sharedLiquidEngine not defined when registering paired shortcode ${name}`,
+		);
+	}
+	sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
 }
 
 /**
@@ -286,13 +289,13 @@ export function registerPairedShortcode(name, fn) {
  * @param {any} factory - (liquidEngine) => { parse(), render() }
  */
 export function registerCustomTag(name, factory) {
-  log("Registering custom tag:", name);
-  if (!sharedLiquidEngine) {
-    throw new Error(
-      `sharedLiquidEngine not defined when registering custom tag ${name}`,
-    );
-  }
-  sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
+	log("Registering custom tag:", name);
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			`sharedLiquidEngine not defined when registering custom tag ${name}`,
+		);
+	}
+	sharedLiquidEngine.registerTag(name, factory(sharedLiquidEngine));
 }
 
 /**
@@ -305,37 +308,41 @@ export function registerCustomTag(name, factory) {
  * @returns {(props: Record<string, any>) => Promise<HTMLElement>}
  */
 function createComponentRenderer(name, templateSource) {
-  return async (props) => {
-    if (!sharedLiquidEngine) {
-      throw new Error(
-        `sharedLiquidEngine not defined when rendering component ${name}`,
-      );
-    }
-    group(`Rendering component: ${name}`);
-    log("Props:", props);
+	return async (props) => {
+		if (!sharedLiquidEngine) {
+			throw new Error(
+				`sharedLiquidEngine not defined when rendering component ${name}`,
+			);
+		}
+		group(`Rendering component: ${name}`);
+		log("Props:", props);
 
-    log("Parsing and rendering template...");
-    let htmlString;
-    try {
-      htmlString = await sharedLiquidEngine.parseAndRender(
-        templateSource,
-        // LiquidJS awaits top-level Promise scope values but not Promises
-        // returned from property-access chains. `page` and `collections` are
-        // spread last so component props cannot shadow them, mirroring 11ty.
-        { ...props, page: buildPageData(), collections: buildCollectionsData() },
-      );
-    } catch (err) {
-      log("Error during render:", err);
-      groupEnd();
-      throw enhanceLiquidError(err, name);
-    }
-    log(
-      "Rendered HTML preview:",
-      htmlString?.substring?.(0, 200) || htmlString,
-    );
-    const rootEl = document.createElement("div");
-    rootEl.innerHTML = htmlString;
-    groupEnd();
-    return rootEl;
-  };
+		log("Parsing and rendering template...");
+		let htmlString;
+		try {
+			htmlString = await sharedLiquidEngine.parseAndRender(
+				templateSource,
+				// LiquidJS awaits top-level Promise scope values but not Promises
+				// returned from property-access chains. `page` and `collections` are
+				// spread last so component props cannot shadow them, mirroring 11ty.
+				{
+					...props,
+					page: buildPageData(),
+					collections: buildCollectionsData(),
+				},
+			);
+		} catch (err) {
+			log("Error during render:", err);
+			groupEnd();
+			throw enhanceLiquidError(err, name);
+		}
+		log(
+			"Rendered HTML preview:",
+			htmlString?.substring?.(0, 200) || htmlString,
+		);
+		const rootEl = document.createElement("div");
+		rootEl.innerHTML = htmlString;
+		groupEnd();
+		return rootEl;
+	};
 }

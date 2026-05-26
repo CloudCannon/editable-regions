@@ -18,12 +18,12 @@ let eleventyData = null;
 
 /** @param {{ directories?: { output?: string } } | null} data */
 export function setEleventyData(data) {
-  eleventyData = data;
+	eleventyData = data;
 }
 
 /** Strips the file extension from a path. */
 function stripExtension(/** @type {string} */ p) {
-  return p.replace(/\.[^./]+$/, "");
+	return p.replace(/\.[^./]+$/, "");
 }
 
 /**
@@ -33,10 +33,10 @@ function stripExtension(/** @type {string} */ p) {
  * `permalink` nor the build-time page map gives us an answer.
  */
 function deriveDefaultUrl(/** @type {string} */ inputPath) {
-  const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
-  const withLeadingSlash = stem.startsWith("/") ? stem : `/${stem}`;
-  const withoutIndex = withLeadingSlash.replace(/\/index$/, "/");
-  return withoutIndex.endsWith("/") ? withoutIndex : `${withoutIndex}/`;
+	const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
+	const withLeadingSlash = stem.startsWith("/") ? stem : `/${stem}`;
+	const withoutIndex = withLeadingSlash.replace(/\/index$/, "/");
+	return withoutIndex.endsWith("/") ? withoutIndex : `${withoutIndex}/`;
 }
 
 /**
@@ -50,14 +50,14 @@ function deriveDefaultUrl(/** @type {string} */ inputPath) {
  *   3. 11ty's folder-style default — last-resort derivation.
  */
 function resolveUrl(
-  /** @type {Record<string, any> | null | undefined} */ data,
-  /** @type {string} */ inputPath,
+	/** @type {Record<string, any> | null | undefined} */ data,
+	/** @type {string} */ inputPath,
 ) {
-  const permalink = data?.permalink;
-  if (typeof permalink === "string") return permalink;
-  const mapped = getPageMap()[normalizeInputPath(inputPath)];
-  if (mapped?.url) return mapped.url;
-  return deriveDefaultUrl(inputPath);
+	const permalink = data?.permalink;
+	if (typeof permalink === "string") return permalink;
+	const mapped = getPageMap()[normalizeInputPath(inputPath)];
+	if (mapped?.url) return mapped.url;
+	return deriveDefaultUrl(inputPath);
 }
 
 /**
@@ -65,30 +65,30 @@ function resolveUrl(
  * Returns `undefined` if we can't compose a path from available data.
  */
 function resolveOutputPath(
-  /** @type {Record<string, any> | null | undefined} */ data,
-  /** @type {string} */ inputPath,
+	/** @type {Record<string, any> | null | undefined} */ data,
+	/** @type {string} */ inputPath,
 ) {
-  const outputDir = eleventyData?.directories?.output;
-  const permalink = data?.permalink;
-  if (typeof permalink === "string") {
-    return outputDir ? joinOutputPath(outputDir, permalink) : undefined;
-  }
-  const mapped = getPageMap()[normalizeInputPath(inputPath)];
-  if (mapped?.outputPath) return mapped.outputPath;
-  if (!outputDir) return undefined;
-  return joinOutputPath(outputDir, deriveDefaultUrl(inputPath));
+	const outputDir = eleventyData?.directories?.output;
+	const permalink = data?.permalink;
+	if (typeof permalink === "string") {
+		return outputDir ? joinOutputPath(outputDir, permalink) : undefined;
+	}
+	const mapped = getPageMap()[normalizeInputPath(inputPath)];
+	if (mapped?.outputPath) return mapped.outputPath;
+	if (!outputDir) return undefined;
+	return joinOutputPath(outputDir, deriveDefaultUrl(inputPath));
 }
 
 /** Basename minus extension. Matches 11ty's `fileSlug` derivation. */
 function deriveFileSlug(/** @type {string} */ inputPath) {
-  const base = inputPath.split("/").pop() ?? "";
-  return stripExtension(base);
+	const base = inputPath.split("/").pop() ?? "";
+	return stripExtension(base);
 }
 
 /** Full path minus extension, with a leading slash. */
 function deriveFilePathStem(/** @type {string} */ inputPath) {
-  const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
-  return stem.startsWith("/") ? stem : `/${stem}`;
+	const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
+	return stem.startsWith("/") ? stem : `/${stem}`;
 }
 
 /**
@@ -96,9 +96,9 @@ function deriveFilePathStem(/** @type {string} */ inputPath) {
  * for absent or unparseable input.
  */
 function toDate(/** @type {unknown} */ raw) {
-  if (!raw) return undefined;
-  const d = new Date(/** @type {any} */ (raw));
-  return Number.isNaN(d.getTime()) ? undefined : d;
+	if (!raw) return undefined;
+	const d = new Date(/** @type {any} */ (raw));
+	return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /**
@@ -107,12 +107,12 @@ function toDate(/** @type {unknown} */ raw) {
  * as-is.
  */
 function joinOutputPath(
-  /** @type {string} */ outputDir,
-  /** @type {string} */ url,
+	/** @type {string} */ outputDir,
+	/** @type {string} */ url,
 ) {
-  const dir = outputDir.replace(/\/+$/, "");
-  const tail = url.endsWith("/") ? `${url}index.html` : url;
-  return `${dir}${tail}`;
+	const dir = outputDir.replace(/\/+$/, "");
+	const tail = url.endsWith("/") ? `${url}index.html` : url;
+	return `${dir}${tail}`;
 }
 
 /**
@@ -122,16 +122,16 @@ function joinOutputPath(
  * @param {import("@cloudcannon/javascript-api").CloudCannonJavaScriptV1APIFile} file
  */
 async function materialiseFile(file) {
-  const data = (await file.data.get()) ?? {};
-  return {
-    url: resolveUrl(data, file.path),
-    outputPath: resolveOutputPath(data, file.path),
-    inputPath: file.path,
-    fileSlug: deriveFileSlug(file.path),
-    filePathStem: deriveFilePathStem(file.path),
-    date: toDate(/** @type {any} */ (data).date),
-    data,
-  };
+	const data = (await file.data.get()) ?? {};
+	return {
+		url: resolveUrl(data, file.path),
+		outputPath: resolveOutputPath(data, file.path),
+		inputPath: file.path,
+		fileSlug: deriveFileSlug(file.path),
+		filePathStem: deriveFilePathStem(file.path),
+		date: toDate(/** @type {any} */ (data).date),
+		data,
+	};
 }
 
 /**
@@ -147,20 +147,20 @@ async function materialiseFile(file) {
  * @returns {Promise<Record<string, any>>}
  */
 export async function buildPageData() {
-  await apiLoadedPromise;
-  const file = CloudCannon?.currentFile?.();
-  if (!file) return {};
-  const inputPath = file.path;
-  const data = (await file.data.get()) ?? {};
-  return {
-    inputPath,
-    fileSlug: deriveFileSlug(inputPath),
-    filePathStem: deriveFilePathStem(inputPath),
-    outputFileExtension: "html",
-    url: resolveUrl(data, inputPath),
-    outputPath: resolveOutputPath(data, inputPath),
-    date: toDate(/** @type {any} */ (data).date),
-  };
+	await apiLoadedPromise;
+	const file = CloudCannon?.currentFile?.();
+	if (!file) return {};
+	const inputPath = file.path;
+	const data = (await file.data.get()) ?? {};
+	return {
+		inputPath,
+		fileSlug: deriveFileSlug(inputPath),
+		filePathStem: deriveFilePathStem(inputPath),
+		outputFileExtension: "html",
+		url: resolveUrl(data, inputPath),
+		outputPath: resolveOutputPath(data, inputPath),
+		date: toDate(/** @type {any} */ (data).date),
+	};
 }
 
 /**
@@ -196,46 +196,46 @@ let collectionsSubscriptions = [];
  * @returns {Promise<Record<string, Array<any>>>}
  */
 export function buildCollectionsData() {
-  if (!collectionsCache) {
-    collectionsCache = (async () => {
-      await apiLoadedPromise;
-      const allCollections = await CloudCannon?.collections?.();
-      if (!allCollections?.length) return {};
+	if (!collectionsCache) {
+		collectionsCache = (async () => {
+			await apiLoadedPromise;
+			const allCollections = await CloudCannon?.collections?.();
+			if (!allCollections?.length) return {};
 
-      for (const collection of allCollections) {
-        const handler = () => resetCollectionsCache();
-        collection.addEventListener("change", handler);
-        collection.addEventListener("delete", handler);
-        collectionsSubscriptions.push(
-          { target: collection, event: "change", handler },
-          { target: collection, event: "delete", handler },
-        );
-      }
+			for (const collection of allCollections) {
+				const handler = () => resetCollectionsCache();
+				collection.addEventListener("change", handler);
+				collection.addEventListener("delete", handler);
+				collectionsSubscriptions.push(
+					{ target: collection, event: "change", handler },
+					{ target: collection, event: "delete", handler },
+				);
+			}
 
-      const entries = await Promise.all(
-        allCollections.map(async (collection) => {
-          const key = collection.collectionKey;
-          let files;
-          try {
-            files = await collection.items();
-          } catch {
-            return /** @type {[string, any[]]} */ ([key, []]);
-          }
-          const items = await Promise.all(files.map(materialiseFile));
-          return /** @type {[string, any[]]} */ ([key, items]);
-        }),
-      );
-      return Object.fromEntries(entries);
-    })();
-  }
-  return collectionsCache;
+			const entries = await Promise.all(
+				allCollections.map(async (collection) => {
+					const key = collection.collectionKey;
+					let files;
+					try {
+						files = await collection.items();
+					} catch {
+						return /** @type {[string, any[]]} */ ([key, []]);
+					}
+					const items = await Promise.all(files.map(materialiseFile));
+					return /** @type {[string, any[]]} */ ([key, items]);
+				}),
+			);
+			return Object.fromEntries(entries);
+		})();
+	}
+	return collectionsCache;
 }
 
 /** Clears the collections cache and tears down its invalidation listeners. */
 export function resetCollectionsCache() {
-  for (const { target, event, handler } of collectionsSubscriptions) {
-    target.removeEventListener(event, handler);
-  }
-  collectionsSubscriptions = [];
-  collectionsCache = null;
+	for (const { target, event, handler } of collectionsSubscriptions) {
+		target.removeEventListener(event, handler);
+	}
+	collectionsSubscriptions = [];
+	collectionsCache = null;
 }
