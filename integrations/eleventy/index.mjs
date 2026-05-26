@@ -419,14 +419,29 @@ function buildPkg() {
 /**
  * Reads the installed Eleventy version from its `package.json`. Returns
  * `"unknown"` if Eleventy can't be resolved so the bundle still builds.
+ *
+ * @11ty/eleventy doesn't export `./package.json` in its `exports` field, so
+ * `require("@11ty/eleventy/package.json")` throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+ * Instead we resolve the main entry (`.` is always exported), then walk up the
+ * directory tree until we find the package root.
  */
 function readEleventyVersion() {
   try {
     const require = createRequire(import.meta.url);
-
-    /** @type {{version: string}} */
-    const pkg = require("@11ty/eleventy/package.json");
-    return pkg.version;
+    const entryPath = require.resolve("@11ty/eleventy");
+    let dir = path.dirname(entryPath);
+    while (true) {
+      const pkgPath = path.join(dir, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        /** @type {{name?: string, version?: string}} */
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        if (pkg.name === "@11ty/eleventy" && pkg.version) return pkg.version;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return "unknown";
   } catch {
     return "unknown";
   }
