@@ -1,7 +1,7 @@
 import { Liquid } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
-import { collectionsProxy, pageProxy, setEleventyData } from "./globals.mjs";
+import { buildCollectionsData, buildPageData, setEleventyData } from "./globals.mjs";
 import { createIncludeWithTag } from "./include-with-tag.mjs";
 import { group, groupEnd, log, warnOnce } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
@@ -38,8 +38,6 @@ export function createSharedLiquidEngine(options) {
     fs: inMemoryFs,
     globals: {
       ENV_CLIENT: true,
-      collections: collectionsProxy,
-      page: pageProxy,
     },
     ...options,
   });
@@ -315,12 +313,16 @@ function createComponentRenderer(name, templateSource) {
     }
     group(`Rendering component: ${name}`);
     log("Props:", props);
+
     log("Parsing and rendering template...");
     let htmlString;
     try {
       htmlString = await sharedLiquidEngine.parseAndRender(
         templateSource,
-        props,
+        // LiquidJS awaits top-level Promise scope values but not Promises
+        // returned from property-access chains. `page` and `collections` are
+        // spread last so component props cannot shadow them, mirroring 11ty.
+        { ...props, page: buildPageData(), collections: buildCollectionsData() },
       );
     } catch (err) {
       log("Error during render:", err);

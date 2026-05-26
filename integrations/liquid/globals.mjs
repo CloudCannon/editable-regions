@@ -1,18 +1,16 @@
 /**
- * Proxies exposed as `collections` and `page` globals on the shared Liquid
- * engine. Both lazily resolve their properties against the CloudCannon
- * Visual Editor API; LiquidJS awaits the returned thenables as part of
- * normal expression evaluation.
+ * Builders for the `page` and `collections` globals exposed on the shared
+ * Liquid engine. Both return Promises that LiquidJS awaits at the top-level
+ * globals level; once resolved, all property access in templates is
+ * synchronous on the plain objects.
  */
 
 import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { getPageMap, normalizeInputPath } from "./page-map.mjs";
 
 /**
- * Snapshot of Eleventy build-time data, read lazily by the page proxy for
- * values that need it — most notably `page.outputPath`, which needs
- * `directories.output`. Set via `setEleventyData` from `liquid/index.mjs`;
- * one-way data flow, no circular import.
+ * Snapshot of Eleventy build-time data needed to resolve `page.outputPath`.
+ * Set via `setEleventyData` from `liquid/index.mjs`.
  *
  * @type {{ directories?: { output?: string } } | null}
  */
@@ -50,9 +48,6 @@ function deriveDefaultUrl(/** @type {string} */ inputPath) {
  *      computed by JS config or `eleventyComputed`, which front-matter
  *      can't see.
  *   3. 11ty's folder-style default — last-resort derivation.
- *
- * When `pageMap` is disabled in plugin options the map is empty, and step
- * 2 always misses; everything else still works.
  */
 function resolveUrl(
   /** @type {Record<string, any> | null | undefined} */ data,
@@ -66,11 +61,8 @@ function resolveUrl(
 }
 
 /**
- * Same priority layering as `resolveUrl` but for the output path: live
- * front-matter `permalink` → joined with the build's output dir;
- * build-time map → its exact `outputPath`; folder-style default → joined
- * with the output dir. Returns `undefined` if neither the map nor the
- * eleventy data have run yet and we can't compose a path.
+ * Same priority layering as `resolveUrl` but for the output path.
+ * Returns `undefined` if we can't compose a path from available data.
  */
 function resolveOutputPath(
   /** @type {Record<string, any> | null | undefined} */ data,
@@ -111,8 +103,8 @@ function toDate(/** @type {unknown} */ raw) {
 
 /**
  * Joins an output directory and URL into an output path the way 11ty does:
- * URLs ending in `/` become `<dir><url>index.html`; non-slash URLs are
- * appended as-is.
+ * URLs ending in `/` become `<dir><url>index.html`; other URLs are appended
+ * as-is.
  */
 function joinOutputPath(
   /** @type {string} */ outputDir,
@@ -124,117 +116,126 @@ function joinOutputPath(
 }
 
 /**
- * Resolves the built URL of the file the editor is currently rendering
- * against. We can't read `location.pathname` — inside the CloudCannon
- * Visual Editor that returns the editor-shell URL, not the site URL — so
- * we use the live-permalink / build-map / folder-default hierarchy
- * documented on `resolveUrl`.
+ * Materialises a single CC API file object into the 11ty collection-item
+ * shape used in templates.
+ *
+ * @param {import("@cloudcannon/javascript-api").CloudCannonJavaScriptV1APIFile} file
  */
-async function resolvePageUrl(/** @type {any} */ file) {
+async function materialiseFile(file) {
   const data = (await file.data.get()) ?? {};
-  return resolveUrl(data, file.path);
+  return {
+    url: resolveUrl(data, file.path),
+    outputPath: resolveOutputPath(data, file.path),
+    inputPath: file.path,
+    fileSlug: deriveFileSlug(file.path),
+    filePathStem: deriveFilePathStem(file.path),
+    date: toDate(/** @type {any} */ (data).date),
+    data,
+  };
 }
 
 /**
- * Lazily resolves a CloudCannon collection by key into an array of items
- * suitable for Liquid templates. Each item is realized to plain data so
- * Liquid filters/iteration work without further awaiting nested fields.
+ * Builds the `page` object for the file currently open in the Visual Editor.
  *
- * Items mirror 11ty's collection-item shape: `url`, `outputPath`,
- * `inputPath`, `fileSlug`, `filePathStem`, `date`, `data`. URLs and
- * output paths follow the priority hierarchy on `resolveUrl` /
- * `resolveOutputPath`, so computed permalinks become visible whenever the
- * build-time page map has run (it's emitted by the Eleventy plugin unless
- * `pageMap` is opted out).
+ * Returns a Promise so that LiquidJS can await it at the top-level globals
+ * level. Once resolved, all `{{ page.prop }}` accesses are synchronous on
+ * the plain object — no Proxy tricks required.
  *
- * @param {string} key
- * @returns {Promise<Array<{ url: string, outputPath: string | undefined, inputPath: string, fileSlug: string, filePathStem: string, date: Date | undefined, data: any }>>}
+ * Called before every component render so that live front-matter edits
+ * (e.g. changing `permalink` or `date`) are reflected immediately.
+ *
+ * @returns {Promise<Record<string, any>>}
  */
-async function resolveCollection(key) {
-  await apiLoadedPromise;
-  const collection = CloudCannon?.collection?.(key);
-  if (!collection) return [];
-  const files = await collection.items();
-  return Promise.all(
-    files.map(async (file) => {
-      const data = (await file.data.get()) ?? {};
-      return {
-        url: resolveUrl(data, file.path),
-        outputPath: resolveOutputPath(data, file.path),
-        inputPath: file.path,
-        fileSlug: deriveFileSlug(file.path),
-        filePathStem: deriveFilePathStem(file.path),
-        date: toDate(/** @type {any} */ (data).date),
-        data,
-      };
-    }),
-  );
-}
-
-/**
- * Resolves a single property of the `page` global against the currently
- * edited file in the Visual Editor. Returns undefined for properties we
- * can't reliably reconstruct without Eleventy build-time state
- * (`templateSyntax`, `lang`).
- *
- * @param {string} key
- */
-async function resolvePageProperty(key) {
+export async function buildPageData() {
   await apiLoadedPromise;
   const file = CloudCannon?.currentFile?.();
-  if (!file) return undefined;
-
+  if (!file) return {};
   const inputPath = file.path;
-
-  switch (key) {
-    case "inputPath":
-      return inputPath;
-    case "fileSlug":
-      return deriveFileSlug(inputPath);
-    case "filePathStem":
-      return deriveFilePathStem(inputPath);
-    case "outputFileExtension":
-      return "html";
-    case "date": {
-      const data = (await file.data.get()) ?? {};
-      return toDate(/** @type {any} */ (data).date);
-    }
-    case "url":
-      return resolvePageUrl(file);
-    case "outputPath": {
-      const data = (await file.data.get()) ?? {};
-      return resolveOutputPath(data, file.path);
-    }
-    default:
-      return undefined;
-  }
+  const data = (await file.data.get()) ?? {};
+  return {
+    inputPath,
+    fileSlug: deriveFileSlug(inputPath),
+    filePathStem: deriveFilePathStem(inputPath),
+    outputFileExtension: "html",
+    url: resolveUrl(data, inputPath),
+    outputPath: resolveOutputPath(data, inputPath),
+    date: toDate(/** @type {any} */ (data).date),
+  };
 }
 
-// Proxy exposed as the `collections` global on the Liquid engine. Property
-// reads kick off an async fetch via the CloudCannon live-editing API; Liquid
-// awaits the returned thenable wherever the value is consumed (for-loops,
-// filter args, output expressions).
-export const collectionsProxy = new Proxy(
-  {},
-  {
-    get(_target, key) {
-      if (typeof key !== "string") return undefined;
-      return resolveCollection(key);
-    },
-  },
-);
+/**
+ * Cached collections promise, reused across renders until invalidated by
+ * a `change` or `delete` event on any collection.
+ *
+ * @type {Promise<Record<string, Array<any>>> | null}
+ */
+let collectionsCache = null;
 
-// Proxy exposed as the `page` global on the Liquid engine. Mirrors 11ty's
-// `page` object as closely as we can from the Visual Editor API; properties
-// we can't derive from `currentFile()` resolve to `undefined`. Property
-// reads return Promises that liquidjs awaits as part of normal expression
-// evaluation.
-export const pageProxy = new Proxy(
-  {},
-  {
-    get(_target, key) {
-      if (typeof key !== "string") return undefined;
-      return resolvePageProperty(key);
-    },
-  },
-);
+/**
+ * Active invalidation subscriptions to tear down when the cache is reset,
+ * so we don't leak listeners across cache cycles.
+ *
+ * @type {Array<{ target: any, event: "change" | "delete", handler: () => void }>}
+ */
+let collectionsSubscriptions = [];
+
+/**
+ * Builds (or returns cached) the `collections` object for all CC collections.
+ *
+ * Returns a Promise resolving to `{ blog: [...], pages: [...], ... }` —
+ * a plain object keyed by collection name. LiquidJS awaits the top-level
+ * Promise, then `{% for post in collections.blog %}` and
+ * `{{ collections.blog | getNewestCollectionItemDate }}` work via ordinary
+ * synchronous property access on the resolved object.
+ *
+ * Subscribes to `change` and `delete` on each collection so adds/removes
+ * during an editing session invalidate the cache automatically. Item-level
+ * data edits (e.g. a post title changing) don't fire these events and
+ * remain cached until the next add/remove or a manual reset.
+ *
+ * @returns {Promise<Record<string, Array<any>>>}
+ */
+export function buildCollectionsData() {
+  if (!collectionsCache) {
+    collectionsCache = (async () => {
+      await apiLoadedPromise;
+      const allCollections = await CloudCannon?.collections?.();
+      if (!allCollections?.length) return {};
+
+      for (const collection of allCollections) {
+        const handler = () => resetCollectionsCache();
+        collection.addEventListener("change", handler);
+        collection.addEventListener("delete", handler);
+        collectionsSubscriptions.push(
+          { target: collection, event: "change", handler },
+          { target: collection, event: "delete", handler },
+        );
+      }
+
+      const entries = await Promise.all(
+        allCollections.map(async (collection) => {
+          const key = collection.collectionKey;
+          let files;
+          try {
+            files = await collection.items();
+          } catch {
+            return /** @type {[string, any[]]} */ ([key, []]);
+          }
+          const items = await Promise.all(files.map(materialiseFile));
+          return /** @type {[string, any[]]} */ ([key, items]);
+        }),
+      );
+      return Object.fromEntries(entries);
+    })();
+  }
+  return collectionsCache;
+}
+
+/** Clears the collections cache and tears down its invalidation listeners. */
+export function resetCollectionsCache() {
+  for (const { target, event, handler } of collectionsSubscriptions) {
+    target.removeEventListener(event, handler);
+  }
+  collectionsSubscriptions = [];
+  collectionsCache = null;
+}
