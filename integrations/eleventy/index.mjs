@@ -420,10 +420,11 @@ function buildPkg() {
  * Reads the installed Eleventy version from its `package.json`. Returns
  * `"unknown"` if Eleventy can't be resolved so the bundle still builds.
  *
- * @11ty/eleventy doesn't export `./package.json` in its `exports` field, so
- * `require("@11ty/eleventy/package.json")` throws ERR_PACKAGE_PATH_NOT_EXPORTED.
- * Instead we resolve the main entry (`.` is always exported), then walk up the
- * directory tree until we find the package root.
+ * The `@11ty/eleventy` package doesn't export `./package.json` in its
+ * `exports` field, so `require("@11ty/eleventy/package.json")` throws
+ * ERR_PACKAGE_PATH_NOT_EXPORTED. Instead we resolve the main entry (`.` is
+ * always exported), then walk up the directory tree until we find the package
+ * root.
  */
 function readEleventyVersion() {
 	try {

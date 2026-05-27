@@ -15,6 +15,6 @@ declare function editableRegions(
 	pluginOptions: PluginOptions,
 ): void;
 declare namespace editableRegions {
-	export { LiquidOptions, PluginOptions, NormalizedPluginOptions };
+	export { LiquidOptions, NormalizedPluginOptions, PluginOptions };
 }
 export = editableRegions;

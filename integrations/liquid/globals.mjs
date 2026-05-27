@@ -119,7 +119,7 @@ function joinOutputPath(
  * Materialises a single CC API file object into the 11ty collection-item
  * shape used in templates.
  *
- * @param {import("@cloudcannon/javascript-api").CloudCannonJavaScriptV1APIFile} file
+ * @param {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1File} file
  */
 async function materialiseFile(file) {
 	const data = (await file.data.get()) ?? {};
