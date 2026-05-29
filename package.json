@@ -62,7 +62,7 @@
 		"@types/node": "25.9.1",
 		"@types/react": "19.2.15",
 		"@types/react-dom": "19.2.3",
-		"astro": "6.3.7",
+		"astro": "6.3.8",
 		"js-beautify": "1.15.4",
 		"liquidjs": "10.27.0",
 		"typescript": "6.0.3"
