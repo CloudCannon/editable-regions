@@ -2,14 +2,21 @@ import editableRegions from "@cloudcannon/editable-regions/astro-integration";
 import { defineConfig, envField } from "astro/config";
 
 import react from "@astrojs/react";
+import svelte from "@astrojs/svelte";
 
 // https://astro.build/config
 export default defineConfig({
   site: "https://example.com",
-  integrations: [editableRegions(), react()],
+  integrations: [editableRegions(), react(), svelte()],
   i18n: {
     defaultLocale: "en",
     locales: ["en", "es", "fr"],
+  },
+  vite: {
+    build: {
+      minify: false,
+      sourcemap: 'inline'
+    }
   },
   env: {
     schema: {

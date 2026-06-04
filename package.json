@@ -49,6 +49,14 @@
 			"types": "./types/react.d.ts",
 			"default": "./integrations/react.mjs"
 		},
+		"./svelte": {
+			"types": "./types/svelte.d.ts",
+			"default": "./integrations/svelte.mjs"
+		},
+		"./astro-svelte-renderer": {
+			"types": "./types/astro.d.ts",
+			"default": "./integrations/astro/svelte-renderer.mjs"
+		},
 		"./liquid": "./integrations/liquid/index.mjs",
 		"./eleventy": "./integrations/eleventy.mjs",
 		"./internal/components": "./components/index.js",
