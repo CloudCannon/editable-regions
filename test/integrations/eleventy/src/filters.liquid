@@ -1,0 +1,21 @@
+---
+title: Filters
+layout: page-shell
+filtersDemo:
+  shoutInput: "live editing"
+  stampInput: "hello"
+  slugifyInput: "Hello, World! Café résumé"
+  slugInput: "C++ programming for users@example.com"
+  urlInput: "https://example.com/posts/"
+  dateInput: 2026-04-21
+---
+
+<p>
+	Each filter below renders from <code>filtersDemo.*</code> in front
+	matter. Edit a value in CC and the block re-renders client-side via the
+	browser ports.
+</p>
+
+<div data-editable="component" data-component="filters-demo" data-prop="filtersDemo">
+	{% includeWith "filters-demo", filtersDemo %}
+</div>

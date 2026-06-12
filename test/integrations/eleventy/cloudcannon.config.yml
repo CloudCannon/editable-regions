@@ -1,0 +1,26 @@
+# CloudCannon configuration for the editable-regions Eleventy smoke test.
+# Lets the Visual Editor discover the fixture's pages so you can open them
+# in the editor (e.g. /location-probe/ for verifying browser-side location
+# behavior, or /globals/ to inspect the page-global proxy).
+#
+# Point CC at this directory as the project root, or — if connecting CC to
+# the parent `editable-regions` repo — set the site source to
+# `test/integrations/eleventy`.
+
+paths:
+  uploads: src/uploads
+
+collections_config:
+  pages:
+    path: src
+    url: /[slug]/
+    glob:
+      - "*.liquid"
+      - "!_includes/**"
+      - "!posts/**"
+
+  posts:
+    path: src/posts
+    url: /posts/[slug]/
+    glob:
+      - "*.md"
