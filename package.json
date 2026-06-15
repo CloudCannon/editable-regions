@@ -63,14 +63,14 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.16",
+		"@biomejs/biome": "2.5.0",
 		"@cloudcannon/visual-editor-api": "0.0.16",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
-		"@types/node": "25.9.2",
+		"@types/node": "25.9.3",
 		"@types/react": "19.2.17",
 		"@types/react-dom": "19.2.3",
-		"astro": "6.4.5",
+		"astro": "6.4.6",
 		"js-beautify": "1.15.4",
 		"liquidjs": "10.27.0",
 		"typescript": "6.0.3"
