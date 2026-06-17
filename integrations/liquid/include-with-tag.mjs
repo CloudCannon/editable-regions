@@ -11,9 +11,6 @@ import { enhanceLiquidError } from "./errors.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
 
 /**
- * Creates an includeWith tag for spreading object props into includes.
- * Like Astro's {...props} spread for Liquid includes.
- *
  * Usage: {% includeWith "path/to/partial", objectToSpread %}
  *
  * @param {any} _liquidEngine - Unused; engine reached via `this.liquid`

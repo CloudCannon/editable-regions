@@ -136,13 +136,9 @@ async function materialiseFile(file) {
 
 /**
  * Builds the `page` object for the file currently open in the Visual Editor.
- *
- * Returns a Promise so that LiquidJS can await it at the top-level globals
- * level. Once resolved, all `{{ page.prop }}` accesses are synchronous on
- * the plain object — no Proxy tricks required.
- *
- * Called before every component render so that live front-matter edits
- * (e.g. changing `permalink` or `date`) are reflected immediately.
+ * Returns a Promise (LiquidJS awaits it at the globals level; access is then
+ * synchronous). Called before every component render so live front-matter
+ * edits (e.g. `permalink`, `date`) are reflected immediately.
  *
  * @returns {Promise<Record<string, any>>}
  */
@@ -180,18 +176,13 @@ let collectionsCache = null;
 let collectionsSubscriptions = [];
 
 /**
- * Builds (or returns cached) the `collections` object for all CC collections.
+ * Builds (or returns cached) the `collections` object — a Promise resolving to
+ * `{ blog: [...], ... }` keyed by collection name. LiquidJS awaits it once,
+ * then template access is synchronous on the resolved object.
  *
- * Returns a Promise resolving to `{ blog: [...], pages: [...], ... }` —
- * a plain object keyed by collection name. LiquidJS awaits the top-level
- * Promise, then `{% for post in collections.blog %}` and
- * `{{ collections.blog | getNewestCollectionItemDate }}` work via ordinary
- * synchronous property access on the resolved object.
- *
- * Subscribes to `change` and `delete` on each collection so adds/removes
- * during an editing session invalidate the cache automatically. Item-level
- * data edits (e.g. a post title changing) don't fire these events and
- * remain cached until the next add/remove or a manual reset.
+ * Subscribes to `change`/`delete` on each collection so adds/removes during an
+ * editing session invalidate the cache. Item-level data edits don't fire these
+ * events and stay cached until the next add/remove or a manual reset.
  *
  * @returns {Promise<Record<string, Array<any>>>}
  */

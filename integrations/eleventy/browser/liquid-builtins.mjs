@@ -19,14 +19,11 @@ import {
 	createRenderTemplateTag,
 } from "./liquid-render.mjs";
 
-// The config-replay collector that auto-mirrors the user's Eleventy config
-// helpers. Lives in its own module; re-exported here so the generated bundle
-// imports it from the same `@cloudcannon/editable-regions/eleventy/browser`
-// entry as `registerEleventyBuiltins`.
+// Re-exported so the generated bundle imports both from the same
+// `@cloudcannon/editable-regions/eleventy/browser` entry. The implementations
+// live in their own modules so the Node-side plugin can import the name lists
+// without dragging slugify into config-load.
 export { collectAndRegisterEleventyHelpers } from "./collect-config.mjs";
-// Re-export so existing browser-bundle consumers keep working. The lists
-// themselves live in `./builtin-names.mjs` so the Node-side Eleventy plugin
-// can import them without dragging slugify into config-load.
 export { builtinFilterNames, builtinShortcodeNames };
 
 /**
@@ -157,18 +154,14 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
 }
 
 /**
- * Finds the index of `page` in `collection` by matching `inputPath`.
+ * Finds the index of `page` in `collection` by matching `inputPath`. Upstream
+ * 11ty also tie-breaks on `outputPath || url` for paginated cursors, but the
+ * editor doesn't model pagination (one page-map entry per `inputPath`), so
+ * `inputPath` alone is unique here.
  *
- * Upstream 11ty also tie-breaks on `outputPath || url` because pagination
- * produces multiple page objects sharing the same `inputPath` (one per
- * paginated cursor). The editor doesn't model paginated cursor state — it
- * tracks source files, and our build-time page map keeps one entry per
- * `inputPath` — so inputPath alone uniquely identifies a collection item.
- *
- * `await page.inputPath` covers both shapes we get in practice: our `page`
- * global is a Proxy returning Promises (await resolves to the string), and
- * a collection item is a plain object whose `inputPath` is already a string
- * (await on a non-thenable is a no-op).
+ * `await page.inputPath` handles both shapes: the `page` global is a Proxy
+ * returning Promises, while a collection item's `inputPath` is already a
+ * string (awaiting a non-thenable is a no-op).
  *
  * @param {Array<{inputPath?: string}>} collection
  * @param {any} page
@@ -249,14 +242,9 @@ function passThroughStub(filterName, reason) {
 
 /**
  * Browser port of the `inputPathToUrl` plugin filter. Resolves against the
- * build-time page map (`registerPageMap`), which captures every page 11ty
- * produced — including those with permalinks computed by JS config or
- * `eleventyComputed`. Misses pass through with a warn-once so just-added
- * files that weren't in the last build degrade gracefully rather than
- * throwing.
- *
- * If the host opted out of the page map (`liquid.pageMap: false`) the map
- * is empty and every call misses; behave the same as the legacy stub.
+ * build-time page map (`registerPageMap`), which captures permalinks computed
+ * by JS config or `eleventyComputed`. Misses (files not in the last build, or
+ * `liquid.pageMap: false`) pass through with a warn-once rather than throwing.
  *
  * @param {unknown} inputPath
  */

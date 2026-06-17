@@ -10,7 +10,6 @@ build time; this directory is what that bundle pulls in.
 - [Install and configure](#install-and-configure)
   - [Plugin options at a glance](#plugin-options-at-a-glance)
 - [How it fits together](#how-it-fits-together)
-- [Entry point](#entry-point)
 - [Globals](#globals)
   - [`page` properties](#page-properties)
   - [Environment variables](#environment-variables)
@@ -30,7 +29,6 @@ build time; this directory is what that bundle pulls in.
 - [Limitations and fallbacks](#limitations-and-fallbacks)
   - [Things that don't work in live editing](#things-that-dont-work-in-live-editing)
   - [Patterns](#patterns)
-- [File map](#file-map)
 
 ## What this is for
 
@@ -135,66 +133,19 @@ works too.
 
 ## How it fits together
 
-```
-eleventy.config.mjs + _includes/**, src/**    (user)
-        │  config registers filters / shortcodes / tags via the Eleventy API;
-        │  components are template files on disk under the configured
-        │  componentDirs (defaults: `dir.includes` and `dir.input`), matching
-        │  `liquid.extensions` (defaults: `.liquid`, `.html`).
-        ▼
-integrations/eleventy/index.mjs       (build-time)
-        │  - emits an `import` of the user's real Eleventy config, which
-        │    esbuild bundles (with Node/build-time deps stubbed) so its
-        │    helper closures and imports survive into the browser;
-        │  - walks the componentDirs and inlines every matching template
-        │    file as a string, keyed by path, into `window.cc_liquid_files`;
-        │  - emits import + register calls for everything into one bundle.
-        ▼
-register-components.js                (browser)
-        │  loaded by the Visual Editor
-        ▼
-integrations/liquid/index.mjs         (browser engine, host-agnostic)
-integrations/eleventy/browser/*.mjs   (browser 11ty ports — filters, RenderPlugin shims)
-        │  instantiates a shared Liquid engine, replays the imported
-        │  config to mirror its helpers, registers everything,
-        │  installs a Proxy on `window.cc_components` that resolves each
-        │  component name on demand via `{% include %}` against the
-        │  in-memory filesystem populated above.
-        ▼
-Visual Editor renders components via window.cc_components[name](props)
-```
+After every build, the plugin emits a single `register-components.js` bundle
+that the Visual Editor loads. Two things are picked up at build time and wired
+into that bundle:
 
-So filters / shortcodes / tags are picked up from your Eleventy config at
-build time; components are picked up from the filesystem walk at build
-time. Both end up wired into the same bundle. See "Component resolution"
-and the auto-mirror notes under "Filters" for the gory details.
+- **Filters, shortcodes, and tags** — auto-mirrored from your Eleventy config
+  (see "Filters" below).
+- **Components** — every template under the configured component directories
+  (`liquid.componentDirs`, defaulting to `dir.includes` and `dir.input`),
+  matching `liquid.extensions`.
 
-### A note on dependencies
-
-The package declares only `esbuild` as a runtime dependency, even though
-the generated `register-components.js` bundle pulls in `liquidjs`, `slugify`, and
-`@sindresorhus/slugify`. That's deliberate: this plugin only runs in
-projects that have `@11ty/eleventy` installed, and 11ty itself pulls all
-three in transitively. esbuild resolves them from the consumer's
-`node_modules` at bundle time, so consumers never need to declare them.
-
-The tradeoff is that it's not obvious from `package.json` alone — anyone
-reading `liquid-builtins.mjs` or `integrations/liquid/index.mjs` will see
-imports that aren't listed anywhere in our dependency graph. If we ever
-decouple from the "11ty is always present" assumption (e.g. a host that
-doesn't pre-install liquidjs), we'd promote these to `peerDependencies`.
-
-## Entry point
-
-`createSharedLiquidEngine(options)` builds a Liquid engine and stores it in a
-module-scoped variable that the other exports read. The contract is: call
-it exactly once, before any `register…` call. A second call replaces the
-engine in place, which silently splits any state already captured against
-the first one — don't do it.
-
-The engine uses an in-memory filesystem (`fs.mjs`) backed by `window.cc_liquid_files`,
-which the bundle pre-populates by `import`ing every `.liquid`/`.html` file
-under the configured component directories.
+In the browser, the bundle instantiates a shared Liquid engine, registers
+everything, and resolves each component on demand via `{% include %}`. See
+"Component resolution" for how component names map to templates.
 
 ## Globals
 
@@ -317,51 +268,31 @@ If `package.json` is missing or malformed at build time, the bundle skips
 Filters come from three sources, resolved in order so later sources win on
 name collision: **built-ins**, **auto-mirrored**, then **overrides**.
 
-1. **Built-ins** (`eleventy/browser/liquid-builtins.mjs`). Handwritten browser-safe
-   reimplementations of common Eleventy built-ins: `slugify`/`slug`, `url`,
-   `dateToRfc3339`, `dateToRfc822`, `htmlDateString`,
-   `getNewestCollectionItemDate`, the four collection-item filters, and a
-   `log` pass-through. `inputPathToUrl` is backed by the build-time page
-   map (`liquid.pageMap`) — it resolves to the correct URL for any file
-   that was in the last build, including permalinks computed by JS config
-   or `eleventyComputed`. Filters that still depend on build-time-only
-   state we don't model (`htmlBaseUrl`, `serverlessUrl`) are registered as
-   warn-once pass-throughs that return their input unchanged. The
-   RenderPlugin filter `renderContent` is registered as a real shim that
-   parse-and-renders its input via the shared Liquid engine — see
-   "RenderPlugin shims" below. Names listed in `builtinFilterNames` are
-   skipped by the auto-mirror to keep it from overwriting our ports
-   with Eleventy's Node-only defaults (which close over imports like
-   `@sindresorhus/slugify` that don't exist in the browser).
+1. **Built-ins.** Browser-safe reimplementations of common Eleventy built-ins:
+   `slugify`/`slug`, `url`, the date filters, `getNewestCollectionItemDate`,
+   the four collection-item filters, and `log`. `inputPathToUrl` is backed by
+   the build-time page map (`liquid.pageMap`), so it resolves the correct URL
+   for any file in the last build, including computed permalinks. `renderContent`
+   is a real shim (see "RenderPlugin shims"). Filters that depend on
+   build-time-only state we don't model (`htmlBaseUrl`, `serverlessUrl`) are
+   warn-once pass-throughs that return their input unchanged.
 
-2. **Auto-mirrored from your Eleventy config**. The bundle `import`s your
-   real config file and replays it in the browser against a recording
-   stand-in for `eleventyConfig` (see `collectAndRegisterEleventyHelpers`),
-   capturing every `addFilter` / `addAsyncFilter` / `addLiquidFilter` call
-   with the live function. Because esbuild bundles the config, the functions
-   keep their closures and imports — no serialization, so module-scope
-   constants and imported helpers survive. If a function depends on Eleventy
-   build-time state (`this.ctx`) or calls a Node API at render time
-   (`process`, `require`, `__dirname`, a closed-over Node import, …) it'll
-   throw when invoked in the browser, which is the signal to add an override.
+2. **Auto-mirrored from your Eleventy config.** The bundle imports your real
+   config and replays it in the browser, capturing every `addFilter` /
+   `addAsyncFilter` / `addLiquidFilter` call. Because the config is bundled
+   (not serialized), each function keeps its closures and imports. A filter
+   that depends on Eleventy build-time state (`this.ctx`) or calls a Node API
+   at render time will throw when invoked in the browser — the signal to add
+   an override.
 
-   Node/build-time imports the config drags in (`@11ty/eleventy`, `node:*`,
-   the editable-regions plugin itself) are stubbed at bundle time with
-   proxies that throw only when *called* — so importing them is harmless and
-   only a helper that actually invokes one at render time fails.
-
-3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name
-   to module path. Two reasons to use this:
-   - **A mirrored filter throws at render time.** The auto-mirrored entry
-     isn't safe to run in the browser — supply a hand-rolled replacement
-     here.
+3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name to
+   module path. Two reasons to use this:
+   - **A mirrored filter throws at render time** — supply a browser-safe
+     replacement here.
    - **You're overriding a built-in name.** The auto-mirror skips built-in
-     names to protect our browser ports, which means an
-     `eleventyConfig.addFilter("url", …)` won't reach live editing. To
-     override a built-in filter in the bundle you must also register here.
-
-   Override names are also skipped by the auto-mirror (so an override
-   doesn't get double-registered).
+     names to protect our browser ports, so an
+     `eleventyConfig.addFilter("url", …)` won't reach live editing unless you
+     also register it here.
 
 ### Adding a custom filter
 
@@ -600,55 +531,41 @@ Components are accessed as `window.cc_components[name](props)`. There are
 two resolution paths; the proxy is the primary one and the explicit map is
 the override.
 
-1. **Include-resolution proxy** (`initComponentProxy`, the primary path).
-   `window.cc_components` is wrapped in a Proxy whose `get` trap returns,
-   for any unrecognised name, a renderer that runs `{% include "<name>" %}`
-   against the shared engine. LiquidJS resolves the component file via its
-   configured `root` directories and `extname` — which is how every
-   auto-discovered component (from `findAllLiquidFiles`) becomes reachable
-   without anyone calling `registerLiquidComponent` for it.
-2. **Explicit registrations** via `pluginOptions.liquid.components`
-   — a map of `name -> module path`. The module's default export is
-   treated as Liquid template source and ends up directly in
-   `window.cc_components[name]`, so the Proxy's `get` trap returns it
-   verbatim (without going through include resolution). Use this when you
-   want to substitute a different template for a specific name.
+1. **Include-resolution proxy** (the primary path). For any unrecognised name,
+   the proxy returns a renderer that runs `{% include "<name>" %}` against the
+   shared engine, which resolves the file via the configured component
+   directories and `extensions`. This is how every auto-discovered component
+   becomes reachable with no explicit registration.
+2. **Explicit registrations** via `pluginOptions.liquid.components` — a map of
+   `name -> module path`. The module's default export is treated as Liquid
+   template source for that name, taking precedence over include resolution.
+   Use this to substitute a different template for a specific name.
 
 Both paths render to a detached `<div>` and return it as an `HTMLElement`.
-The shared rendering logic lives in `createComponentRenderer` (in
-`index.mjs`), so the two paths produce identical output, error handling,
-and logging.
 
 ## Virtual filesystem
 
-LiquidJS reads templates through `inMemoryFs` in `fs.mjs`, which is just a
-shim over `window.cc_liquid_files`. The bundle pre-populates that map by `import`ing
-every matching template file at build time (esbuild's `text` loader inlines
-their contents). Extensions are configurable via
-`pluginOptions.liquid.extensions`.
-
-There are two distinct data sources at runtime, and they're not
+At runtime there are two distinct data sources, and they're not
 interchangeable:
 
-- **`window.cc_liquid_files`** — build-time snapshot of every template
-  under the configured component dirs. Synchronous, fast, source-text only.
-  Used by `{% include %}` resolution (via `fs.mjs`) and not much else.
+- **`window.cc_liquid_files`** — a build-time snapshot of every template under
+  the configured component dirs (extensions configurable via
+  `liquid.extensions`). Synchronous, source-text only. Backs `{% include %}`
+  resolution.
 - **CloudCannon Visual Editor API** (`CloudCannon.currentFile()`,
-  `CloudCannon.file(path)`, `CloudCannon.collection(key)`, etc.) — live
-  view of the editor's file tree, including pages, data files, drafts, and
-  anything the user adds during a session. Used by the `page` and
-  `collections` proxies, and by the `renderFile` shortcode.
+  `CloudCannon.file(path)`, `CloudCannon.collection(key)`, etc.) — a live view
+  of the editor's file tree, including pages, data files, drafts, and anything
+  added during a session. Backs the `page` and `collections` globals and the
+  `renderFile` shortcode.
 
-When in doubt, prefer the API: it sees everything the editor sees and
-stays correct as the user edits. `cc_liquid_files` exists to serve LiquidJS
-its template bytes synchronously during `{% include %}`, which the API
-can't do.
+When in doubt, prefer the API: it sees everything the editor sees and stays
+correct as the user edits. `cc_liquid_files` exists only to serve LiquidJS its
+template bytes synchronously during `{% include %}`, which the API can't do.
 
 ## Error enhancement
 
-`enhanceLiquidError` (in `errors.mjs`) rewrites three categories of
-LiquidJS error into actionable messages with the component/template name
-and a concrete next step:
+Three categories of LiquidJS error are rewritten into actionable messages with
+the component/template name and a concrete next step:
 
 - Unknown filter → "register it in the `filters` option"
 - Missing template (`ENOENT …`) → "check the file is in your component dirs"
@@ -716,28 +633,3 @@ becomes the front matter / data cascade and is readable via the
 tag or filter override. The Visual Editor exposes `currentFile()`,
 `collection(key)`, `dataset(key)`, and `file(path)` — see the existing
 `page` proxy in `globals.mjs` for a reference implementation.
-
-## File map
-
-This directory is host-agnostic — it knows about Liquid but not about
-Eleventy. The 11ty-specific browser ports live next door under
-`integrations/eleventy/browser/`, which depends on this directory's public
-exports.
-
-`integrations/liquid/`:
-
-| File | Purpose |
-| --- | --- |
-| `index.mjs` | Public entry point: engine creation, registration functions, component proxy + renderer, `includeWith` tag. |
-| `errors.mjs` | `enhanceLiquidError` — rewrites LiquidJS errors into actionable messages. |
-| `globals.mjs` | `collectionsProxy` + `pageProxy` — the `collections` and `page` globals on the engine, backed by the CloudCannon Visual Editor API. |
-| `shortcodes.mjs` | Adapters that turn Eleventy-style shortcode functions into LiquidJS tag definitions. Also exports the shared `parseArgs` / `evaluateArgs` helpers. |
-| `fs.mjs` | LiquidJS-compatible filesystem backed by `window.cc_liquid_files`. |
-| `logger.mjs` | `setVerbose` + `log` / `group` / `warnOnce` helpers used everywhere in the runtime. |
-
-`integrations/eleventy/browser/` (browser-side 11ty ports):
-
-| File | Purpose |
-| --- | --- |
-| `liquid-builtins.mjs` | Handwritten filter/shortcode ports + `builtinFilterNames` / `builtinShortcodeNames` skip lists. Exposes `registerEleventyBuiltins(engine)` which the generated bundle calls with the engine returned by `createSharedLiquidEngine()` to wire all 11ty built-ins on in one shot. |
-| `liquid-render.mjs` | RenderPlugin shims: `createRenderTemplateTag` (paired Liquid tag), `createRenderFileShortcode`, `createRenderContentFilter`. |

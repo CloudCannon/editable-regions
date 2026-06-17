@@ -10,27 +10,20 @@ import { createIncludeWithTag } from "./include-with-tag.mjs";
 import { group, groupEnd, log, warnOnce } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
-// Re-export so browser-bundle consumers can keep importing from the package
-// root — the definition lives in `./include-with-tag.mjs` so the Node-side
-// Eleventy plugin can import it without pulling in browser-runtime modules.
+// Re-exported from their own modules (which avoid the browser-runtime
+// side-effects / import cycles of importing this file) so the Node-side plugin
+// and non-engine consumers can reach them via the package root.
 export { createIncludeWithTag } from "./include-with-tag.mjs";
-// Re-export logger utilities for external use
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
-
-// `registerPageMap` is part of the runtime's public surface; the storage
-// lives in `./page-map.mjs` so non-engine consumers (`globals.mjs`,
-// `liquid-builtins.mjs`) can read it without an import cycle through here.
 export { registerPageMap } from "./page-map.mjs";
 
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
 /**
- * Creates and configures the shared Liquid engine. Bundles `includeWith` —
- * a convenience tag for spreading an object into `{% include %}` rather
- * than listing each prop by hand; host-specific filters, shortcodes, and
- * built-in ports are wired up afterwards by the host (e.g.
- * `registerEleventyBuiltins(engine)`).
+ * Creates and configures the shared Liquid engine, registering the built-in
+ * `includeWith` tag. Host-specific filters, shortcodes, and built-in ports are
+ * wired up afterwards by the host (e.g. `registerEleventyBuiltins(engine)`).
  *
  * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)`
  */
@@ -86,14 +79,10 @@ export function registerLiquidComponent(key, contents) {
 }
 
 /**
- * Wraps `window.cc_components` in a Proxy that resolves any component name
- * to a renderer on demand. Each lookup returns a renderer that delegates to
- * Liquid's `{% include %}` tag, which finds the matching file via the
- * engine's configured `root` and `extname` (populated at build time from
- * `findAllLiquidFiles`). This is the primary resolution path.
- *
- * Names explicitly registered via `registerLiquidComponent` take precedence
- * — those are returned as-is rather than going through include resolution.
+ * Wraps `window.cc_components` in a Proxy that resolves any component name to a
+ * renderer on demand, delegating to `{% include %}` (which finds the file via
+ * the engine's configured `root`/`extname`). This is the primary resolution
+ * path; names registered via `registerLiquidComponent` take precedence.
  *
  * Must be called after `createSharedLiquidEngine()`.
  *

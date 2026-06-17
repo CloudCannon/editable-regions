@@ -1,25 +1,12 @@
 /**
  * Browser-side shims for Eleventy's RenderPlugin
- * (https://v3.11ty.dev/docs/plugins/render/).
- *
- * Upstream registers:
- *   - `renderTemplate` as a paired Liquid tag:
- *       {% renderTemplate "lang", data %}…{% endrenderTemplate %}
- *   - `renderContent` as an async filter:
- *       {{ content | renderContent: "lang", data }}
- *   - `renderFile` as an async shortcode:
- *       {% renderFile "./path.liquid", data, "lang" %}
- *
- * All three compile a body as `templateLang` and render it with `data`. In
- * the browser we only have LiquidJS, so:
+ * (https://v3.11ty.dev/docs/plugins/render/). Upstream registers
+ * `renderTemplate` (paired Liquid tag), `renderContent` (async filter), and
+ * `renderFile` (async shortcode). All three compile a body as `templateLang`
+ * and render it with `data`. In the browser we only have LiquidJS, so:
  *   - "liquid" (or unspecified) → real parse-and-render via the shared engine
- *   - "html" → identity passthrough (HTML is literal)
+ *   - "html" → identity passthrough
  *   - any other engine → warn-once and return the body unchanged
- *
- * `renderFile` resolves its target via the CloudCannon Visual Editor API
- * (`CloudCannon.file(path).content.get()`), which returns the file body
- * with front matter stripped — matching how Eleventy feeds a template body
- * to its engine.
  */
 
 import {
@@ -153,11 +140,9 @@ export function createRenderFileShortcode(liquidEngine) {
 			return "";
 		}
 
-		// Fetch the file's own front matter alongside its body so we can mirror
-		// 11ty's data cascade — the file's data is the base, the caller's `data`
-		// arg overrides on top. `content.get()` returns the body with front
-		// matter stripped, matching how Eleventy feeds a template body to its
-		// engine.
+		// Fetch the file's own front matter alongside its body to mirror 11ty's
+		// data cascade: the file's data is the base, the caller's `data` arg
+		// overrides on top. `content.get()` strips front matter, matching 11ty.
 		let body;
 		let frontMatter;
 

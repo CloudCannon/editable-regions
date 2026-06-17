@@ -2,22 +2,17 @@
  * Browser-side collector that auto-mirrors an Eleventy config's helpers into
  * the live-editing Liquid engine.
  *
- * Serialising each registered filter/shortcode via `fn.toString()` and
- * embedding the text would silently drop anything the function closed over —
- * module-scope constants, imported helpers, `this` — which is the common case
- * for real-world helpers, not the exception.
+ * Rather than serialising helpers via `fn.toString()` (which would drop
+ * everything they close over — module-scope constants, imported helpers,
+ * `this`), the generated bundle imports the user's *real* config (bundled by
+ * esbuild with its dependency graph intact) and replays it here against a
+ * recording stand-in for `eleventyConfig`. Every `addFilter` / `addShortcode`
+ * / `addPairedShortcode` / `addLiquidTag` call is captured with the live,
+ * closure-preserving function and registered into the shared engine.
  *
- * So instead the generated bundle imports the user's *real* Eleventy config
- * (bundled by esbuild with its dependency graph intact) and replays it here
- * against a recording stand-in for `eleventyConfig`. Every `addFilter` /
- * `addShortcode` / `addPairedShortcode` / `addLiquidTag` call is captured with
- * the live, closure-preserving function and registered into the shared engine.
- *
- * Node/build-time APIs the config imports (`@11ty/eleventy`, `node:*`, the
- * editable-regions plugin itself) are stubbed at bundle time (see the esbuild
- * `stub` plugin in `../index.mjs`) with proxies that throw only when *called*.
- * So importing them is harmless, and only a helper that actually invokes one
- * at render time fails — exactly as it must, since it can't run in a browser.
+ * Node/build-time APIs the config imports are stubbed at bundle time (see the
+ * stub plugin in `../index.mjs`) so importing them is harmless; only a helper
+ * that actually invokes one at render time fails.
  *
  * @typedef {"filters" | "shortcodes" | "pairedShortcodes" | "tags"} HelperKind
  */
@@ -42,18 +37,13 @@ const KIND_REGISTRARS = {
 };
 
 /**
- * Maps each 11ty registration method to its `[kind, layer]`. `universal`
- * methods (`addFilter`) and their Liquid-specific siblings (`addLiquidFilter`)
- * feed the same kind; the Liquid layer wins on a name collision, mirroring
- * 11ty's `{ ...universal, ...liquid }` precedence. Tags only exist on the
- * Liquid layer (`addLiquidTag`).
- *
- * The async universal variants (`addAsyncFilter`, `addAsyncShortcode`,
- * `addPairedAsyncShortcode`) feed the same kinds — async vs sync is irrelevant
- * once we just hand the function to the registrar. There's no
- * `addLiquidAsync*`: the Liquid-specific methods already accept async
- * functions. The JavaScript/Handlebars/Nunjucks-specific variants target other
- * template engines, so they're deliberately not mirrored into the Liquid engine.
+ * Maps each 11ty registration method to its `[kind, layer]`. Universal methods
+ * (`addFilter`) and their Liquid-specific siblings (`addLiquidFilter`) feed the
+ * same kind; the Liquid layer wins on a name collision, mirroring 11ty's
+ * `{ ...universal, ...liquid }` precedence. Async variants feed the same kinds
+ * (async vs sync is irrelevant once we hand the function to the registrar).
+ * Engine-specific variants for other engines (JS/Handlebars/Nunjucks) aren't
+ * mirrored into the Liquid engine.
  *
  * @type {Record<string, [HelperKind, "universal" | "liquid"]>}
  */
@@ -137,11 +127,10 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		},
 	});
 
-	// Replay function plugins too, so helpers registered by a plugin (rather
-	// than directly in the config) are mirrored as well — matching the old
-	// behaviour of reading 11ty's post-plugin registry. A plugin that throws
-	// (e.g. a stubbed Node-only one) is contained: helpers it registered
-	// before throwing are kept, the rest of the config continues.
+	// Replay function plugins too, so helpers a plugin registers (rather than
+	// the config directly) are mirrored as well. A plugin that throws (e.g. a
+	// stubbed Node-only one) is contained: helpers it registered before
+	// throwing are kept, the rest of the config continues.
 	recorder.addPlugin = (/** @type {any} */ plugin, /** @type {any} */ opts) => {
 		const pluginFn =
 			typeof plugin === "function" ? plugin : plugin?.configFunction;
