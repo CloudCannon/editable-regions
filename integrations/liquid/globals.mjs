@@ -40,21 +40,38 @@ function deriveDefaultUrl(/** @type {string} */ inputPath) {
 }
 
 /**
+ * A front-matter `permalink` we can use verbatim: a plain string with no Liquid
+ * templating. 11ty permalinks can embed template syntax
+ * (e.g. `"/{{ page.date | date: '%Y/%m/%d' }}/"`), which we can't render here
+ * without the page's full build context — so for those we return `undefined`
+ * and let the caller fall back to the build-time page map, which holds 11ty's
+ * already-resolved value.
+ */
+function literalPermalink(
+	/** @type {Record<string, any> | null | undefined} */ data,
+) {
+	const permalink = data?.permalink;
+	if (typeof permalink !== "string") return undefined;
+	if (permalink.includes("{{") || permalink.includes("{%")) return undefined;
+	return permalink;
+}
+
+/**
  * Resolves the URL for an Eleventy input file. Priority:
  *
- *   1. Live front-matter `permalink` — wins so editor-time edits show
- *      immediately, before the user re-builds.
- *   2. Build-time page map (`registerPageMap`) — captures permalinks
- *      computed by JS config or `eleventyComputed`, which front-matter
- *      can't see.
+ *   1. Live front-matter `permalink`, if it's a literal string — wins so
+ *      editor-time edits show immediately, before the user re-builds.
+ *   2. Build-time page map (`registerPageMap`) — captures permalinks computed
+ *      by JS config, `eleventyComputed`, or template syntax in the permalink,
+ *      none of which front-matter can give us directly.
  *   3. 11ty's folder-style default — last-resort derivation.
  */
 function resolveUrl(
 	/** @type {Record<string, any> | null | undefined} */ data,
 	/** @type {string} */ inputPath,
 ) {
-	const permalink = data?.permalink;
-	if (typeof permalink === "string") return permalink;
+	const permalink = literalPermalink(data);
+	if (permalink) return permalink;
 	const mapped = getPageMap()[normalizeInputPath(inputPath)];
 	if (mapped?.url) return mapped.url;
 	return deriveDefaultUrl(inputPath);
@@ -69,8 +86,8 @@ function resolveOutputPath(
 	/** @type {string} */ inputPath,
 ) {
 	const outputDir = eleventyData?.directories?.output;
-	const permalink = data?.permalink;
-	if (typeof permalink === "string") {
+	const permalink = literalPermalink(data);
+	if (permalink) {
 		return outputDir ? joinOutputPath(outputDir, permalink) : undefined;
 	}
 	const mapped = getPageMap()[normalizeInputPath(inputPath)];

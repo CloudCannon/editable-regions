@@ -173,8 +173,8 @@ matter (`file.data.get()`).
 | `filePathStem` | derived from `path` | Full path minus extension, with a leading `/`. |
 | `outputFileExtension` | constant `"html"` | We don't model custom output extensions. |
 | `date` | front matter `date` | Coerced to a `Date`. Returns `undefined` if absent or unparseable; we can't see file mtime / git history from the browser. |
-| `url` | live `permalink`, else build-time page map, else folder-style derivation | Priority: live front-matter `permalink` (captures editor-time edits) → build-time page-map lookup (captures computed permalinks) → 11ty's folder-style default. The map ships by default; opt out via `liquid.pageMap: false`. |
-| `outputPath` | live `permalink` joined with `directories.output`, else build-time page map, else folder-style default joined with `directories.output` | Same priority hierarchy as `url`. Build-map lookup uses 11ty's exact `outputPath` (so `index.html` joining matches what 11ty wrote). Returns `undefined` only if neither the map nor `registerEleventyData` have run. |
+| `url` | live `permalink`, else build-time page map, else folder-style derivation | Priority: a *literal* front-matter `permalink` (captures editor-time edits) → build-time page-map lookup → 11ty's folder-style default. A `permalink` containing template syntax (e.g. `"/{{ page.date \| date: '%Y/%m/%d' }}/"`) is skipped here and resolved via the page map, which holds 11ty's already-rendered value. The map ships by default; opt out via `liquid.pageMap: false`. |
+| `outputPath` | live `permalink` joined with `directories.output`, else build-time page map, else folder-style default joined with `directories.output` | Same priority hierarchy as `url` (templated permalinks likewise fall through to the page map). Build-map lookup uses 11ty's exact `outputPath` (so `index.html` joining matches what 11ty wrote). Returns `undefined` only if neither the map nor `registerEleventyData` have run. |
 | `templateSyntax` | — | Unimplemented. |
 | `lang` | — | Unimplemented (would need the i18n plugin's runtime state). |
 
