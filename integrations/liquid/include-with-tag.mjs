@@ -21,18 +21,21 @@ export function createIncludeWithTag(_liquidEngine) {
 			);
 
 			this.pathToken = tokenizer.readValue();
-			if (!this.pathToken)
+			if (!this.pathToken) {
 				throw new Error("includeWith: missing path argument");
+			}
 
 			tokenizer.skipBlank();
-			if (tokenizer.peek() !== ",")
+			if (tokenizer.peek() !== ",") {
 				throw new Error("includeWith: expected comma separator");
+			}
 			tokenizer.advance();
 			tokenizer.skipBlank();
 
 			this.objectToken = tokenizer.readValue();
-			if (!this.objectToken)
+			if (!this.objectToken) {
 				throw new Error("includeWith: missing object argument");
+			}
 		},
 
 		async render(/** @type {any} */ context) {

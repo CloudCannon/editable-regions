@@ -83,8 +83,9 @@ function isAbsoluteUrl(/** @type {string} */ url) {
 
 /** Coerces an input (Date, ISO string, epoch number) into a Date; `null` for unusable input. */
 function toDate(/** @type {any} */ value) {
-	if (value instanceof Date)
+	if (value instanceof Date) {
 		return Number.isNaN(value.getTime()) ? null : value;
+	}
 
 	if (value === null || value === undefined || value === "") return null;
 

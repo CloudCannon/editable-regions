@@ -161,8 +161,9 @@ function createBrowserStubPlugin(extraStubs = []) {
 
 	const shouldStub = (/** @type {string} */ id) => {
 		if (nodeBuiltins.has(id)) return true;
-		if (id === "@11ty/eleventy" || id.startsWith("@11ty/eleventy/"))
+		if (id === "@11ty/eleventy" || id.startsWith("@11ty/eleventy/")) {
 			return true;
+		}
 		return bareStubs.some((b) => id === b);
 	};
 
@@ -543,7 +544,7 @@ async function findFilesInDirectory({
  * registration function. `components` pins a module ahead of the
  * filesystem-resolution proxy via the same import-and-register shape.
  */
-const importRegisterFns = {
+const IMPORT_REGISTER_FNS = {
 	filters: "registerFilter",
 	shortcodes: "registerShortcode",
 	pairedShortcodes: "registerPairedShortcode",
@@ -553,7 +554,7 @@ const importRegisterFns = {
 
 /**
  * Emits an `import` + register-call pair for every `{ name: modulePath }` entry
- * across the `importRegisterFns` maps, e.g.:
+ * across the `IMPORT_REGISTER_FNS` maps, e.g.:
  *
  *   import filters_0 from "./path/to/file";
  *   registerFilter("name", filters_0);
@@ -564,10 +565,10 @@ const importRegisterFns = {
 function emitImportRegistrations(liquidOptions) {
 	let out = "";
 
-	for (const optionKey of /** @type {Array<keyof typeof importRegisterFns>} */ (
-		Object.keys(importRegisterFns)
+	for (const optionKey of /** @type {Array<keyof typeof IMPORT_REGISTER_FNS>} */ (
+		Object.keys(IMPORT_REGISTER_FNS)
 	)) {
-		const registerFn = importRegisterFns[optionKey];
+		const registerFn = IMPORT_REGISTER_FNS[optionKey];
 
 		for (const [i, [name, file]] of Object.entries(
 			liquidOptions?.[optionKey] ?? {},
