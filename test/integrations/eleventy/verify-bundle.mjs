@@ -80,9 +80,9 @@ const expectations = [
   // Build-time page map (default-on) — populated with resolved URLs.
   { name: "pageMap populated with a url", match: /registerPageMap\(\{[\s\S]*?"url"\s*:\s*"\// },
 
-  // pkg global — included field + the heavy-field strip.
+  // pkg global — package.json mirrored verbatim (including dependencies).
   { name: "pkg has name field", match: /registerPkg\(\{[^)]*"name"/ },
-  { name: "pkg omits dependencies", match: /registerPkg\((?!\{[^)]*"dependencies")/ },
+  { name: "pkg mirrors dependencies verbatim", match: /registerPkg\(\{[\s\S]*?"dependencies"/ },
 
   // File walk — a `.liquid` template inlined into the in-memory filesystem.
   { name: "liquid template inlined into cc_liquid_files", match: /window\.cc_liquid_files\["[^"]*\.liquid"\]/ },

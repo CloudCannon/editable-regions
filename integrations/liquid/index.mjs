@@ -7,7 +7,7 @@ import {
 	setEleventyData,
 } from "./globals.mjs";
 import { createIncludeWithTag } from "./include-with-tag.mjs";
-import { group, groupEnd, log, warnOnce } from "./logger.mjs";
+import { group, groupEnd, log } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
 // Re-exported from their own modules (which avoid the browser-runtime
@@ -147,52 +147,7 @@ export function registerProcessEnv(env) {
 }
 
 /**
- * Field names stripped from the user's `package.json` before it's embedded
- * in the bundle. These tend to dominate `package.json` size (hundreds of
- * dependency entries, dozens of npm scripts) and aren't typically read
- * from templates. Accessing one of these from a template returns
- * `undefined` and warns once (see `wrapPkgWithStripWarning` below).
- */
-const STRIPPED_PKG_FIELDS = [
-	"dependencies",
-	"devDependencies",
-	"peerDependencies",
-	"optionalDependencies",
-	"scripts",
-];
-
-/**
- * Wraps `pkg` so reads of known-stripped fields warn once instead of silently
- * returning `undefined`. Unknown property reads (typos, fields not present
- * in the user's package.json) still return `undefined` silently — we only
- * special-case the names we deliberately strip.
- *
- * @param {Record<string, any>} pkg
- */
-function wrapPkgWithStripWarning(pkg) {
-	const stripped = new Set(STRIPPED_PKG_FIELDS);
-	return new Proxy(pkg, {
-		get(target, key, receiver) {
-			if (typeof key === "string" && stripped.has(key) && !(key in target)) {
-				warnOnce(
-					`pkg-stripped:${key}`,
-					`pkg.${key} isn't available in live editing. The editable-regions ` +
-						`Eleventy plugin strips ${STRIPPED_PKG_FIELDS.join(", ")} from ` +
-						"the embedded package.json to keep the bundle small. If your " +
-						"template needs this field, open an issue.",
-				);
-				return undefined;
-			}
-			return Reflect.get(target, key, receiver);
-		},
-	});
-}
-
-/**
  * Sets the `pkg` global, mirroring 11ty's default exposure of `package.json`.
- * The generator (`integrations/eleventy/index.mjs:buildPkg`) strips the heavy
- * fields listed in `STRIPPED_PKG_FIELDS`; `wrapPkgWithStripWarning` makes
- * reads of those names warn instead of silently returning `undefined`.
  *
  * @param {Record<string, any>} pkg
  */
@@ -200,8 +155,7 @@ export function registerPkg(pkg) {
 	if (!sharedLiquidEngine) {
 		throw new Error("sharedLiquidEngine not defined when registering pkg");
 	}
-	/** @type {any} */ (sharedLiquidEngine).options.globals.pkg =
-		wrapPkgWithStripWarning(pkg ?? {});
+	/** @type {any} */ (sharedLiquidEngine).options.globals.pkg = pkg ?? {};
 	log("Registered pkg, fields:", Object.keys(pkg ?? {}).length);
 }
 

@@ -55,7 +55,7 @@ helpers. After `npm run build`, `_site/register-components.js` should contain:
   component (`registerLiquidComponent("card", ...)`)
 - the static globals — `registerProcessEnv` (allowlist + `PUBLIC_` prefix),
   `registerEleventyData` (`version` + `directories`, `env.runMode: "serve"`),
-  `registerPkg` (has `name`, strips heavy fields), `registerPageMap` (a
+  `registerPkg` (package.json mirrored verbatim), `registerPageMap` (a
   resolved `url`)
 - a `.liquid` template inlined into `window.cc_liquid_files`
 

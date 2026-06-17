@@ -344,8 +344,7 @@ async function generateLiveEditingSource(
 		const eleventyData = buildEleventyData(directories);
 		source += `\nregisterEleventyData(${JSON.stringify(eleventyData)});\n`;
 
-		// 11ty exposes the project's package.json as the `pkg` global by
-		// default. We mirror that, minus the heavy fields (see `buildPkg`).
+		// 11ty exposes the project's package.json as the `pkg` global by default.
 		const pkg = buildPkg();
 		if (pkg) {
 			source += `\nregisterPkg(${JSON.stringify(pkg)});\n`;
@@ -475,13 +474,9 @@ function buildEleventyData(directories) {
 }
 
 /**
- * Reads the project `package.json` and returns the subset to expose as the
- * `pkg` global, mirroring 11ty's default. Strips the heavy fields rarely read
- * from templates (`dependencies`, `devDependencies`, `peerDependencies`,
- * `optionalDependencies`, `scripts`); the runtime wrap
- * (`wrapPkgWithStripWarning`) warn-onces if a template reads one.
- *
- * Returns `null` on missing/malformed input so the bundle still builds.
+ * Reads the project `package.json` to expose as the `pkg` global, mirroring
+ * 11ty's default. Returns `null` on missing/malformed input so the bundle
+ * still builds.
  */
 function buildPkg() {
 	try {
@@ -489,18 +484,7 @@ function buildPkg() {
 			path.join(process.cwd(), "package.json"),
 			"utf8",
 		);
-		const raw = JSON.parse(contents);
-
-		const {
-			dependencies: _dependencies,
-			devDependencies: _devDependencies,
-			peerDependencies: _peerDependencies,
-			optionalDependencies: _optionalDependencies,
-			scripts: _scripts,
-			...rest
-		} = raw;
-
-		return rest;
+		return JSON.parse(contents);
 	} catch {
 		return null;
 	}

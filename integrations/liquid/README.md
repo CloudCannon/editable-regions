@@ -158,7 +158,7 @@ Globals are passed to `new Liquid({ globals })` inside `createSharedLiquidEngine
 | `page` | Partial | `Proxy` backed by `CloudCannon.currentFile()`. See below for which properties are supported. |
 | `process.env` | Opt-in | Build-time-filtered subset of the host's `process.env`, exposed only when the user configures `pluginOptions.env` and/or `pluginOptions.envPrefix`. See "Environment variables" below. |
 | `eleventy` | Partial | Static object built at build time. See "Eleventy global" below. |
-| `pkg` | Stripped | Project `package.json` minus `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, and `scripts`. See "`pkg` global" below. |
+| `pkg` | Implemented | Project `package.json`, mirrored verbatim. See "`pkg` global" below. |
 
 ### `page` properties
 
@@ -239,25 +239,10 @@ built once at build time:
 ### `pkg` global
 
 11ty exposes the project's `package.json` as the `pkg` global by default
-(`config.keys.package = "pkg"`). We mirror that — `pkg.name`, `pkg.version`,
-`pkg.description`, `pkg.author`, `pkg.homepage`, and any other top-level
-fields the consumer has set are available in editable templates the same
-way they are server-side.
-
-The bundle strips five fields before embedding `pkg`, because they
-typically dominate `package.json` size and aren't used from templates:
-
-- `dependencies`
-- `devDependencies`
-- `peerDependencies`
-- `optionalDependencies`
-- `scripts`
-
-Reading one of these from a template returns `undefined` and emits a
-warn-once message at the browser console explaining why. Reads of any
-other absent field (typos, conditional checks against unset fields) return
-`undefined` silently — we only special-case the names we deliberately
-strip, so existing `{% if pkg.foo %}` patterns keep working without noise.
+(`config.keys.package = "pkg"`). We mirror it verbatim — `pkg.name`,
+`pkg.version`, `pkg.description`, `pkg.author`, `pkg.homepage`, and any other
+top-level fields the consumer has set are available in editable templates the
+same way they are server-side.
 
 If `package.json` is missing or malformed at build time, the bundle skips
 `registerPkg` entirely and `pkg` is `undefined` in templates.
@@ -594,7 +579,6 @@ section catalogues the gaps and the patterns for working around them.
 | `page.date` from file mtime / git history | `undefined` if not in front matter. | Set `date:` in front matter. |
 | `eleventy.env.config`, `eleventy.env.root` | Deliberately omitted (absolute filesystem paths). | Don't reference these from a component. |
 | `eleventy.env.runMode`, `eleventy.env.source` | Hardcoded to `"serve"` / `"cli"`. | If you need a "we're in the editor" branch, use `ENV_CLIENT` instead. |
-| `pkg.dependencies`, `pkg.devDependencies`, `pkg.peerDependencies`, `pkg.optionalDependencies`, `pkg.scripts` | Stripped from the embedded `pkg` global to keep the bundle small. Accessing one returns `undefined` and warns once at the console. | If a template genuinely needs one of these in the editor, open an issue — we'll consider a way to opt in. |
 | `pagination`, `eleventy.serverless` | Not exposed. | Pagination is a build-time-only data cascade; serverless was removed upstream. |
 | Layout files | Not rendered by the live runtime; the page's HTML stays as Eleventy built it. | Layout-dependent logic should live in the component, not the layout, if you want it editable. |
 
