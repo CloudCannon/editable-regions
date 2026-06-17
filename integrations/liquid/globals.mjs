@@ -197,9 +197,10 @@ let collectionsSubscriptions = [];
  * `{ blog: [...], ... }` keyed by collection name. LiquidJS awaits it once,
  * then template access is synchronous on the resolved object.
  *
- * Subscribes to `change`/`delete` on each collection so adds/removes during an
- * editing session invalidate the cache. Item-level data edits don't fire these
- * events and stay cached until the next add/remove or a manual reset.
+ * Subscribes to `change`/`delete` on each collection and drops the cache when
+ * either fires. `change` covers any file change within the collection —
+ * including item-level data edits — so edits made during a session are picked
+ * up on the next render.
  *
  * @returns {Promise<Record<string, Array<any>>>}
  */
