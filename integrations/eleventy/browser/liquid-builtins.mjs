@@ -235,8 +235,8 @@ function passThroughStub(filterName, reason) {
 /**
  * Browser port of the `inputPathToUrl` plugin filter. Resolves against the
  * build-time page map (`registerPageMap`), which captures permalinks computed
- * by JS config or `eleventyComputed`. Misses (files not in the last build, or
- * `liquid.pageMap: false`) pass through with a warn-once rather than throwing.
+ * by JS config or `eleventyComputed`. Misses (e.g. a file not in the last
+ * build) pass through with a warn-once rather than throwing.
  *
  * @param {unknown} inputPath
  */
@@ -251,9 +251,8 @@ export function inputPathToUrlFilter(inputPath) {
 	warnOnce(
 		`input-path-to-url-miss:${inputPath}`,
 		`inputPathToUrl: no build-time URL recorded for "${inputPath}". ` +
-			"This usually means the file wasn't in the last build, or the page " +
-			"map is disabled via `liquid.pageMap: false`. Returning the input " +
-			"unchanged.",
+			"This usually means the file wasn't in the last build. Returning the " +
+			"input unchanged.",
 	);
 
 	return inputPath;

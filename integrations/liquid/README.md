@@ -129,7 +129,6 @@ works too.
 | `liquid.tags` | Map of tag name → factory module path. Browser-side override. Tags auto-mirror from the config like filters/shortcodes; use this only for a tag that can't run in the browser as written. |
 | `liquid.configPath` | Path to the Eleventy config file to import and replay for the auto-mirror, relative to the project root. Defaults to the first of 11ty's standard names that exists (`.eleventy.js`, `eleventy.config.{js,mjs,cjs}`). Set only if you run Eleventy with a non-default `--config`. |
 | `liquid.browserStub` | Extra bare module specifiers to stub out of the browser bundle, on top of the 11ty toolchain and Node built-ins (always stubbed). Use when the config imports a native/Node-only package (e.g. `sharp`) that no browser-bound helper actually calls. |
-| `liquid.pageMap` | Ship a build-time `inputPath → { url, outputPath }` map (default `true`). Used by the page / collections proxies and `inputPathToUrl` to resolve computed permalinks accurately. Costs ~100 bytes per page in the bundle; set to `false` for very large sites that don't need editor-time URL accuracy. |
 
 ## How it fits together
 
@@ -173,7 +172,7 @@ matter (`file.data.get()`).
 | `filePathStem` | derived from `path` | Full path minus extension, with a leading `/`. |
 | `outputFileExtension` | constant `"html"` | We don't model custom output extensions. |
 | `date` | front matter `date` | Coerced to a `Date`. Returns `undefined` if absent or unparseable; we can't see file mtime / git history from the browser. |
-| `url` | live `permalink`, else build-time page map, else folder-style derivation | Priority: a *literal* front-matter `permalink` (captures editor-time edits) → build-time page-map lookup → 11ty's folder-style default. A `permalink` containing template syntax (e.g. `"/{{ page.date \| date: '%Y/%m/%d' }}/"`) is skipped here and resolved via the page map, which holds 11ty's already-rendered value. The map ships by default; opt out via `liquid.pageMap: false`. |
+| `url` | live `permalink`, else build-time page map, else folder-style derivation | Priority: a *literal* front-matter `permalink` (captures editor-time edits) → build-time page-map lookup → 11ty's folder-style default. A `permalink` containing template syntax (e.g. `"/{{ page.date \| date: '%Y/%m/%d' }}/"`) is skipped here and resolved via the page map, which holds 11ty's already-rendered value. |
 | `outputPath` | live `permalink` joined with `directories.output`, else build-time page map, else folder-style default joined with `directories.output` | Same priority hierarchy as `url` (templated permalinks likewise fall through to the page map). Build-map lookup uses 11ty's exact `outputPath` (so `index.html` joining matches what 11ty wrote). Returns `undefined` only if neither the map nor `registerEleventyData` have run. |
 | `templateSyntax` | — | Unimplemented. |
 | `lang` | — | Unimplemented (would need the i18n plugin's runtime state). |
@@ -248,8 +247,8 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
 1. **Built-ins.** Browser-safe reimplementations of common Eleventy built-ins:
    `slugify`/`slug`, `url`, the date filters, `getNewestCollectionItemDate`,
    the four collection-item filters, and `log`. `inputPathToUrl` is backed by
-   the build-time page map (`liquid.pageMap`), so it resolves the correct URL
-   for any file in the last build, including computed permalinks. `renderContent`
+   the build-time page map, so it resolves the correct URL for any file in the
+   last build, including computed permalinks. `renderContent`
    is a real shim (see "RenderPlugin shims"). Filters that depend on
    build-time-only state we don't model (`htmlBaseUrl`, `serverlessUrl`) are
    warn-once pass-throughs that return their input unchanged.
@@ -560,14 +559,13 @@ section catalogues the gaps and the patterns for working around them.
 | Area | What happens | Fallback |
 | --- | --- | --- |
 | `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged. `htmlBaseUrl` depends on the configured `pathPrefix` (we don't expose it yet); `serverlessUrl` is a build-time concept with no editor equivalent. | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
-| `inputPathToUrl` filter when the source file wasn't in the last build, or `liquid.pageMap: false` is set | Falls back to warn-once and returns the input path unchanged. The build-time page map is what makes this filter work; without it (or for files added since the last build), there's no URL to look up. | Re-build to pick up new pages, or enable `pageMap` if you'd opted out. |
+| `inputPathToUrl` filter when the source file wasn't in the last build | Falls back to warn-once and returns the input path unchanged. The build-time page map is what makes this filter work; for files added since the last build there's no URL to look up. | Re-build to pick up new pages. |
 | `renderTemplate` / `renderFile` / `renderContent` with a non-Liquid engine arg (e.g. `"njk"`, `"md"`) | Warn-once and return the body unchanged. We only ship LiquidJS in the bundle. | Switch the template to Liquid, or guard the call with `{% if ENV_CLIENT %}` so it only runs at build time. |
 | Mirrored filters/shortcodes that touch `this.ctx`, `process`, `require`, `__dirname`, or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
 | Helpers from auto-loaded 11ty plugins used **inside a component** (e.g. `getBundle` / `getBundleFileUrl` / `renderTransforms` from `@11ty/eleventy-plugin-bundle`) | 11ty 3.x auto-loads several plugins that register universal helpers; the auto-mirror ships them verbatim and they'll throw if invoked from a template the editor re-renders. Layouts and pages aren't affected — the live runtime only renders components. | If you reference one of these in an editable component, add a browser-safe override via `pluginOptions.liquid.shortcodes` / `.filters`. Most users won't hit this because bundle helpers typically live in layouts. |
 | User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |
 | `page.templateSyntax`, `page.lang` | `undefined`. | If you need them, read from front matter / `_data/` instead, or skip the branch via `ENV_CLIENT`. |
-| `page.url` and `collections.x[i].url` with computed permalinks when `liquid.pageMap: false` | With the page map disabled, both fall back to front-matter `permalink` or folder-style default. Computed permalinks (JS config / `eleventyComputed`) aren't visible in that mode. With the default `pageMap: true`, both resolve correctly. | Leave `pageMap` enabled (the default), or set front-matter `permalink:` explicitly. |
 | `page.date` from file mtime / git history | `undefined` if not in front matter. | Set `date:` in front matter. |
 | `eleventy.env.config`, `eleventy.env.root` | Deliberately omitted (absolute filesystem paths). | Don't reference these from a component. |
 | `eleventy.env.runMode`, `eleventy.env.source` | Hardcoded to `"serve"` / `"cli"`. | If you need a "we're in the editor" branch, use `ENV_CLIENT` instead. |

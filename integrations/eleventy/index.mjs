@@ -343,13 +343,11 @@ async function generateLiveEditingSource(
 
 		// Build-time page map (inputPath -> { url, outputPath }) from 11ty's
 		// `results` payload, so the page / collections proxies and
-		// `inputPathToUrl` resolve permalinks computed by JS config or
-		// `eleventyComputed`. Opt out via `liquid.pageMap: false`.
-		if (liquidOptions.pageMap !== false) {
-			const pageMap = buildPageMap(results);
-			if (Object.keys(pageMap).length > 0) {
-				source += `\nregisterPageMap(${JSON.stringify(pageMap)});\n`;
-			}
+		// `inputPathToUrl` resolve permalinks computed by JS config,
+		// `eleventyComputed`, or template syntax in the permalink.
+		const pageMap = buildPageMap(results);
+		if (Object.keys(pageMap).length > 0) {
+			source += `\nregisterPageMap(${JSON.stringify(pageMap)});\n`;
 		}
 
 		// Walk every liquid file under the component dirs (anything

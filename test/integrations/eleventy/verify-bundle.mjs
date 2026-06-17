@@ -81,7 +81,7 @@ const expectations = [
   { name: "eleventyData has version + directories", match: /registerEleventyData\(\{[\s\S]*?"version"[\s\S]*?"directories"/ },
   { name: "eleventy.env.runMode is 'serve'", match: /"runMode"\s*:\s*"serve"/ },
 
-  // Build-time page map (default-on) — populated with resolved URLs.
+  // Build-time page map — populated with resolved URLs.
   { name: "pageMap populated with a url", match: /registerPageMap\(\{[\s\S]*?"url"\s*:\s*"\// },
 
   // pkg global — package.json mirrored verbatim (including dependencies).

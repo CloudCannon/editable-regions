@@ -42,15 +42,6 @@ export interface LiquidOptions {
 	 * here only for a tag that can't run in the browser as written.
 	 */
 	tags?: Record<string, string>;
-	/**
-	 * Ship a build-time `inputPath -> { url, outputPath }` map in the bundle
-	 * so the page / collections proxies and the `inputPathToUrl` filter can
-	 * resolve correctly for permalinks computed by JS config or
-	 * `eleventyComputed`. Default `true`. Set to `false` on very large sites
-	 * where the bundle-size cost (~100 bytes per page) outweighs the
-	 * accuracy win.
-	 */
-	pageMap?: boolean;
 }
 
 export interface PluginOptions {
