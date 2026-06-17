@@ -1,7 +1,4 @@
-/**
- * Simple logger for live editing integration.
- * Enable verbose mode to see detailed logs in browser console.
- */
+// Logging is gated on verbose mode, except `warn`/`warnOnce`.
 
 let verboseEnabled = false;
 
@@ -13,7 +10,6 @@ export function setVerbose(enabled) {
 	}
 }
 
-/** Log only when verbose mode is enabled. */
 export function log(/** @type {any[]} */ ...args) {
 	if (verboseEnabled) {
 		console.log(...args);
@@ -26,7 +22,7 @@ export function warn(/** @type {any[]} */ ...args) {
 
 const warnedKeys = new Set();
 
-/** Warn exactly once per key for the lifetime of the page. */
+/** Warns once per key for the lifetime of the page. */
 export function warnOnce(
 	/** @type {string} */ key,
 	/** @type {any[]} */ ...args
@@ -36,7 +32,6 @@ export function warnOnce(
 	warn(...args);
 }
 
-/** Group logs (only in verbose mode). */
 export function group(/** @type {string} */ label) {
 	if (verboseEnabled) {
 		console.group(label);

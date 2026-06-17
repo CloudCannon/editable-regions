@@ -1,18 +1,12 @@
 /**
- * Browser-side collector that auto-mirrors an Eleventy config's helpers into
- * the live-editing Liquid engine.
+ * Auto-mirrors an Eleventy config's helpers into the live-editing engine. The
+ * bundle imports the user's *real* config (so closures and imports survive,
+ * unlike `fn.toString()`) and replays it here against a recording stand-in for
+ * `eleventyConfig`, capturing every `addFilter`/`addShortcode`/etc. call.
  *
- * Rather than serialising helpers via `fn.toString()` (which would drop
- * everything they close over — module-scope constants, imported helpers,
- * `this`), the generated bundle imports the user's *real* config (bundled by
- * esbuild with its dependency graph intact) and replays it here against a
- * recording stand-in for `eleventyConfig`. Every `addFilter` / `addShortcode`
- * / `addPairedShortcode` / `addLiquidTag` call is captured with the live,
- * closure-preserving function and registered into the shared engine.
- *
- * Node/build-time APIs the config imports are stubbed at bundle time (see the
- * stub plugin in `../index.mjs`) so importing them is harmless; only a helper
- * that actually invokes one at render time fails.
+ * Node/build-time APIs the config imports are stubbed at bundle time (see
+ * `../index.mjs`), so importing them is harmless; only a helper that invokes
+ * one at render time fails.
  *
  * @typedef {"filters" | "shortcodes" | "pairedShortcodes" | "tags"} HelperKind
  */
@@ -29,10 +23,7 @@ import {
 	builtinShortcodeNames,
 } from "./liquid-builtins.mjs";
 
-/**
- * The runtime registration fn for each helper kind.
- * @type {Record<HelperKind, (name: string, fn: any) => void>}
- */
+/** @type {Record<HelperKind, (name: string, fn: any) => void>} */
 const KIND_REGISTRARS = {
 	filters: registerFilter,
 	shortcodes: registerShortcode,
@@ -41,13 +32,10 @@ const KIND_REGISTRARS = {
 };
 
 /**
- * Maps each 11ty registration method to its `[kind, layer]`. Universal methods
- * (`addFilter`) and their Liquid-specific siblings (`addLiquidFilter`) feed the
- * same kind; the Liquid layer wins on a name collision, mirroring 11ty's
- * `{ ...universal, ...liquid }` precedence. Async variants feed the same kinds
- * (async vs sync is irrelevant once we hand the function to the registrar).
- * Engine-specific variants for other engines (JS/Handlebars/Nunjucks) aren't
- * mirrored into the Liquid engine.
+ * Maps each 11ty registration method to its `[kind, layer]`. Universal and
+ * Liquid-specific siblings feed the same kind; the Liquid layer wins on a
+ * collision, mirroring 11ty's `{ ...universal, ...liquid }` precedence.
+ * Variants for other engines (JS/Handlebars/Nunjucks) aren't mirrored.
  *
  * @type {Record<string, [HelperKind, "universal" | "liquid"]>}
  */
@@ -78,12 +66,10 @@ function emptyLayer() {
  * Replays `configFn` against a recording stand-in and registers every
  * collected helper that isn't skipped.
  *
- * @param {unknown} configFn - The Eleventy config's default export (a function),
- *   or a module namespace whose `.default` is that function (ESM/CJS interop).
- * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] -
- *   Per-kind override names to skip (from `pluginOptions.liquid.<kind>`,
- *   registered separately as module imports so the override wins). Builtin
- *   browser-port names are skipped automatically — see the skip seeding below.
+ * @param {unknown} configFn - The config's default export (a function), or a
+ *   module namespace whose `.default` is that function (ESM/CJS interop).
+ * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] - Per-kind
+ *   override names to skip; builtin browser-port names are skipped automatically.
  */
 export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 	const fn =
@@ -101,10 +87,8 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		return;
 	}
 
-	// Builtin browser-port names are skipped here (single source of truth: the
-	// lists are derived from the implementations in `liquid-builtins.mjs`) so a
-	// same-named config helper can't clobber our port. The caller adds only its
-	// override names on top.
+	// Skip builtin browser-port names (derived from `liquid-builtins.mjs`) so a
+	// same-named config helper can't clobber our port, plus caller overrides.
 	/** @type {Record<HelperKind, Set<string>>} */
 	const skip = {
 		filters: new Set([...builtinFilterNames, ...(options.skip?.filters ?? [])]),
@@ -128,9 +112,8 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		};
 	}
 
-	// Any config method we don't explicitly record is a no-op so running the
-	// real config function (which calls `addPlugin`, `addPassthroughCopy`,
-	// `on`, sets `dir`, ...) doesn't throw.
+	// Unrecorded methods are no-ops so running the real config (which calls
+	// `addPassthroughCopy`, `on`, sets `dir`, ...) doesn't throw.
 	const fakeConfig = new Proxy(recorder, {
 		get(target, prop, receiver) {
 			if (prop in target) return Reflect.get(target, prop, receiver);
@@ -138,10 +121,9 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		},
 	});
 
-	// Replay function plugins too, so helpers a plugin registers (rather than
-	// the config directly) are mirrored as well. A plugin that throws (e.g. a
-	// stubbed Node-only one) is contained: helpers it registered before
-	// throwing are kept, the rest of the config continues.
+	// Replay function plugins too, so plugin-registered helpers are mirrored.
+	// A throwing plugin (e.g. a stubbed Node-only one) is contained: helpers it
+	// registered before throwing are kept, the rest of the config continues.
 	recorder.addPlugin = (/** @type {any} */ plugin, /** @type {any} */ opts) => {
 		const pluginFn =
 			typeof plugin === "function" ? plugin : plugin?.configFunction;

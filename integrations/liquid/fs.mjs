@@ -1,8 +1,7 @@
 import { log, warn } from "./logger.mjs";
 
 /**
- * In-memory filesystem for LiquidJS that reads from window.cc_liquid_files.
- *
+ * In-memory filesystem for LiquidJS, reading from `window.cc_liquid_files`.
  * @type {any}
  */
 export const inMemoryFs = {
@@ -68,8 +67,7 @@ export const inMemoryFs = {
 		return resolved;
 	},
 
-	// `statSync`/`statAsync` always claim isFile: true — the in-memory store
-	// is flat, so anything we'd be asked to stat is a file.
+	// The store is flat, so anything stat'd is a file.
 	statSync() {
 		return { isFile: () => true };
 	},

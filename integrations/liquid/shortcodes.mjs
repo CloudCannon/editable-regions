@@ -1,21 +1,14 @@
-/**
- * Shortcode-to-LiquidJS-Tag wrapper utilities.
- * Converts Eleventy-style shortcode functions into LiquidJS custom tags.
- *
- * Eleventy shortcodes: simple functions that return HTML
- * LiquidJS tags: objects with parse() and render() methods
- */
+// Wraps Eleventy-style shortcode functions (return a string) as LiquidJS
+// custom tags (objects with parse/render).
 
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 import { group, groupEnd, log } from "./logger.mjs";
 
 /**
- * Creates a LiquidJS tag implementation for a regular (non-paired) shortcode.
- *
  * Usage: {% shortcodeName arg1, arg2, "literal" %}
  *
  * @param {string} shortcodeName
- * @param {any} shortcodeFn - (arg1, arg2, ...) => string
+ * @param {any} shortcodeFn
  * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions}
  */
 export function createShortcodeTag(shortcodeName, shortcodeFn) {
@@ -40,12 +33,10 @@ export function createShortcodeTag(shortcodeName, shortcodeFn) {
 }
 
 /**
- * Creates a LiquidJS tag implementation for a paired shortcode.
- *
  * Usage: {% shortcodeName arg1 %}content{% endshortcodeName %}
  *
  * @param {string} tagName
- * @param {any} shortcodeFn - (content, arg1, ...) => string
+ * @param {any} shortcodeFn
  * @returns {import('liquidjs/dist/template/tag-options-adapter').TagImplOptions}
  */
 export function createPairedShortcodeTag(tagName, shortcodeFn) {
@@ -91,8 +82,7 @@ export function createPairedShortcodeTag(tagName, shortcodeFn) {
 }
 
 /**
- * Parses comma-separated arguments from a tag's args string. Handles quoted
- * strings and variable references.
+ * Parses comma-separated tag arguments (quoted strings and variable refs).
  *
  * @param {string} argsString
  * @param {any} operatorsTrie
@@ -124,8 +114,6 @@ export function parseArgs(argsString, operatorsTrie) {
 }
 
 /**
- * Evaluates parsed tokens against the render context.
- *
  * @param {any[]} tokens
  * @param {any} context
  * @returns {Promise<any[]>}

@@ -1,10 +1,6 @@
-/**
- * `includeWith` tag — spreads an object into a Liquid `{% include %}` the way
- * Astro's `{...props}` does. Lives in its own file (rather than alongside
- * the rest of `index.mjs`) so the Node-side Eleventy plugin can import it
- * at config-load time without transitively pulling in browser-runtime
- * modules (`globals.mjs`, `helpers/cloudcannon.mjs`).
- */
+// `includeWith` tag — spreads an object into a Liquid `{% include %}` the way
+// Astro's `{...props}` does. Kept in its own file so the Node-side Eleventy
+// plugin can import it without pulling in browser-runtime modules.
 
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 import { enhanceLiquidError } from "./errors.mjs";

@@ -1,19 +1,11 @@
-/**
- * Builders for the `page` and `collections` globals exposed on the shared
- * Liquid engine. Both return Promises that LiquidJS awaits at the top-level
- * globals level; once resolved, all property access in templates is
- * synchronous on the plain objects.
- */
+// Builders for the `page` and `collections` globals on the shared Liquid
+// engine. Both return Promises that LiquidJS awaits at the globals level;
+// property access in templates is then synchronous on the resolved objects.
 
 import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { getPageMap, normalizeInputPath } from "./page-map.mjs";
 
-/**
- * Snapshot of Eleventy build-time data needed to resolve `page.outputPath`.
- * Set via `setEleventyData` from `liquid/index.mjs`.
- *
- * @type {{ directories?: { output?: string } } | null}
- */
+/** @type {{ directories?: { output?: string } } | null} */
 let eleventyData = null;
 
 /** @param {{ directories?: { output?: string } } | null} data */
@@ -27,10 +19,9 @@ function stripExtension(/** @type {string} */ p) {
 }
 
 /**
- * 11ty's default folder-style permalink: every input path becomes a URL with
- * a trailing slash, with `index` files mapping to the parent directory.
- * Last-resort fallback used by `resolveUrl` when neither a live front-matter
- * `permalink` nor the build-time page map gives us an answer.
+ * 11ty's folder-style permalink: trailing-slash URL, `index` files mapping to
+ * the parent dir. Last-resort fallback when neither a literal front-matter
+ * `permalink` nor the page map resolves a URL.
  */
 function deriveDefaultUrl(/** @type {string} */ inputPath) {
 	const stem = stripExtension(inputPath).replace(/^\.?\//, "/");
@@ -40,12 +31,10 @@ function deriveDefaultUrl(/** @type {string} */ inputPath) {
 }
 
 /**
- * A front-matter `permalink` we can use verbatim: a plain string with no Liquid
- * templating. 11ty permalinks can embed template syntax
- * (e.g. `"/{{ page.date | date: '%Y/%m/%d' }}/"`), which we can't render here
- * without the page's full build context — so for those we return `undefined`
- * and let the caller fall back to the build-time page map, which holds 11ty's
- * already-resolved value.
+ * A front-matter `permalink` usable verbatim: a plain string with no Liquid
+ * templating. Templated permalinks (e.g. `"/{{ page.date }}/"`) need the full
+ * build context to render, so we return `undefined` and let the caller fall
+ * back to the page map's already-resolved value.
  */
 function literalPermalink(
 	/** @type {Record<string, any> | null | undefined} */ data,
@@ -57,14 +46,9 @@ function literalPermalink(
 }
 
 /**
- * Resolves the URL for an Eleventy input file. Priority:
- *
- *   1. Live front-matter `permalink`, if it's a literal string — wins so
- *      editor-time edits show immediately, before the user re-builds.
- *   2. Build-time page map (`registerPageMap`) — captures permalinks computed
- *      by JS config, `eleventyComputed`, or template syntax in the permalink,
- *      none of which front-matter can give us directly.
- *   3. 11ty's folder-style default — last-resort derivation.
+ * Resolves the URL for an input file, in priority order: literal front-matter
+ * `permalink` (so editor edits show before a rebuild) → build-time page map →
+ * 11ty's folder-style default.
  */
 function resolveUrl(
 	/** @type {Record<string, any> | null | undefined} */ data,
@@ -77,10 +61,7 @@ function resolveUrl(
 	return deriveDefaultUrl(inputPath);
 }
 
-/**
- * Same priority layering as `resolveUrl` but for the output path.
- * Returns `undefined` if we can't compose a path from available data.
- */
+/** Same priority layering as `resolveUrl`, for the output path. */
 function resolveOutputPath(
 	/** @type {Record<string, any> | null | undefined} */ data,
 	/** @type {string} */ inputPath,
@@ -108,10 +89,7 @@ function deriveFilePathStem(/** @type {string} */ inputPath) {
 	return stem.startsWith("/") ? stem : `/${stem}`;
 }
 
-/**
- * Coerces a raw front-matter date value into a Date. Returns `undefined`
- * for absent or unparseable input.
- */
+/** Coerces a front-matter date value into a Date, or `undefined`. */
 function toDate(/** @type {unknown} */ raw) {
 	if (!raw) return undefined;
 	const d = new Date(/** @type {any} */ (raw));
@@ -119,9 +97,8 @@ function toDate(/** @type {unknown} */ raw) {
 }
 
 /**
- * Joins an output directory and URL into an output path the way 11ty does:
- * URLs ending in `/` become `<dir><url>index.html`; other URLs are appended
- * as-is.
+ * Joins an output dir and URL the way 11ty does: trailing-slash URLs become
+ * `<dir><url>index.html`; others are appended as-is.
  */
 function joinOutputPath(
 	/** @type {string} */ outputDir,
@@ -133,8 +110,7 @@ function joinOutputPath(
 }
 
 /**
- * Materialises a single CC API file object into the 11ty collection-item
- * shape used in templates.
+ * Materialises a CC API file into the 11ty collection-item shape.
  *
  * @param {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1File} file
  */
@@ -152,10 +128,8 @@ async function materialiseFile(file) {
 }
 
 /**
- * Builds the `page` object for the file currently open in the Visual Editor.
- * Returns a Promise (LiquidJS awaits it at the globals level; access is then
- * synchronous). Called before every component render so live front-matter
- * edits (e.g. `permalink`, `date`) are reflected immediately.
+ * Builds the `page` object for the file open in the Visual Editor. Called
+ * before every render so live front-matter edits are reflected immediately.
  *
  * @returns {Promise<Record<string, any>>}
  */
@@ -176,31 +150,16 @@ export async function buildPageData() {
 	};
 }
 
-/**
- * Cached collections promise, reused across renders until invalidated by
- * a `change` or `delete` event on any collection.
- *
- * @type {Promise<Record<string, Array<any>>> | null}
- */
+/** @type {Promise<Record<string, Array<any>>> | null} */
 let collectionsCache = null;
 
-/**
- * Active invalidation subscriptions to tear down when the cache is reset,
- * so we don't leak listeners across cache cycles.
- *
- * @type {Array<{ target: any, event: "change" | "delete", handler: () => void }>}
- */
+/** @type {Array<{ target: any, event: "change" | "delete", handler: () => void }>} */
 let collectionsSubscriptions = [];
 
 /**
- * Builds (or returns cached) the `collections` object — a Promise resolving to
- * `{ blog: [...], ... }` keyed by collection name. LiquidJS awaits it once,
- * then template access is synchronous on the resolved object.
- *
- * Subscribes to `change`/`delete` on each collection and drops the cache when
- * either fires. `change` covers any file change within the collection —
- * including item-level data edits — so edits made during a session are picked
- * up on the next render.
+ * Builds (or returns cached) the `collections` object, keyed by collection
+ * name. Subscribes to `change`/`delete` on each collection and drops the cache
+ * when either fires, so edits during a session are picked up on the next render.
  *
  * @returns {Promise<Record<string, Array<any>>>}
  */

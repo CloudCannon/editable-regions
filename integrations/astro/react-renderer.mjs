@@ -9,16 +9,13 @@ addFrameworkRenderer({
 	name: "@astrojs/react",
 	clientEntrypoint: "@astrojs/react/client.js",
 	ssr: {
-		/**
-		 * Always returns true to handle all remaining components as React.
-		 * @returns {boolean} Always true
-		 */
+		// Handles all remaining components as React.
 		check: () => true,
 		/**
-		 * Renders a React component to static markup or queues for client-side rendering.
-		 * @param {any} Component - The React component function
-		 * @param {any} props - Props to pass to the component
-		 * @returns {Promise<{ html: string }>} Object containing the rendered HTML
+		 * Renders to static markup, falling back to a client-side render queue.
+		 * @param {any} Component
+		 * @param {any} props
+		 * @returns {Promise<{ html: string }>}
 		 */
 		renderToStaticMarkup: async (Component, props) => {
 			try {
@@ -30,7 +27,6 @@ addFrameworkRenderer({
 					const root = createRoot(node);
 					flushSync(() => root.render(reactNode));
 				});
-				// Queue for client-side rendering if SSR fails
 				return {
 					html: `<div data-editable-region-csr-id=${id}></div>`,
 				};

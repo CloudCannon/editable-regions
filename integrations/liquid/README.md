@@ -38,11 +38,10 @@ Visual Editor. The "component" is the unit: a Liquid partial (e.g.
 edits its data, without round-tripping through Eleventy.
 
 It is **not** a full client-side replacement for Eleventy. Pages are still
-built by Eleventy at build time and served as static HTML. The runtime in
-this directory only renders the components the editor swaps in — so anything
-that conceptually belongs to the page lifecycle (permalinks, layouts, build
-filters, output paths) is either shimmed approximately or deliberately not
-implemented. The "Limitations and fallbacks" section below covers the gaps.
+built by Eleventy and served as static HTML; this runtime only re-renders the
+components the editor swaps in. Anything belonging to the page lifecycle
+(permalinks, layouts, build filters, output paths) is shimmed approximately or
+not implemented — see "Limitations and fallbacks".
 
 ## Install and configure
 
@@ -342,35 +341,20 @@ eleventyConfig.addPlugin(editableRegions, {
 });
 ```
 
-It's a tax, and it only applies to built-in names. The alternative —
-letting the auto-mirror ship Eleventy's defaults — breaks every project
-that uses `{{ x | url }}` without overriding, because Eleventy's default
-`url` filter closes over Node-only imports that throw in the browser. The
-skip protects users who don't override; the second registration unlocks the
-path for users who do.
+This only applies to built-in names: the auto-mirror skips them to protect our
+browser ports, so the second registration is what unlocks your override.
 
 ## Shortcodes and paired shortcodes
 
-Same built-ins / auto-mirrored / overrides model as filters. Each
-registered function is wrapped via `createShortcodeTag` /
-`createPairedShortcodeTag` (see `shortcodes.mjs`) which translates
-Eleventy's "function returning a string" shape into LiquidJS's
-`{ parse, render }` tag shape.
+Same built-ins / auto-mirrored / overrides model as filters: anything
+registered via `addShortcode` / `addAsyncShortcode` / `addLiquidShortcode`
+(and the paired equivalents) is mirrored with closures intact, and a
+non-portable one throws at render time, prompting an override under
+`pluginOptions.liquid.shortcodes` / `pluginOptions.liquid.pairedShortcodes`.
 
-The only built-in shortcode is `renderFile`. It's one of three RenderPlugin
-pieces we shim — the other two land in different sections because they're
-different shapes: `renderContent` is a [filter](#filters) and
-`renderTemplate` is a [tag](#built-in-tags). See
-[RenderPlugin shims](#renderplugin-shims) for the unified view of all
-three.
-
-The auto-mirror replays everything the user registered via `addShortcode` /
-`addAsyncShortcode` / `addLiquidShortcode` (and the paired equivalents),
-closures intact. Overrides live under `pluginOptions.liquid.shortcodes` /
-`pluginOptions.liquid.pairedShortcodes` for browser-friendly replacements.
-
-Like filters, the auto-mirror has no portability heuristic — non-portable
-shortcodes throw at render time and direct you to add an override.
+The only built-in shortcode is `renderFile`, one of the three RenderPlugin
+shims — `renderContent` is a [filter](#filters) and `renderTemplate` is a
+[tag](#built-in-tags). See [RenderPlugin shims](#renderplugin-shims).
 
 ### Adding a custom shortcode
 
@@ -521,22 +505,17 @@ Both paths render to a detached `<div>` and return it as an `HTMLElement`.
 
 ## Virtual filesystem
 
-At runtime there are two distinct data sources, and they're not
-interchangeable:
+Two data sources back the runtime:
 
-- **`window.cc_liquid_files`** — a build-time snapshot of every template under
-  the configured component dirs (extensions configurable via
-  `liquid.extensions`). Synchronous, source-text only. Backs `{% include %}`
-  resolution.
+- **`window.cc_liquid_files`** — a build-time snapshot of your templates,
+  serving `{% include %}` resolution synchronously.
 - **CloudCannon Visual Editor API** (`CloudCannon.currentFile()`,
-  `CloudCannon.file(path)`, `CloudCannon.collection(key)`, etc.) — a live view
-  of the editor's file tree, including pages, data files, drafts, and anything
-  added during a session. Backs the `page` and `collections` globals and the
-  `renderFile` shortcode.
+  `CloudCannon.file(path)`, `CloudCannon.collection(key)`) — a live view of the
+  editor's file tree, backing the `page` / `collections` globals and
+  `renderFile`.
 
 When in doubt, prefer the API: it sees everything the editor sees and stays
-correct as the user edits. `cc_liquid_files` exists only to serve LiquidJS its
-template bytes synchronously during `{% include %}`, which the API can't do.
+correct as the user edits.
 
 ## Error enhancement
 

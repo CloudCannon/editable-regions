@@ -20,10 +20,7 @@ const extendedWindow = /** @type {any} */ (window);
 /** @type {CloudCannonVisualEditorAPIV1} */
 let _cloudcannon;
 
-/**
- * Promise that resolves when the CloudCannon API is loaded
- * @type {Promise<void>}
- */
+/** @type {Promise<void>} */
 export const apiLoadedPromise = new Promise((resolve) => {
 	if (extendedWindow.CloudCannonAPI) {
 		_cloudcannon = /** @type {any} */ (
@@ -47,10 +44,8 @@ export const apiLoadedPromise = new Promise((resolve) => {
 });
 
 /**
- * Add a renderer for editable components
- * @param {string} key - The component key
- * @param {ComponentRenderer} renderer - The component renderer function
- * @returns {void}
+ * @param {string} key
+ * @param {ComponentRenderer} renderer
  */
 export const addEditableComponentRenderer = (key, renderer) => {
 	extendedWindow.cc_components = extendedWindow.cc_components || {};
@@ -58,33 +53,23 @@ export const addEditableComponentRenderer = (key, renderer) => {
 };
 
 /**
- * Add a renderer for editable snippets
- * @param {string} key - The snippet key
- * @param {ComponentRenderer} renderer - The snippet renderer function
- * @returns {void}
+ * @param {string} key
+ * @param {ComponentRenderer} renderer
  */
 export const addEditableSnippetRenderer = (key, renderer) => {
 	extendedWindow.cc_snippets = extendedWindow.cc_snippets || {};
 	extendedWindow.cc_snippets[key] = renderer;
 };
 
-/**
- * Get all registered editable component renderers
- * @returns {Record<string, ComponentRenderer>}
- */
 export const getEditableComponentRenderers = () =>
 	extendedWindow.cc_components ?? {};
 
-/**
- * Get all registered editable snippet renderers
- * @returns {Record<string, ComponentRenderer>}
- */
 export const getEditableSnippetRenderers = () =>
 	extendedWindow.cc_snippets ?? {};
 
 /**
- * Realize API values by converting CloudCannon API objects to their data representations
- * @param {unknown} value - The value to realize
+ * Resolves CloudCannon API objects (collections, files, datasets) to plain data.
+ * @param {unknown} value
  * @returns {Promise<unknown>}
  */
 export const realizeAPIValue = async (value) => {

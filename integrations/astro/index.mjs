@@ -4,30 +4,21 @@ import {
 } from "astro/runtime/server/index.js";
 import { addEditableComponentRenderer } from "../../helpers/cloudcannon.mjs";
 
-/**
- * Queue of React components waiting to be rendered
- * @type {((node: Element) => void)[]}
- */
+/** @type {((node: Element) => void)[]} */
 const renderRoots = [];
 
 const renderers = [
 	{
 		name: "dynamic-tags",
 		ssr: {
-			/**
-			 * Checks if the component is a string (HTML tag name).
-			 * @param {any} Component - The component to check
-			 * @returns {boolean} True if component is a string tag name
-			 */
+			/** @param {any} Component */
 			check: (Component) => {
 				return typeof Component === "string";
 			},
 			/**
-			 * Renders a dynamic HTML tag with props and slots.
-			 * @param {string} Component - The HTML tag name
-			 * @param {Record<string, any>} props - Props to render as attributes
-			 * @param {Record<string, string>} slots - Slot content
-			 * @returns {Promise<string>} The rendered HTML string
+			 * @param {string} Component - HTML tag name
+			 * @param {Record<string, any>} props
+			 * @param {Record<string, string>} slots
 			 */
 			renderToStaticMarkup: async (Component, props, slots) => {
 				const propsString = Object.entries(props)
@@ -57,25 +48,19 @@ export const queueForClientSideRender = (renderFunction) => {
 };
 
 /**
- * Registers an Astro component with the CloudCannon component system.
- * Creates a wrapper that handles Astro SSR rendering with React hydration support.
+ * Registers an Astro component, wrapping it to render via Astro SSR with
+ * React hydration support.
  *
- * @param {string} key - Unique identifier for the component
- * @param {unknown} component - The Astro component function to register
- * @returns {void}
+ * @param {string} key
+ * @param {unknown} component
  */
 export const registerAstroComponent = (key, component) => {
 	/**
-	 * Wrapper function that renders the Astro component with SSR and client-side hydration.
-	 *
-	 * @param {any} props - Props to pass to the Astro component
-	 * @returns {Promise<HTMLElement>} The rendered component as an HTMLElement
+	 * @param {any} props
+	 * @returns {Promise<HTMLElement>}
 	 */
 	const wrappedComponent = async (props) => {
-		/**
-		 * Encryption key for Astro server islands
-		 * @type {CryptoKey | undefined}
-		 */
+		/** @type {CryptoKey | undefined} Encryption key for Astro server islands */
 		let encryptionKey;
 		try {
 			encryptionKey = await window.crypto.subtle.generateKey(
@@ -130,9 +115,7 @@ export const registerAstroComponent = (key, component) => {
 			slots: {},
 			props,
 			resolve: () => "editable-region-placeholder",
-			/**
-			 * @param {*} args
-			 */
+			/** @param {*} args */
 			createAstro(...args) {
 				if (args.length < 2 || args.length > 3) {
 					console.warn(
@@ -150,18 +133,12 @@ export const registerAstroComponent = (key, component) => {
 				}
 
 				const astroSlots = {
-					/**
-					 * @param {string} name
-					 * @returns boolean
-					 */
+					/** @param {string} name */
 					has: (name) => {
 						if (!componentSlots) return false;
 						return Boolean(componentSlots[name]);
 					},
-					/**
-					 * @param {string} name
-					 * @returns string
-					 */
+					/** @param {string} name */
 					render: (name) => {
 						return renderSlotToString(SSRResult, componentSlots[name]);
 					},
@@ -174,7 +151,6 @@ export const registerAstroComponent = (key, component) => {
 				};
 			},
 		};
-		// Render the Astro component to HTML string
 		const result = await renderToString(SSRResult, component, props, {});
 		const doc = document.implementation.createHTMLDocument();
 		doc.body.innerHTML = result;
@@ -184,7 +160,6 @@ export const registerAstroComponent = (key, component) => {
 			renderRoots[csrId]?.(node);
 		});
 
-		// Clear the React roots queue
 		renderRoots.length = 0;
 
 		doc.querySelectorAll("link, [data-island-id]").forEach((node) => {
@@ -201,6 +176,5 @@ export const registerAstroComponent = (key, component) => {
 		return doc.body;
 	};
 
-	// Register the wrapped component in the global registry
 	addEditableComponentRenderer(key, wrappedComponent);
 };

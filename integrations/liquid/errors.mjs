@@ -1,10 +1,9 @@
 /**
- * Inspects a LiquidJS error and returns a new Error with a more
- * descriptive, actionable message for the editable-region error card.
+ * Rewrites a LiquidJS error into an actionable message for the error card.
  *
- * @param {unknown} err - The original error
- * @param {string} componentName - The component or template being rendered
- * @returns {Error} An enhanced error with a user-friendly message
+ * @param {unknown} err
+ * @param {string} componentName
+ * @returns {Error}
  */
 export function enhanceLiquidError(err, componentName) {
 	const message = err instanceof Error ? err.message : String(err);

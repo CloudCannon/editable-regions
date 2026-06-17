@@ -19,8 +19,8 @@ import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
  */
 
 /**
- * Payload Eleventy passes to `eleventy.after` handlers. `directories` is the
- * Eleventy 3.x shape; `dir` is the older fallback we still accept.
+ * Payload Eleventy passes to `eleventy.after`. `directories` is the 3.x shape;
+ * `dir` the older fallback still passed in 3.x.
  *
  * @typedef {Object} EleventyEventPayload
  * @property {EleventyDirectories} [directories]
@@ -29,27 +29,20 @@ import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
  */
 
 /**
- * A Liquid tag factory: invoked once by LiquidJS with the engine, returns
- * the `{ parse, render }` pair LiquidJS calls per occurrence. Matches the
- * shape `eleventyConfig.addLiquidTag` documents.
- *
  * @typedef {(liquidEngine: import("liquidjs").Liquid) => { parse: (...args: any[]) => void, render: (...args: any[]) => unknown }} LiquidTagFactory
  */
 
 /**
- * Eleventy lifecycle event names. We only subscribe to `eleventy.after`.
- *
  * @typedef {"eleventy.before" | "eleventy.after" | "eleventy.beforeWatch" | "eleventy.beforeConfig"} EleventyEventName
  */
 
 /**
- * The subset of Eleventy's user config object we touch. Eleventy ships no
- * types, so we declare only what we use.
+ * The subset of Eleventy's (untyped) user config we touch.
  *
  * @typedef {Object} EleventyConfig
- * @property {(name: string, factory: LiquidTagFactory) => void} addLiquidTag - Register a custom Liquid tag
- * @property {(event: EleventyEventName, handler: (payload: EleventyEventPayload) => Promise<void> | void) => void} on - Register an event handler
- * @property {EleventyDirectories} dir - Directory configuration
+ * @property {(name: string, factory: LiquidTagFactory) => void} addLiquidTag
+ * @property {(event: EleventyEventName, handler: (payload: EleventyEventPayload) => Promise<void> | void) => void} on
+ * @property {EleventyDirectories} dir
  */
 
 /**
@@ -69,8 +62,7 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 	eleventyConfig.addLiquidTag("includeWith", createIncludeWithTag);
 
 	eleventyConfig.on("eleventy.after", async ({ directories, dir, results }) => {
-		// `directories` is the 11ty 3.x shape; `dir` the legacy one (still
-		// passed in 3.x); `eleventyConfig.dir` a last-resort closure fallback.
+		// 3.x `directories`, legacy `dir`, then a closure fallback.
 		const dirs = directories ?? dir ?? eleventyConfig.dir;
 
 		const rawExtensions = liquidOptions.extensions ?? [".liquid", ".html"];
@@ -101,8 +93,7 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 			bundle: true,
 			platform: "browser",
 			// The bundle imports the user's real Eleventy config (see
-			// `emitConfigMirror`), which drags in Node/build-time imports. Stub
-			// them so the `import`s resolve but throw if actually called.
+			// `emitConfigMirror`), dragging in Node/build-time imports — stub them.
 			plugins: [createBrowserStubPlugin(liquidOptions.browserStub)],
 			outfile: options.output ?? `${dirs.output}/register-components.js`,
 		});
@@ -110,9 +101,7 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 }
 
 /**
- * Each supported language resolves to an options object (enabled) or `false`
- * (disabled). Liquid is the default and is enabled implicitly — only
- * `liquid: false` opts out. Future languages default to off.
+ * Liquid is enabled implicitly; only `liquid: false` opts out.
  *
  * @param {PluginOptions | undefined} pluginOptions
  * @returns {NormalizedPluginOptions}
@@ -124,17 +113,12 @@ function normalizePluginOptions(pluginOptions) {
 		liquid: /** @type {LiquidOptions | false} */ (
 			normalizeLanguageOption(opts.liquid, { defaultOn: true })
 		),
-		// Future opt-in languages follow the same shape but default to off,
-		// e.g. `normalizeLanguageOption(opts.nunjucks, { defaultOn: false })`.
 	};
 }
 
 /**
- * Resolves a per-language option:
- *   - `false` → disabled
- *   - `true` → enabled with default options
- *   - object → enabled with those options
- *   - `undefined` → uses `defaultOn` (Liquid defaults on; future langs off)
+ * Resolves a per-language option: `false` → off, `true` → on with defaults,
+ * object → on with those options, `undefined` → `defaultOn`.
  *
  * @template {object} Options
  * @param {Options | boolean | undefined} value
@@ -149,10 +133,9 @@ function normalizeLanguageOption(value, { defaultOn }) {
 }
 
 /**
- * Bare specifiers that must never end up in the browser bundle: the 11ty
- * toolchain (and its subpaths) and the editable-regions Node plugin itself.
- * NOT `@cloudcannon/editable-regions/eleventy/browser` or `.../liquid` — those
- * are the real browser runtime and must bundle normally.
+ * Bare specifiers that must never reach the browser bundle: the 11ty toolchain
+ * (and subpaths) and the Node plugin itself. NOT the `/browser` or `/liquid`
+ * subpaths — those are the real browser runtime and bundle normally.
  */
 const ALWAYS_STUBBED = [
 	"@11ty/eleventy",
@@ -160,15 +143,13 @@ const ALWAYS_STUBBED = [
 ];
 
 /**
- * esbuild plugin that resolves Node built-ins and known build-time-only
- * packages to a Proxy that survives `import` and property access but throws
- * when *called* or *constructed*. This lets the user's Eleventy config bundle
- * for the browser; only a helper that actually invokes a Node API at render
- * time fails (which it must — it can't run in a browser).
+ * esbuild plugin resolving Node built-ins and build-time-only packages to a
+ * Proxy that survives `import` and property access but throws when called or
+ * constructed — so the user's config bundles, and only a helper that actually
+ * invokes a Node API at render time fails.
  *
- * @param {string[]} [extraStubs] - Additional bare specifiers to stub, from
- *   `pluginOptions.liquid.browserStub` (for native deps like `sharp` that a
- *   config imports but no browser-bound helper calls).
+ * @param {string[]} [extraStubs] - Extra specifiers to stub
+ *   (`pluginOptions.liquid.browserStub`), e.g. native deps like `sharp`.
  * @returns {import('esbuild').Plugin}
  */
 function createBrowserStubPlugin(extraStubs = []) {
@@ -180,8 +161,6 @@ function createBrowserStubPlugin(extraStubs = []) {
 
 	const shouldStub = (/** @type {string} */ id) => {
 		if (nodeBuiltins.has(id)) return true;
-		// `@11ty/eleventy` and any subpath (but not the editable-regions
-		// `/browser` + `/liquid` subpaths, which are real browser code).
 		if (id === "@11ty/eleventy" || id.startsWith("@11ty/eleventy/"))
 			return true;
 		return bareStubs.some((b) => id === b);
@@ -215,10 +194,8 @@ function createBrowserStubPlugin(extraStubs = []) {
 }
 
 /**
- * Resolves the path to the user's Eleventy config file so the live-editing
- * bundle can import it. 11ty doesn't expose it on the `eleventyConfig` object,
- * so we resolve it ourselves: an explicit `pluginOptions.liquid.configPath`,
- * else the first of 11ty's default config filenames present in the project root.
+ * Resolves the user's Eleventy config path (11ty doesn't expose it): an
+ * explicit `configPath`, else the first default config filename in the root.
  *
  * @param {LiquidOptions} liquidOptions
  * @returns {string | null} Absolute path, or `null` if none found
@@ -243,14 +220,10 @@ function resolveEleventyConfigPath(liquidOptions) {
 
 /**
  * Emits the import of the user's Eleventy config plus the call that replays it
- * in the browser to auto-mirror its filters/shortcodes/paired-shortcodes/tags
- * (see `collectAndRegisterEleventyHelpers`). Importing the real config keeps
- * each helper's closures and imports intact.
- *
- * Passes only the override names per kind (from `pluginOptions.liquid.<kind>`,
- * emitted separately by `emitImportRegistrations` so the override wins). The
- * collector skips builtin browser-port names itself, derived from their
- * implementations — see `collectAndRegisterEleventyHelpers`.
+ * in the browser to auto-mirror its helpers (see
+ * `collectAndRegisterEleventyHelpers`). Passes the per-kind override names to
+ * skip; those are registered separately by `emitImportRegistrations` so the
+ * override wins.
  *
  * @param {string} configPath - Absolute path to the Eleventy config
  * @param {LiquidOptions | undefined} liquidOptions
@@ -271,8 +244,8 @@ function emitConfigMirror(configPath, liquidOptions) {
 }
 
 /**
- * Builds the JS source for the live-editing client bundle. Emits imports
- * and `register*` calls for components, filters, shortcodes, and tags.
+ * Builds the JS source for the live-editing client bundle: imports and
+ * `register*` calls for components, filters, shortcodes, and tags.
  *
  * @param {NormalizedPluginOptions} options
  * @param {EleventyDirectories} directories
@@ -290,8 +263,7 @@ async function generateLiveEditingSource(
 
 	if (options.liquid) {
 		const liquidOptions = options.liquid;
-		// `input` is included alongside `includes` so `{% include %}` from a
-		// page template can reach sibling files in the input tree.
+		// `input` alongside `includes` so `{% include %}` reaches sibling files.
 		const componentDirs = liquidOptions.componentDirs ?? [
 			directories.includes,
 			directories.input,
@@ -316,22 +288,21 @@ async function generateLiveEditingSource(
 				strictFilters: true,
 			});
 
-			// The engine is host-agnostic; this wires on Eleventy's built-in
-			// filters/shortcodes (browser ports) + RenderPlugin shims.
+			// Wires on Eleventy's built-in filters/shortcodes (browser ports)
+			// and RenderPlugin shims onto the host-agnostic engine.
 			registerEleventyBuiltins(liquidEngine);
 
     	window.cc_liquid_files = {};
   `;
 
-		// User-supplied globals, embedded as a static literal. Mirrors whatever
-		// global data the build already exposes (via `_data/` / `addGlobalData`)
-		// so editor-rendered templates can read the same values.
+		// User-supplied globals, embedded as a literal so editor-rendered
+		// templates read the same values the build exposes.
 		if (options.globals && Object.keys(options.globals).length > 0) {
 			source += `\nregisterGlobals(${JSON.stringify(options.globals)});\n`;
 		}
 
-		// Static `eleventy` global, embedded as a literal so templates branching
-		// on `eleventy.version` / `eleventy.env.runMode` see something sensible.
+		// Static `eleventy` global so templates branching on `eleventy.version` /
+		// `eleventy.env.runMode` see something sensible.
 		const eleventyData = buildEleventyData(directories);
 		source += `\nregisterEleventyData(${JSON.stringify(eleventyData)});\n`;
 
@@ -341,19 +312,15 @@ async function generateLiveEditingSource(
 			source += `\nregisterPkg(${JSON.stringify(pkg)});\n`;
 		}
 
-		// Build-time page map (inputPath -> { url, outputPath }) from 11ty's
-		// `results` payload, so the page / collections proxies and
-		// `inputPathToUrl` resolve permalinks computed by JS config,
-		// `eleventyComputed`, or template syntax in the permalink.
+		// Build-time page map from 11ty's `results`, so the page/collections
+		// proxies and `inputPathToUrl` resolve computed/templated permalinks.
 		const pageMap = buildPageMap(results);
 		if (Object.keys(pageMap).length > 0) {
 			source += `\nregisterPageMap(${JSON.stringify(pageMap)});\n`;
 		}
 
-		// Walk every liquid file under the component dirs (anything
-		// `{% include %}`-able) and pre-populate `window.cc_liquid_files`, the
-		// map LiquidJS's in-memory filesystem (`integrations/liquid/fs.mjs`)
-		// reads from to resolve `{% include %}` and the RenderPlugin shims.
+		// Pre-populate `window.cc_liquid_files` with every includable template,
+		// the map LiquidJS's in-memory fs (`liquid/fs.mjs`) resolves against.
 		const allLiquidFiles = await findAllLiquidFiles(
 			componentDirs,
 			normalizedExtensions,
@@ -368,10 +335,8 @@ async function generateLiveEditingSource(
       `;
 		}
 
-		// Auto-mirror everything registered in the user's Eleventy config
-		// (filters, shortcodes, paired shortcodes, tags) by importing the real
-		// config and replaying it in the browser — closures and imports survive.
-		// Built-in and override skip lists are passed in; see `emitConfigMirror`.
+		// Auto-mirror the user's config helpers by importing and replaying the
+		// real config in the browser. See `emitConfigMirror`.
 		const configPath = resolveEleventyConfigPath(liquidOptions);
 		if (configPath) {
 			source += emitConfigMirror(configPath, liquidOptions);
@@ -385,13 +350,10 @@ async function generateLiveEditingSource(
 			);
 		}
 
-		// Register user-supplied browser-side overrides and pinned components.
-		// Override names are excluded from the mirror above, so each is the sole
-		// registration for its name. Pinned components take precedence over the
-		// filesystem-resolution proxy that handles every other component name.
+		// Register browser-side overrides and pinned components. Override names
+		// are excluded from the mirror, so each is its name's sole registration.
 		source += emitImportRegistrations(liquidOptions);
 
-		// Initialize the Proxy on window.cc_components for dynamic resolution
 		source += `
       initComponentProxy();
     `;
@@ -400,13 +362,10 @@ async function generateLiveEditingSource(
 }
 
 /**
- * Builds the static `eleventy` global the bundle exposes in place of
- * Eleventy's build-time data. Mirrors the browser-applicable parts of
- * https://www.11ty.dev/docs/data-eleventy-supplied/, with deliberate omissions:
- *   - `env.config` / `env.root` dropped (absolute filesystem paths).
- *   - `env.runMode` hardcoded to `"serve"` (the dev-mode analogue) and
- *     `env.source` to `"cli"`, so templates branching on them take a sane path.
- *   - `serverless` omitted (removed from Eleventy core in 3.0).
+ * Builds the static `eleventy` global, mirroring the browser-applicable parts
+ * of https://www.11ty.dev/docs/data-eleventy-supplied/. `env.config`/`env.root`
+ * (absolute paths) and `serverless` are omitted; `env.runMode`/`env.source` are
+ * hardcoded to `"serve"`/`"cli"` so branching templates take a sane path.
  *
  * @param {EleventyDirectories} directories
  */
@@ -430,9 +389,8 @@ function buildEleventyData(directories) {
 }
 
 /**
- * Reads the project `package.json` to expose as the `pkg` global, mirroring
- * 11ty's default. Returns `null` on missing/malformed input so the bundle
- * still builds.
+ * Reads the project `package.json` for the `pkg` global. Returns `null` on
+ * missing/malformed input so the bundle still builds.
  */
 function buildPkg() {
 	try {
@@ -447,12 +405,9 @@ function buildPkg() {
 }
 
 /**
- * Reads the installed Eleventy version from its `package.json`. Returns
- * `"unknown"` if Eleventy can't be resolved so the bundle still builds.
- *
- * `@11ty/eleventy` doesn't export `./package.json`, so requiring it directly
- * throws ERR_PACKAGE_PATH_NOT_EXPORTED. We resolve the main entry instead,
- * then walk up to the package root.
+ * Reads the installed Eleventy version, or `"unknown"` if unresolvable.
+ * `@11ty/eleventy` doesn't export `./package.json`, so we resolve its main
+ * entry and walk up to the package root instead.
  */
 function readEleventyVersion() {
 	try {
@@ -477,14 +432,10 @@ function readEleventyVersion() {
 }
 
 /**
- * Compacts 11ty's `results` array into the page-map shape the browser runtime
- * consumes: an object keyed by normalized input path (matching
- * `normalizeInputPath` in `liquid/page-map.mjs` and the CC API's path form).
- *
- * Pagination produces multiple entries with the same `inputPath` — we keep the
- * first, since paginated cursor state isn't modelled in the editor.
- *
- * Returns `{}` if `results` is absent or malformed.
+ * Compacts 11ty's `results` into the page map, keyed by normalized input path
+ * (matching `normalizeInputPath` in `liquid/page-map.mjs`). Pagination yields
+ * duplicate `inputPath`s — we keep the first, since cursors aren't modelled in
+ * the editor. Returns `{}` if `results` is absent or malformed.
  *
  * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results
  */
@@ -569,7 +520,7 @@ async function findFilesInDirectory({
 				});
 				files.push(...subFiles);
 			} else if (entry.isFile()) {
-				// Handles both simple (.liquid) and compound (.bookshop.liquid) extensions
+				// Handles compound extensions too (e.g. `.bookshop.liquid`).
 				const filenameLower = entry.name.toLowerCase();
 				const hasValidExtension = extensions.some((ext) =>
 					filenameLower.endsWith(ext),
@@ -588,10 +539,9 @@ async function findFilesInDirectory({
 }
 
 /**
- * Maps each `pluginOptions.liquid` field that takes a `{ name: modulePath }`
- * map to its runtime registration function. `components` shares the same
- * import-and-register shape (it pins a module ahead of the filesystem-
- * resolution proxy rather than replacing a mirrored registration).
+ * Maps each `{ name: modulePath }` `pluginOptions.liquid` field to its runtime
+ * registration function. `components` pins a module ahead of the
+ * filesystem-resolution proxy via the same import-and-register shape.
  */
 const importRegisterFns = {
 	filters: "registerFilter",
@@ -602,14 +552,11 @@ const importRegisterFns = {
 };
 
 /**
- * Emits an `import` + register-call pair for every `{ name: modulePath }`
- * entry across the `pluginOptions.liquid` maps in `importRegisterFns`, e.g.:
+ * Emits an `import` + register-call pair for every `{ name: modulePath }` entry
+ * across the `importRegisterFns` maps, e.g.:
  *
  *   import filters_0 from "./path/to/file";
  *   registerFilter("name", filters_0);
- *
- * Override names are skipped by the config mirror so each is the sole
- * registration; `components` entries are user-pinned modules.
  *
  * @param {LiquidOptions | undefined} liquidOptions
  * @returns {string} JS source

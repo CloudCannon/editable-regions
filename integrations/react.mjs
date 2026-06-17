@@ -4,19 +4,15 @@ import { createRoot } from "react-dom/client";
 import { addEditableComponentRenderer } from "../helpers/cloudcannon.mjs";
 
 /**
- * Registers a React component with the CloudCannon component system.
- * Creates a wrapper that renders the React component to an HTMLElement.
+ * Registers a React component, wrapping it to render to an HTMLElement.
  *
- * @param {string} key - Unique identifier for the component
- * @param {any} component - The React component function to register
- * @returns {void}
+ * @param {string} key
+ * @param {any} component
  */
 export const registerReactComponent = (key, component) => {
 	/**
-	 * Wrapper function that renders the React component to an HTMLElement.
-	 *
-	 * @param {any} props - Props to pass to the React component
-	 * @returns {HTMLElement} The rendered component as an HTMLElement
+	 * @param {any} props
+	 * @returns {HTMLElement}
 	 */
 	const wrappedComponent = (props) => {
 		const reactNode = createElement(component, props, null);

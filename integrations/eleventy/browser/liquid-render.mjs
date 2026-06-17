@@ -1,12 +1,10 @@
 /**
- * Browser-side shims for Eleventy's RenderPlugin
- * (https://v3.11ty.dev/docs/plugins/render/). Upstream registers
- * `renderTemplate` (paired Liquid tag), `renderContent` (async filter), and
- * `renderFile` (async shortcode). All three compile a body as `templateLang`
- * and render it with `data`. In the browser we only have LiquidJS, so:
- *   - "liquid" (or unspecified) → real parse-and-render via the shared engine
- *   - "html" → identity passthrough
- *   - any other engine → warn-once and return the body unchanged
+ * Browser shims for Eleventy's RenderPlugin
+ * (https://v3.11ty.dev/docs/plugins/render/): `renderTemplate` (paired tag),
+ * `renderContent` (filter), `renderFile` (shortcode). Each compiles a body as
+ * `templateLang` and renders it with `data`. Only LiquidJS runs in the browser,
+ * so: "liquid"/unspecified → real render; "html" → passthrough; else →
+ * warn-once and return the body unchanged.
  */
 
 import {
@@ -19,10 +17,9 @@ import { evaluateArgs, parseArgs } from "../../liquid/shortcodes.mjs";
 const supportedEngines = new Set(["liquid", "html"]);
 
 /**
- * Liquid tag factory for `{% renderTemplate ... %}…{% endrenderTemplate %}`.
- * Captures the inner content as raw template source (matching upstream — the
- * body is compiled in the requested engine, not pre-rendered by the outer
- * scope) and renders it against `data` via the shared engine.
+ * Tag factory for `{% renderTemplate ... %}…{% endrenderTemplate %}`. Captures
+ * the body as raw source (matching upstream — compiled in the requested engine,
+ * not pre-rendered) and renders it against `data`.
  *
  * @param {any} _liquidEngine - Unused; reached via `this.liquid`
  * @returns {any}
@@ -70,8 +67,7 @@ export function createRenderTemplateTag(_liquidEngine) {
 }
 
 /**
- * Builds the `renderContent` filter, capturing the shared engine so we can
- * call `parseAndRender` against it at filter time.
+ * Builds the `renderContent` filter, capturing the shared engine.
  *
  * @param {any} liquidEngine
  */
@@ -104,9 +100,8 @@ export function createRenderContentFilter(liquidEngine) {
 
 /**
  * Builds the `renderFile` shortcode. Fetches `inputPath` via the CloudCannon
- * Visual Editor API (`CloudCannon.file(path).content.get()`) and renders the
- * body with `data`. The engine is taken from `templateLang` when supplied,
- * otherwise inferred from the file extension.
+ * API and renders its body with `data`. Engine comes from `templateLang`, else
+ * inferred from the file extension.
  *
  * @param {any} liquidEngine
  */
@@ -140,9 +135,8 @@ export function createRenderFileShortcode(liquidEngine) {
 			return "";
 		}
 
-		// Fetch the file's own front matter alongside its body to mirror 11ty's
-		// data cascade: the file's data is the base, the caller's `data` arg
-		// overrides on top. `content.get()` strips front matter, matching 11ty.
+		// Mirror 11ty's data cascade: the file's own front matter is the base,
+		// the caller's `data` arg overrides on top. `content.get()` strips it.
 		let body;
 		let frontMatter;
 
@@ -180,9 +174,8 @@ export function createRenderFileShortcode(liquidEngine) {
 }
 
 /**
- * Normalises the `(templateLang, data)` argument pair, supporting both the
- * documented `(content, lang, data)` shape and the `(content, data)` overload
- * where the lang is omitted and the second positional is treated as data.
+ * Normalises the `(templateLang, data)` pair, supporting the `(lang, data)`
+ * and lang-omitted `(data)` overloads.
  *
  * @param {[any, any]} args
  * @returns {{templateLang: string | undefined, data: any}}
@@ -197,9 +190,8 @@ function normalizeRenderArgs([templateLang, data]) {
 }
 
 /**
- * Anything not in the supported set still gets a guess so the warn-once
- * message can name the engine — but only "liquid" / "html" actually render;
- * the rest fall through to passthrough.
+ * Guesses the engine from the extension so the warn-once message can name it;
+ * only "liquid"/"html" actually render, the rest fall through to passthrough.
  *
  * @param {string} inputPath
  */

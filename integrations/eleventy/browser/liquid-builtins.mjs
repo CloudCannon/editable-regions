@@ -1,11 +1,6 @@
-/**
- * Browser-compatible implementations of Eleventy's built-in filters and
- * shortcodes. Filters that require Eleventy's build-time internals are
- * registered as pass-through stubs that warn once, so templates keep
- * rendering. `registerEleventyBuiltins(engine)` is the single entry point
- * the generated bundle calls after `createSharedLiquidEngine()` to wire
- * everything up.
- */
+// Browser ports of Eleventy's built-in filters and shortcodes. Filters needing
+// build-time internals are warn-once pass-through stubs so templates keep
+// rendering. `registerEleventyBuiltins(engine)` wires everything up.
 
 import sindresorhusSlugify from "@sindresorhus/slugify";
 import simovSlugify from "slugify";
@@ -19,8 +14,6 @@ import {
 } from "./liquid-render.mjs";
 
 /**
- * Pass-through filter — logs and returns the value.
- *
  * @param {any} value
  * @param {string} [prefix]
  */
@@ -34,10 +27,8 @@ export function logFilter(value, prefix = "") {
 }
 
 /**
- * Permissive variant of Eleventy's `slug` filter
- * (`@11ty/eleventy/src/Filters/Slug.js`). Backed by `simov/slugify`, which
- * keeps characters like `+`, `@`, `.` and has built-in word substitutions
- * (`&` → `and`, `%` → `percent`).
+ * Eleventy's `slug` filter (`Filters/Slug.js`), backed by `simov/slugify`
+ * (permissive: keeps `+`, `@`, `.`; substitutes `&`→`and`, `%`→`percent`).
  *
  * @param {unknown} str
  * @param {Record<string, any>} [options]
@@ -47,10 +38,8 @@ export function slugFilter(str, options = {}) {
 }
 
 /**
- * Strict ASCII-safe variant of Eleventy's `slugify` filter
- * (`@11ty/eleventy/src/Filters/Slugify.js`). Backed by
- * `@sindresorhus/slugify`, which treats non-alphanumerics as separators and
- * transliterates many scripts.
+ * Eleventy's `slugify` filter (`Filters/Slugify.js`), backed by
+ * `@sindresorhus/slugify` (strict ASCII: non-alphanumerics become separators).
  *
  * @param {unknown} str
  * @param {Record<string, any>} [options]
@@ -60,13 +49,10 @@ export function slugifyFilter(str, options = {}) {
 }
 
 /**
- * Browser port of Eleventy's `url` filter
- * (`@11ty/eleventy/src/Filters/Url.js`). Absolute URLs and protocol-relative
- * URLs pass through unchanged; root-relative URLs get `pathPrefix` prepended
- * when one is supplied. Eleventy's filter throws if `pathPrefix` is missing
- * because the config wires one in automatically — in the browser we don't
- * have that, so the no-prefix branch returns the input unchanged rather than
- * exploding.
+ * Eleventy's `url` filter (`Filters/Url.js`). Absolute and protocol-relative
+ * URLs pass through; root-relative URLs get `pathPrefix` prepended when given.
+ * Unlike upstream (which always has a `pathPrefix`), the no-prefix branch
+ * returns the input unchanged rather than throwing.
  *
  * @param {string} url
  * @param {string} [pathPrefix]
@@ -146,14 +132,10 @@ export function getNewestCollectionItemDate(collection, emptyFallback) {
 }
 
 /**
- * Finds the index of `page` in `collection` by matching `inputPath`. Upstream
- * 11ty also tie-breaks on `outputPath || url` for paginated cursors, but the
- * editor doesn't model pagination (one page-map entry per `inputPath`), so
- * `inputPath` alone is unique here.
- *
- * `await page.inputPath` handles both shapes: the `page` global is a Proxy
- * returning Promises, while a collection item's `inputPath` is already a
- * string (awaiting a non-thenable is a no-op).
+ * Index of `page` in `collection` by `inputPath`. The editor doesn't model
+ * pagination, so `inputPath` alone is unique (upstream also tie-breaks on
+ * `outputPath || url`). `await page.inputPath` handles both shapes: the `page`
+ * global is a Promise-returning Proxy; a collection item's is already a string.
  *
  * @param {Array<{inputPath?: string}>} collection
  * @param {any} page
@@ -213,12 +195,11 @@ export async function getCollectionItemIndex(
 }
 
 /**
- * Builds a pass-through filter that warns once on first use. Used for
- * Eleventy filters that depend on build-time internals we don't have in the
- * browser.
+ * Pass-through filter that warns once — for Eleventy filters that depend on
+ * build-time internals we don't have in the browser.
  *
  * @param {string} filterName
- * @param {string} reason - Human-readable explanation of the limitation
+ * @param {string} reason
  */
 function passThroughStub(filterName, reason) {
 	return (/** @type {any} */ value) => {
@@ -233,10 +214,9 @@ function passThroughStub(filterName, reason) {
 }
 
 /**
- * Browser port of the `inputPathToUrl` plugin filter. Resolves against the
- * build-time page map (`registerPageMap`), which captures permalinks computed
- * by JS config or `eleventyComputed`. Misses (e.g. a file not in the last
- * build) pass through with a warn-once rather than throwing.
+ * Browser port of the `inputPathToUrl` plugin filter, resolving against the
+ * build-time page map. Misses (e.g. a file not in the last build) warn-once
+ * and pass through rather than throwing.
  *
  * @param {unknown} inputPath
  */
@@ -284,11 +264,9 @@ export const eleventyFilters = {
 };
 
 /**
- * Names of the builtins this module registers, derived from the
- * implementations above so they can't drift. The config auto-mirror skips
- * these so a user's same-named config helper doesn't clobber our browser port.
- * `renderContent` / `renderFile` are the RenderPlugin shims wired on in
- * `registerEleventyBuiltins` (`renderTemplate` is a tag and isn't mirrored).
+ * Builtin names the config auto-mirror skips, so a same-named config helper
+ * doesn't clobber our port. Derived from the implementations so they can't
+ * drift; `renderContent`/`renderFile` are the RenderPlugin shims.
  *
  * @type {string[]}
  */
@@ -301,8 +279,7 @@ export const builtinFilterNames = [
 export const builtinShortcodeNames = ["renderFile"];
 
 /**
- * Wires the plain filters from `eleventyFilters` plus the RenderPlugin shims
- * (`renderTemplate`, `renderFile`, `renderContent`) onto the shared engine.
+ * Wires `eleventyFilters` plus the RenderPlugin shims onto the shared engine.
  *
  * @param {import("liquidjs").Liquid} liquidEngine
  */
