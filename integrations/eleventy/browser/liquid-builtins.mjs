@@ -19,6 +19,11 @@ import {
 	createRenderTemplateTag,
 } from "./liquid-render.mjs";
 
+// The config-replay collector that auto-mirrors the user's Eleventy config
+// helpers. Lives in its own module; re-exported here so the generated bundle
+// imports it from the same `@cloudcannon/editable-regions/eleventy/browser`
+// entry as `registerEleventyBuiltins`.
+export { collectAndRegisterEleventyHelpers } from "./collect-config.mjs";
 // Re-export so existing browser-bundle consumers keep working. The lists
 // themselves live in `./builtin-names.mjs` so the Node-side Eleventy plugin
 // can import them without dragging slugify into config-load.

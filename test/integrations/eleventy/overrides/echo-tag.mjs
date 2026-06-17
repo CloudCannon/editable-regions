@@ -2,13 +2,11 @@
  * Custom Liquid tag factory for `{% echo value %}` — renders `value`
  * (evaluated against the render context) inside a `<span data-echo>` wrapper.
  *
- * Same module is consumed twice:
- *   - server-side via `eleventyConfig.addLiquidTag("echo", echoTagFactory)`
- *   - browser-side via `pluginOptions.liquid.tags = { echo: "./overrides/echo-tag.mjs" }`
- *
- * The browser bundle imports the default export and registers it through
- * `registerCustomTag`, so the factory signature has to match what LiquidJS
- * expects: `(engine) => { parse, render }`.
+ * Registered server-side via `eleventyConfig.addLiquidTag("echo", echoTagFactory)`.
+ * The browser side auto-mirrors it: the config (and this module with it) is
+ * bundled and replayed, so `{% echo %}` is available in live editing with no
+ * override. The factory signature has to match what LiquidJS expects:
+ * `(engine) => { parse, render }`.
  */
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 

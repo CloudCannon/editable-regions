@@ -8,9 +8,27 @@ export interface LiquidOptions {
 	/** Map of component name → module path. Wins over the auto-discovered components. */
 	components?: Record<string, string>;
 	/**
-	 * Browser-side filter overrides: filter name → module path. Use when an
-	 * auto-mirrored filter relies on Eleventy build-time state (`this.ctx`,
-	 * `process`, `require`, `__dirname`) and throws in the browser.
+	 * Path to the Eleventy config file, used to auto-mirror its helpers into
+	 * the browser bundle. Resolved relative to the project root. Defaults to
+	 * the first of 11ty's standard names that exists (`.eleventy.js`,
+	 * `eleventy.config.{js,mjs,cjs}`). Set this only if you run Eleventy with a
+	 * non-default `--config` path.
+	 */
+	configPath?: string;
+	/**
+	 * Extra bare module specifiers to stub out of the browser bundle, on top of
+	 * the 11ty toolchain and Node built-ins (always stubbed). Use this when the
+	 * config imports a native/Node-only package (e.g. `sharp`) that no
+	 * browser-bound helper actually calls at render time but that would
+	 * otherwise break bundling.
+	 */
+	browserStub?: string[];
+	/**
+	 * Browser-side filter overrides: filter name → module path. The config's
+	 * filters are auto-mirrored into the browser by bundling the real config,
+	 * so closures and imports survive. Use an override only when a filter
+	 * genuinely can't run in the browser (it calls a Node API at render time);
+	 * the override replaces it and its name is excluded from the mirror.
 	 */
 	filters?: Record<string, string>;
 	/** Browser-side shortcode overrides. Same auto-mirror + override model as `filters`. */
@@ -18,9 +36,10 @@ export interface LiquidOptions {
 	/** Browser-side paired-shortcode overrides. Same auto-mirror + override model as `filters`. */
 	pairedShortcodes?: Record<string, string>;
 	/**
-	 * Custom Liquid tags to register in the browser engine: tag name → module
-	 * path. Unlike filters/shortcodes, tags are not auto-mirrored — register
-	 * any tag you want available during live editing here.
+	 * Browser-side custom Liquid tag overrides: tag name → module path
+	 * (default-exporting a `(engine) => { parse, render }` factory). Tags are
+	 * auto-mirrored from the config like filters/shortcodes; supply an override
+	 * here only for a tag that can't run in the browser as written.
 	 */
 	tags?: Record<string, string>;
 	/**

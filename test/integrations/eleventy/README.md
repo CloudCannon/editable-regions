@@ -26,9 +26,9 @@ re-renders the corresponding component.
 
 | Page | Front-matter key | Surface | What it confirms |
 | --- | --- | --- | --- |
-| `/filters/` | `filtersDemo` | Auto-mirrored filter (`shout`), the `page.url` global (no custom filter), and the built-in `slugify` / `slug` / `url` / date filters. | `shout` mirrors automatically. `page.url` derives from front-matter `permalink` / page-map / folder-default. Built-ins render via our ports. |
-| `/shortcodes/` | `shortcodesDemo` | `addShortcode("year")`, `addPairedShortcode("highlight")`. | Both surfaces auto-mirror end to end. Editing the highlight colour/content re-renders. |
-| `/custom-tags/` | `customTagsDemo` | `addLiquidTag("echo", ...)` + `pluginOptions.liquid.tags`, and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads `customTagsDemo.cardProps` into the `card` component. |
+| `/filters/` | `filtersDemo` | Auto-mirrored filter (`shout`); a closure-capturing filter (`stamp`); an async filter (`asyncReverse`, `addAsyncFilter`); the genuine non-portable override (`readmeSize`); the `page.url` global; and built-in `slugify` / `slug` / `url` / date filters. | `shout`/`stamp`/`asyncReverse` mirror automatically (closure survives bundling). `readmeSize` shows `—` in the browser (override) vs a byte count server-side. Built-ins render via our ports. |
+| `/shortcodes/` | `shortcodesDemo` | `addShortcode("year")` + closure `buildTime`; `addPairedShortcode("highlight")` + closure `box`; async `asyncGreeting` (`addAsyncShortcode`) and `asyncWrap` (`addPairedAsyncShortcode`). | All auto-mirror end to end, closures and async included. Editing the highlight colour/content re-renders. |
+| `/custom-tags/` | `customTagsDemo` | `addLiquidTag("echo", ...)` (auto-mirrored from the config, no override needed) and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads `customTagsDemo.cardProps` into the `card` component. |
 | `/render-plugin/` | `renderPluginDemo` | RenderPlugin shims: `renderTemplate`, `renderFile`, `renderContent`. | Server-side: 11ty's `EleventyRenderPlugin` (explicitly added in the config). Browser-side: our shims via the component re-render. |
 | `/globals/` | `globalsDemo` | `eleventy`, `page`, `pkg`, `collections.posts`, `process.env` globals. The `globalsDemo.note` field is editable to trigger re-renders. | Server-side values are 11ty's. Browser-side values come from the proxies in `integrations/liquid/globals.mjs` plus the static globals registered by `registerEleventyData` / `registerPkg`. |
 | `/posts/*` | (post front matter) | `getCollectionItem` / `getPreviousCollectionItem` / `getNextCollectionItem` / `getCollectionItemIndex` via the `post-meta` component. | Editing a post's front matter re-renders the metadata block via the browser ports — exercises our collection-item filters in the positive case. |
@@ -37,26 +37,43 @@ re-renders the corresponding component.
 
 ## What the bundle should contain
 
-After `npm run build`, `_site/register-components.js` should include:
+`verify-bundle.mjs` is a **structural** smoke test: it checks one thing per
+distinct piece of the plugin's *emit contract*, not the individual mirrored
+helpers. After `npm run build`, `_site/register-components.js` should contain:
 
-- `createSharedLiquidEngine({...})` and `registerEleventyBuiltins(liquidEngine)` calls
-- `registerFilter("shout", ...)` — auto-mirrored
-- `registerShortcode("year", ...)` + `registerPairedShortcode("highlight", ...)` — auto-mirrored
-- `registerCustomTag("echo", ...)` — from the tag override module path
-- `registerLiquidComponent("card", ...)` — from the `pluginOptions.liquid.components` map
-- `registerProcessEnv({...})` — env allowlist + `PUBLIC_` prefix
-- `registerEleventyData({...})` — `version`, `generator`, `env.runMode` (`"serve"`), `directories`
-- `window.cc_liquid_files[...]` entries for every Liquid template under `src/_includes/` and `src/`
+- `createSharedLiquidEngine({...})` + `registerEleventyBuiltins(liquidEngine)`
+- `collectAndRegisterEleventyHelpers(config, ...)` — the config-replay call
+- proof the real config was **bundled, not serialised**: the module-scope
+  `buildInfo` const the helpers close over is present (it would vanish under
+  `fn.toString()`)
+- the browser-stub body (`"…Node/build-time API was called…"`) — the config
+  imports `node:fs` / `@11ty/eleventy`, which must resolve to the stub
+- the skip object handed to the collector, with all four contract properties:
+  built-in names skipped, override names skipped, mirrored names *not*
+  skipped, and all four kind-keys present
+- an override register call (`registerFilter("readmeSize", ...)`) and a pinned
+  component (`registerLiquidComponent("card", ...)`)
+- the static globals — `registerProcessEnv` (allowlist + `PUBLIC_` prefix),
+  `registerEleventyData` (`version` + `directories`, `env.runMode: "serve"`),
+  `registerPkg` (has `name`, strips heavy fields), `registerPageMap` (a
+  resolved `url`)
+- a `.liquid` template inlined into `window.cc_liquid_files`
 
-These expectations are encoded in `verify-bundle.mjs`; run `npm test` to
-build the fixture (with sample env vars set) and assert against the
-generated bundle.
+What it deliberately does **not** assert: individual mirrored helper names or
+bodies (`shout`, `year`, `echo`, the async helpers, …). A body being in the
+bundle never proved it *works* — only that esbuild kept it. That those helpers
+actually register and render is **runtime** behavior, checked by opening the
+fixture in the Visual Editor and watching the demo components re-render (see
+the table above). Keep verify-bundle structural; don't re-add per-helper greps.
 
-The bundle will also pick up universal helpers from any 11ty plugins
-auto-loaded into the user config (in 11ty 3.x, that includes
+Helpers registered by plugins the user **explicitly** `addPlugin`s in their
+config are mirrored too — the replay calls those plugin functions against
+the recording stand-in. But helpers from plugins 11ty **auto-loads** that
+the user never adds themselves (in 11ty 3.x that includes
 `@11ty/eleventy-plugin-bundle`'s `getBundle` / `getBundleFileUrl` and
-`renderTransforms`). Those mirror verbatim; if you use them inside an
-editable component, supply an override via
+`renderTransforms`) are *not* mirrored: the replay only sees the user's
+config, not 11ty's internal defaults. If you use one of those auto-loaded
+helpers inside an editable component, supply a browser override via
 `pluginOptions.liquid.shortcodes` / `.filters`. Layouts and pages aren't
 affected.
 

@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
+import { builtinModules, createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
 import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
@@ -33,30 +33,11 @@ import {
  */
 
 /**
- * A user-supplied filter, shortcode, or paired-shortcode function. Eleventy
- * wraps these in a benchmark closure at registration time; the original is
- * recoverable via `fn.__eleventyInternal.callback`. We serialize via
- * `fn.toString()` regardless of arity, so the loose signature is fine.
- *
- * @typedef {((...args: any[]) => any) & { __eleventyInternal?: { callback?: EleventyHelper } }} EleventyHelper
- */
-
-/**
  * A Liquid tag factory: invoked once by LiquidJS with the engine, returns
  * the `{ parse, render }` pair LiquidJS calls per occurrence. Matches the
  * shape `eleventyConfig.addLiquidTag` documents.
  *
  * @typedef {(liquidEngine: import("liquidjs").Liquid) => { parse: (...args: any[]) => void, render: (...args: any[]) => unknown }} LiquidTagFactory
- */
-
-/**
- * Per-kind helper registry as exposed on Eleventy's user config under
- * `universal` (cross-engine) and `liquid` (Liquid-specific) in 11ty 3.x.
- *
- * @typedef {Object} EleventyHelperRegistry
- * @property {Record<string, EleventyHelper>} [filters]
- * @property {Record<string, EleventyHelper>} [shortcodes]
- * @property {Record<string, EleventyHelper>} [pairedShortcodes]
  */
 
 /**
@@ -77,8 +58,6 @@ import {
  * @property {(name: string, factory: LiquidTagFactory) => void} addLiquidTag - Register a custom Liquid tag
  * @property {(event: EleventyEventName, handler: (payload: EleventyEventPayload) => Promise<void> | void) => void} on - Register an event handler
  * @property {EleventyDirectories} dir - Directory configuration
- * @property {EleventyHelperRegistry} [universal] - Cross-engine registry of helpers (Eleventy 3.x)
- * @property {EleventyHelperRegistry} [liquid] - Liquid-specific registry of helpers
  */
 
 /**
@@ -112,7 +91,6 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 		const liveEditingSource = await generateLiveEditingSource(
 			options,
 			dirs,
-			eleventyConfig,
 			normalizedExtensions,
 			results,
 		);
@@ -131,6 +109,12 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 			},
 			loader,
 			bundle: true,
+			platform: "browser",
+			// The bundle imports the user's real Eleventy config (so its helper
+			// closures survive — see `emitConfigMirror`). The config drags in
+			// Node/build-time imports we must keep out of the browser bundle;
+			// stub them so the `import`s resolve but throw if actually called.
+			plugins: [createBrowserStubPlugin(liquidOptions.browserStub)],
 			outfile: options.output ?? `${dirs.output}/register-components.js`,
 		});
 	});
@@ -179,12 +163,141 @@ function normalizeLanguageOption(value, { defaultOn }) {
 }
 
 /**
+ * Bare specifiers that must never end up in the browser bundle: the 11ty
+ * toolchain (and its subpaths) and the editable-regions Node plugin itself.
+ * NOT `@cloudcannon/editable-regions/eleventy/browser` or `.../liquid` — those
+ * are the real browser runtime and must bundle normally.
+ */
+const ALWAYS_STUBBED = [
+	"@11ty/eleventy",
+	"@cloudcannon/editable-regions/eleventy",
+];
+
+/**
+ * esbuild plugin that resolves Node built-ins and known build-time-only
+ * packages to a Proxy that survives `import` and property access but throws
+ * the moment it's *called* or *constructed*. This lets the user's Eleventy
+ * config bundle for the browser: top-level `import { EleventyRenderPlugin }
+ * from "@11ty/eleventy"` resolves to a harmless stub, and only a helper that
+ * actually invokes a Node API at render time fails (which it must — it can't
+ * run in a browser).
+ *
+ * @param {string[]} [extraStubs] - Additional bare specifiers to stub, from
+ *   `pluginOptions.liquid.browserStub` (escape hatch for native deps like
+ *   `sharp` that a config imports but no browser-bound helper calls).
+ * @returns {import('esbuild').Plugin}
+ */
+function createBrowserStubPlugin(extraStubs = []) {
+	const nodeBuiltins = new Set([
+		...builtinModules,
+		...builtinModules.map((m) => `node:${m}`),
+	]);
+	const bareStubs = [...ALWAYS_STUBBED, ...extraStubs];
+
+	const shouldStub = (/** @type {string} */ id) => {
+		if (nodeBuiltins.has(id)) return true;
+		// `@11ty/eleventy` and any subpath; the editable-regions plugin entry
+		// exactly (its `/browser` + `/liquid` subpaths are real browser code).
+		if (id === "@11ty/eleventy" || id.startsWith("@11ty/eleventy/"))
+			return true;
+		return bareStubs.some((b) => id === b);
+	};
+
+	return {
+		name: "editable-regions-browser-stub",
+		setup(build) {
+			build.onResolve({ filter: /.*/ }, (args) =>
+				shouldStub(args.path)
+					? { path: args.path, namespace: "er-stub" }
+					: null,
+			);
+			build.onLoad({ filter: /.*/, namespace: "er-stub" }, () => ({
+				contents: `
+					const handler = {
+						get: () => new Proxy(function () {}, handler),
+						apply: () => {
+							throw new Error("editable-regions: a Node/build-time API was called in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
+						},
+						construct: () => {
+							throw new Error("editable-regions: a Node/build-time API was constructed in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
+						},
+					};
+					module.exports = new Proxy(function () {}, handler);
+				`,
+				loader: "js",
+			}));
+		},
+	};
+}
+
+/**
+ * Resolves the path to the user's Eleventy config file so the live-editing
+ * bundle can import it. 11ty doesn't expose the config path on the
+ * `eleventyConfig` object plugins receive, so we resolve it ourselves: an
+ * explicit `pluginOptions.liquid.configPath`, else the first of 11ty's
+ * default config filenames that exists in the project root.
+ *
+ * @param {LiquidOptions} liquidOptions
+ * @returns {string | null} Absolute path, or `null` if none found
+ */
+function resolveEleventyConfigPath(liquidOptions) {
+	if (liquidOptions.configPath) {
+		return path.resolve(process.cwd(), liquidOptions.configPath);
+	}
+	// Matches 11ty's default resolution order (TemplateConfig.js).
+	const defaults = [
+		".eleventy.js",
+		"eleventy.config.js",
+		"eleventy.config.mjs",
+		"eleventy.config.cjs",
+	];
+	for (const name of defaults) {
+		const candidate = path.resolve(process.cwd(), name);
+		if (fs.existsSync(candidate)) return candidate;
+	}
+	return null;
+}
+
+/**
+ * Emits the import of the user's Eleventy config plus the call that replays it
+ * in the browser to auto-mirror its filters/shortcodes/paired-shortcodes/tags
+ * (see `collectAndRegisterEleventyHelpers`). Importing the real config means
+ * esbuild bundles each helper with its closures and imports intact.
+ *
+ * Skips two name sets per kind: handwritten browser ports (so those win) and
+ * names overridden via `pluginOptions.liquid.<kind>` (emitted separately by
+ * `emitImportRegistrations` so the override wins).
+ *
+ * @param {string} configPath - Absolute path to the Eleventy config
+ * @param {LiquidOptions | undefined} liquidOptions
+ * @returns {string} JS source
+ */
+function emitConfigMirror(configPath, liquidOptions) {
+	const skip = {
+		filters: [
+			...builtinFilterNames,
+			...Object.keys(liquidOptions?.filters ?? {}),
+		],
+		shortcodes: [
+			...builtinShortcodeNames,
+			...Object.keys(liquidOptions?.shortcodes ?? {}),
+		],
+		pairedShortcodes: Object.keys(liquidOptions?.pairedShortcodes ?? {}),
+		tags: Object.keys(liquidOptions?.tags ?? {}),
+	};
+
+	return (
+		`\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n` +
+		`collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`
+	);
+}
+
+/**
  * Builds the JS source for the live-editing client bundle. Emits imports
  * and `register*` calls for components, filters, shortcodes, and tags.
  *
  * @param {NormalizedPluginOptions} options
  * @param {EleventyDirectories} directories
- * @param {EleventyConfig} eleventyConfig
  * @param {string[]} normalizedExtensions - Lowercase, leading-dot
  * @param {Array<{inputPath?: string, outputPath?: string, url?: string}> | undefined} results - From `eleventy.after`
  * @returns {Promise<string>}
@@ -192,7 +305,6 @@ function normalizeLanguageOption(value, { defaultOn }) {
 async function generateLiveEditingSource(
 	options,
 	directories,
-	eleventyConfig,
 	normalizedExtensions,
 	results,
 ) {
@@ -217,7 +329,7 @@ async function generateLiveEditingSource(
 
 		source += `
       import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, registerPkg, registerPageMap, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
-      import { registerEleventyBuiltins } from '@cloudcannon/editable-regions/eleventy/browser';
+      import { registerEleventyBuiltins, collectAndRegisterEleventyHelpers } from '@cloudcannon/editable-regions/eleventy/browser';
 
       setVerbose(${Boolean(options.verbose)});
 
@@ -290,23 +402,31 @@ async function generateLiveEditingSource(
       `;
 		}
 
-		// Auto-mirror everything registered in eleventy.config.mjs (filters,
-		// shortcodes, paired shortcodes). Built-in and override skip lists are
-		// handled internally — see `handwrittenBrowserPorts`.
-		source += emitAutoMirroredRegistrations(eleventyConfig, liquidOptions);
+		// Auto-mirror everything registered in the user's Eleventy config
+		// (filters, shortcodes, paired shortcodes, tags) by importing the real
+		// config and replaying it in the browser — closures and imports survive.
+		// Built-in and override skip lists are passed in; see `emitConfigMirror`.
+		const configPath = resolveEleventyConfigPath(liquidOptions);
+		if (configPath) {
+			source += emitConfigMirror(configPath, liquidOptions);
+		} else {
+			console.warn(
+				"[editable-regions] Could not locate an Eleventy config file to " +
+					"auto-mirror helpers from. Set `pluginOptions.liquid.configPath` " +
+					"if your config isn't at a default location. Filters/shortcodes " +
+					"defined in the config won't be available in live editing " +
+					"(overrides still work).",
+			);
+		}
 
-		// Register user-supplied browser-side overrides (filters, shortcodes,
-		// paired shortcodes, tags). Each generates an `import` + the matching
-		// `register*` call. Override names are already excluded from the
-		// mirrored payload above, so there's no collision — these are the sole
-		// registration for each name.
-		source += emitOverrideRegistrations(liquidOptions);
-
-		// Register user-pinned components (`pluginOptions.liquid.components`).
-		// Unlike filter/shortcode overrides, these aren't replacing an
-		// auto-mirrored registration — they take precedence over the
+		// Register user-supplied browser-side overrides and pinned components
+		// (filters, shortcodes, paired shortcodes, tags, components). Each
+		// generates an `import` + the matching `register*` call. Override names
+		// are excluded from the mirrored payload above, so there's no collision —
+		// these are the sole registration for each name. Components aren't
+		// replacing a mirrored registration; they take precedence over the
 		// filesystem-resolution proxy that handles every other component name.
-		source += emitComponentRegistrations(liquidOptions);
+		source += emitImportRegistrations(liquidOptions);
 
 		// Initialize the Proxy on window.cc_components for dynamic resolution
 		source += `
@@ -564,143 +684,51 @@ async function findFilesInDirectory({
 }
 
 /**
- * Per-kind skip lists for the auto-mirror pass: names already covered by
- * handwritten browser ports in `browser/liquid-builtins.mjs`. Drives both
- * the set of 11ty registry kinds the auto-mirror walks and the names it
- * omits within each kind.
- *
- * Non-portable entries are not detected at build time — they're shipped
- * as-is and surface as real errors when invoked in the browser; the user
- * then provides a browser-friendly replacement via
- * `pluginOptions.liquid.<kind>`.
- */
-const handwrittenBrowserPorts = {
-	filters: builtinFilterNames,
-	shortcodes: builtinShortcodeNames,
-	pairedShortcodes: /** @type {string[]} */ ([]),
-};
-
-/**
- * Auto-mirrors functions registered in the user's Eleventy config (filters,
- * shortcodes, paired shortcodes) into the browser bundle. For each kind,
- * pulls from `universal` (cross-engine) merged with the liquid-specific
- * registry; liquid-specific wins on name collisions.
- *
- * Skips two sets: handwritten browser ports, and names the user overrode
- * via `pluginOptions.liquid.<kind>` (emitted separately by
- * `emitOverrideRegistrations` so overrides win).
- *
- * Surviving entries are unwrapped from Eleventy's benchmark closure and
- * embedded verbatim via `fn.toString()`. A function depending on Eleventy
- * build-time state (`this.ctx`, `process`, `require`, …) will throw at
- * render time in the browser — that's the signal to register an override.
- * We deliberately don't detect this at build time: regex-based checks would
- * have false positives that block portable code and false negatives that
- * ship broken code anyway.
- *
- * @param {EleventyConfig} eleventyConfig
- * @param {LiquidOptions | undefined} liquidOptions - Source of override-name skip list
- * @returns {string} JS source (empty if nothing to register)
- */
-function emitAutoMirroredRegistrations(eleventyConfig, liquidOptions) {
-	let out = "";
-
-	for (const specName of /** @type {Array<keyof typeof handwrittenBrowserPorts>} */ (
-		Object.keys(handwrittenBrowserPorts)
-	)) {
-		const portedNames = handwrittenBrowserPorts[specName];
-		const registry = {
-			...(eleventyConfig.universal?.[specName] ?? {}),
-			...(eleventyConfig.liquid?.[specName] ?? {}),
-		};
-		const overrideNames = Object.keys(liquidOptions?.[specName] ?? {});
-		const skip = new Set([...portedNames, ...overrideNames]);
-
-		// Derive the runtime register fn: "filters" -> registerFilter,
-		// "pairedShortcodes" -> registerPairedShortcode (strip trailing s).
-		const registerFnName = `register${specName[0].toUpperCase()}${specName.slice(1, -1)}`;
-
-		for (const [name, fn] of Object.entries(registry)) {
-			if (skip.has(name)) continue;
-			if (typeof fn !== "function") continue;
-
-			// Eleventy wraps every registered filter/shortcode in a benchmark closure
-			// (see @11ty/eleventy/src/Benchmark/BenchmarkGroup.js), which references
-			// local `callback`/`benchmark` identifiers that don't exist in the
-			// browser. The original user function is hung off the wrapper via
-			// `__eleventyInternal.callback` — use that for serialization.
-			const original = fn.__eleventyInternal?.callback ?? fn;
-			if (typeof original !== "function") continue;
-
-			// Wrap the stringified function in parens so `function name(...) {}` or
-			// `async function(){}` parses as an expression in argument position.
-			out += `\n${registerFnName}(${JSON.stringify(name)}, (${original.toString()}));\n`;
-		}
-	}
-
-	return out;
-}
-
-/**
  * Maps each `pluginOptions.liquid` field that takes a `{ name: modulePath }`
- * map to the runtime registration function it compiles into. Components are
- * deliberately not in this map — they're auto-discovered from the
- * filesystem (not auto-mirrored from 11ty config), so the `components`
- * option is the primary registration path for any name the user wants to
- * pin to a specific module, and it's emitted separately by
- * `emitComponentRegistrations`.
+ * map to the runtime registration function the emitted import compiles into.
+ * `components` shares the same import-and-register shape: unlike the others it
+ * doesn't replace an auto-mirrored registration, it pins a specific module
+ * ahead of the filesystem-resolution proxy — but the emitted code is identical
+ * in form, so it lives in the same table.
  */
-const overrideRegisterFns = {
+const importRegisterFns = {
 	filters: "registerFilter",
 	shortcodes: "registerShortcode",
 	pairedShortcodes: "registerPairedShortcode",
 	tags: "registerCustomTag",
+	components: "registerLiquidComponent",
 };
 
 /**
- * Emits the `import` + register-call pair for each override in
- * `pluginOptions.liquid`. Each entry produces:
+ * Emits an `import` + register-call pair for every `{ name: modulePath }`
+ * entry across the `pluginOptions.liquid` maps in `importRegisterFns`. Each
+ * entry produces, e.g.:
  *
- *   import override_0 from "./path/to/file";
- *   registerFilter("name", override_0);
+ *   import filters_0 from "./path/to/file";
+ *   registerFilter("name", filters_0);
+ *
+ * For filters/shortcodes/paired-shortcodes/tags these are browser overrides —
+ * their names are skipped by the config mirror (`emitConfigMirror`) so the
+ * override is the sole registration. For components they're user-pinned
+ * module registrations.
  *
  * @param {LiquidOptions | undefined} liquidOptions
+ * @returns {string} JS source
  */
-function emitOverrideRegistrations(liquidOptions) {
+function emitImportRegistrations(liquidOptions) {
 	let out = "";
-	let i = 0;
 
-	for (const optionKey of /** @type {Array<keyof typeof overrideRegisterFns>} */ (
-		Object.keys(overrideRegisterFns)
+	for (const optionKey of /** @type {Array<keyof typeof importRegisterFns>} */ (
+		Object.keys(importRegisterFns)
 	)) {
-		const registerFn = overrideRegisterFns[optionKey];
+		const registerFn = importRegisterFns[optionKey];
 
-		for (const [name, file] of Object.entries(
+		for (const [i, [name, file]] of Object.entries(
 			liquidOptions?.[optionKey] ?? {},
-		)) {
-			const id = `override_${i++}`;
+		).entries()) {
+			const id = `${optionKey}_${i}`;
 			out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
 		}
-	}
-
-	return out;
-}
-
-/**
- * Emits `import` + `registerLiquidComponent` for each entry in
- * `pluginOptions.liquid.components`. Separate from `emitOverrideRegistrations`
- * because components aren't auto-mirrored from 11ty config — see the comment
- * on `overrideRegisterFns`.
- *
- * @param {LiquidOptions | undefined} liquidOptions
- */
-function emitComponentRegistrations(liquidOptions) {
-	let out = "";
-	const entries = Object.entries(liquidOptions?.components ?? {});
-
-	for (const [i, [name, file]] of entries.entries()) {
-		const id = `component_${i}`;
-		out += `\nimport ${id} from "./${file}";\nregisterLiquidComponent(${JSON.stringify(name)}, ${id});\n`;
 	}
 
 	return out;

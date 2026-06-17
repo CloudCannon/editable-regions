@@ -128,7 +128,9 @@ works too.
 | `liquid.filters` | Map of filter name → module path. Browser-side override. See "Adding a custom filter". |
 | `liquid.shortcodes` | Map of shortcode name → module path. Browser-side override. See "Adding a custom shortcode". |
 | `liquid.pairedShortcodes` | Same as `shortcodes`, for paired shortcodes. |
-| `liquid.tags` | Map of tag name → factory module path. **Required** for any custom tag — not auto-mirrored. |
+| `liquid.tags` | Map of tag name → factory module path. Browser-side override. Tags auto-mirror from the config like filters/shortcodes; use this only for a tag that can't run in the browser as written. |
+| `liquid.configPath` | Path to the Eleventy config file to import and replay for the auto-mirror, relative to the project root. Defaults to the first of 11ty's standard names that exists (`.eleventy.js`, `eleventy.config.{js,mjs,cjs}`). Set only if you run Eleventy with a non-default `--config`. |
+| `liquid.browserStub` | Extra bare module specifiers to stub out of the browser bundle, on top of the 11ty toolchain and Node built-ins (always stubbed). Use when the config imports a native/Node-only package (e.g. `sharp`) that no browser-bound helper actually calls. |
 | `liquid.pageMap` | Ship a build-time `inputPath → { url, outputPath }` map (default `true`). Used by the page / collections proxies and `inputPathToUrl` to resolve computed permalinks accurately. Costs ~100 bytes per page in the bundle; set to `false` for very large sites that don't need editor-time URL accuracy. |
 
 ## How it fits together
@@ -141,8 +143,9 @@ eleventy.config.mjs + _includes/**, src/**    (user)
         │  `liquid.extensions` (defaults: `.liquid`, `.html`).
         ▼
 integrations/eleventy/index.mjs       (build-time)
-        │  - walks Eleventy's registries (filters / shortcodes / paired
-        │    shortcodes) and serializes each function via fn.toString();
+        │  - emits an `import` of the user's real Eleventy config, which
+        │    esbuild bundles (with Node/build-time deps stubbed) so its
+        │    helper closures and imports survive into the browser;
         │  - walks the componentDirs and inlines every matching template
         │    file as a string, keyed by path, into `window.cc_liquid_files`;
         │  - emits import + register calls for everything into one bundle.
@@ -152,7 +155,8 @@ register-components.js                (browser)
         ▼
 integrations/liquid/index.mjs         (browser engine, host-agnostic)
 integrations/eleventy/browser/*.mjs   (browser 11ty ports — filters, RenderPlugin shims)
-        │  instantiates a shared Liquid engine, registers everything,
+        │  instantiates a shared Liquid engine, replays the imported
+        │  config to mirror its helpers, registers everything,
         │  installs a Proxy on `window.cc_components` that resolves each
         │  component name on demand via `{% include %}` against the
         │  in-memory filesystem populated above.
@@ -330,17 +334,21 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
    with Eleventy's Node-only defaults (which close over imports like
    `@sindresorhus/slugify` that don't exist in the browser).
 
-2. **Auto-mirrored from Eleventy's registry**. At build time the plugin
-   walks `eleventyConfig.universal.filters` and
-   `eleventyConfig.liquid.filters` and embeds each function verbatim via
-   `fn.toString()`. If the function depends on Eleventy build-time state (`this.ctx`,
-   `process`, `require`, `__dirname`, a closed-over Node import, …) it'll
-   throw at render time in the browser, which is the signal to add an
-   override.
+2. **Auto-mirrored from your Eleventy config**. The bundle `import`s your
+   real config file and replays it in the browser against a recording
+   stand-in for `eleventyConfig` (see `collectAndRegisterEleventyHelpers`),
+   capturing every `addFilter` / `addAsyncFilter` / `addLiquidFilter` call
+   with the live function. Because esbuild bundles the config, the functions
+   keep their closures and imports — no serialization, so module-scope
+   constants and imported helpers survive. If a function depends on Eleventy
+   build-time state (`this.ctx`) or calls a Node API at render time
+   (`process`, `require`, `__dirname`, a closed-over Node import, …) it'll
+   throw when invoked in the browser, which is the signal to add an override.
 
-   Eleventy wraps every registered function in a benchmark closure; the
-   serializer unwraps via `__eleventyInternal.callback` so we serialize
-   the user's function, not the wrapper.
+   Node/build-time imports the config drags in (`@11ty/eleventy`, `node:*`,
+   the editable-regions plugin itself) are stubbed at bundle time with
+   proxies that throw only when *called* — so importing them is harmless and
+   only a helper that actually invokes one at render time fails.
 
 3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name
    to module path. Two reasons to use this:
@@ -430,9 +438,9 @@ eleventyConfig.addPlugin(editableRegions, {
 It's a tax, and it only applies to built-in names. The alternative —
 letting the auto-mirror ship Eleventy's defaults — breaks every project
 that uses `{{ x | url }}` without overriding, because Eleventy's default
-`url` filter closes over Node-only imports that don't survive
-`fn.toString()`. The skip protects users who don't override; the second
-registration unlocks the path for users who do.
+`url` filter closes over Node-only imports that throw in the browser. The
+skip protects users who don't override; the second registration unlocks the
+path for users who do.
 
 ## Shortcodes and paired shortcodes
 
@@ -449,10 +457,10 @@ different shapes: `renderContent` is a [filter](#filters) and
 [RenderPlugin shims](#renderplugin-shims) for the unified view of all
 three.
 
-The auto-mirror ships everything the user registered via `addShortcode` /
-`addPairedShortcode` verbatim. Overrides live under
-`pluginOptions.liquid.shortcodes` / `pluginOptions.liquid.pairedShortcodes`
-for browser-friendly replacements.
+The auto-mirror replays everything the user registered via `addShortcode` /
+`addAsyncShortcode` / `addLiquidShortcode` (and the paired equivalents),
+closures intact. Overrides live under `pluginOptions.liquid.shortcodes` /
+`pluginOptions.liquid.pairedShortcodes` for browser-friendly replacements.
 
 Like filters, the auto-mirror has no portability heuristic — non-portable
 shortcodes throw at render time and direct you to add an override.
@@ -484,8 +492,25 @@ same shape as the filter override above.
 
 ## Tags
 
-**Tags are not auto-mirrored.** Register them explicitly via
-`pluginOptions.liquid.tags`:
+Same auto-mirror + override model as filters and shortcodes. A tag
+registered with `addLiquidTag` is replayed from the bundled config, so the
+factory and everything it closes over — including LiquidJS internals like
+`Tokenizer` / `evalToken` / `toPromise` — survive into the browser with no
+extra work:
+
+```js
+// eleventy.config.mjs
+eleventyConfig.addLiquidTag("echo", echoTagFactory);
+// → `{% echo %}` works in live editing automatically
+```
+
+The factory is the value `addLiquidTag` expects:
+`(liquidEngine) => ({ parse, render })`.
+
+Override only a tag that can't run in the browser as written, via
+`pluginOptions.liquid.tags` (tag name → module path, default-exporting the
+same factory shape). The override's name is skipped by the auto-mirror so
+the override is the sole registration:
 
 ```js
 liquid: {
@@ -494,19 +519,6 @@ liquid: {
   },
 }
 ```
-
-The module must default-export a factory `(liquidEngine) => ({ parse, render })`
-— the same shape `addLiquidTag` expects.
-
-Why tags are different:
-- Tag values are factories, not plain functions, so they don't fit the
-  `fn.toString()` mirror pattern cleanly.
-- Factory bodies typically close over LiquidJS internals (`Tokenizer`,
-  `evalToken`, `toPromise`), which would force us to re-export liquidjs
-  primitives through our public bundle just so serialized factories could
-  resolve them.
-- Custom tags are a less common need than custom filters or shortcodes;
-  forcing explicit registration keeps the integration surface small.
 
 If a template references an unregistered tag, `enhanceLiquidError` rewrites
 LiquidJS's "tag X not found" into an actionable message pointing the user at
