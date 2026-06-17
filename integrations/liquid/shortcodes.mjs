@@ -29,9 +29,8 @@ export function createShortcodeTag(shortcodeName, shortcodeFn) {
 		},
 
 		async render(/** @type {any} */ context) {
-			log(`Executing shortcode "${shortcodeName}"`);
 			const args = await evaluateArgs(this.argTokens, context);
-			log("Shortcode args:", args);
+			log(`Shortcode "${shortcodeName}" args:`, args);
 			const result = await shortcodeFn(...args);
 			log("Shortcode returned:", result?.substring?.(0, 100) || result);
 			return result ?? "";
@@ -71,7 +70,6 @@ export function createPairedShortcodeTag(tagName, shortcodeFn) {
 
 		async render(/** @type {any} */ context) {
 			group(`Paired shortcode "${tagName}"`);
-			log("Inner templates to render:", this.templates.length);
 
 			// renderTemplates returns a generator — toPromise resolves it.
 			const content = await toPromise(

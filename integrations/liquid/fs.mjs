@@ -15,7 +15,6 @@ export const inMemoryFs = {
 	},
 
 	readFileSync(/** @type {string} */ filePath) {
-		log("readFileSync:", filePath);
 		const fileContents = window.cc_liquid_files?.[filePath];
 
 		if (fileContents === undefined || fileContents === null) {
@@ -27,12 +26,10 @@ export const inMemoryFs = {
 			);
 		}
 
-		log("File found, length:", fileContents?.length || 0);
 		return fileContents;
 	},
 
 	async readFile(/** @type {string} */ filePath) {
-		log("readFile:", filePath);
 		if (!filePath) {
 			throw new Error("readFile called with empty path");
 		}
@@ -44,19 +41,14 @@ export const inMemoryFs = {
 			return false;
 		}
 		const fileContents = window.cc_liquid_files?.[filePath];
-		const exists = fileContents !== null && fileContents !== undefined;
-		log("existsSync:", filePath, "=", exists);
-		return exists;
+		return fileContents !== null && fileContents !== undefined;
 	},
 
 	async exists(/** @type {string} */ filePath) {
 		if (!filePath || typeof filePath !== "string") {
-			log("exists: invalid path", filePath);
 			return false;
 		}
-		const result = this.existsSync(filePath);
-		log("exists:", filePath, "=", result);
-		return result;
+		return this.existsSync(filePath);
 	},
 
 	/**

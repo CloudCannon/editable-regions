@@ -37,7 +37,6 @@ export function createSharedLiquidEngine(options) {
 		},
 		...options,
 	});
-	log("Liquid engine instantiated");
 
 	log(
 		"Available files in window.cc_liquid_files:",
@@ -48,7 +47,6 @@ export function createSharedLiquidEngine(options) {
 		"includeWith",
 		createIncludeWithTag(sharedLiquidEngine),
 	);
-	log("includeWith tag registered");
 
 	return sharedLiquidEngine;
 }
@@ -65,7 +63,6 @@ export function createSharedLiquidEngine(options) {
  */
 export function registerLiquidComponent(key, contents) {
 	log("Registering component:", key);
-	log("Component contents preview:", contents?.substring?.(0, 200) || contents);
 
 	if (!sharedLiquidEngine) {
 		throw new Error(
@@ -75,7 +72,6 @@ export function registerLiquidComponent(key, contents) {
 
 	window.cc_components = window.cc_components || {};
 	window.cc_components[key] = createComponentRenderer(key, contents);
-	log(`Component registered, ${key}`);
 }
 
 /**
@@ -110,8 +106,6 @@ export function initComponentProxy() {
 			return undefined;
 		},
 	});
-
-	log("Component proxy initialized");
 }
 
 /**
@@ -306,7 +300,6 @@ function createComponentRenderer(name, templateSource) {
 		group(`Rendering component: ${name}`);
 		log("Props:", props);
 
-		log("Parsing and rendering template...");
 		let htmlString;
 		try {
 			htmlString = await sharedLiquidEngine.parseAndRender(
