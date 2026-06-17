@@ -12,19 +12,11 @@ import simovSlugify from "slugify";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { getPageMap, normalizeInputPath } from "../../liquid/page-map.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
-import { builtinFilterNames, builtinShortcodeNames } from "./builtin-names.mjs";
 import {
 	createRenderContentFilter,
 	createRenderFileShortcode,
 	createRenderTemplateTag,
 } from "./liquid-render.mjs";
-
-// Re-exported so the generated bundle imports both from the same
-// `@cloudcannon/editable-regions/eleventy/browser` entry. The implementations
-// live in their own modules so the Node-side plugin can import the name lists
-// without dragging slugify into config-load.
-export { collectAndRegisterEleventyHelpers } from "./collect-config.mjs";
-export { builtinFilterNames, builtinShortcodeNames };
 
 /**
  * Pass-through filter — logs and returns the value.
@@ -291,6 +283,23 @@ export const eleventyFilters = {
 		"serverless routing is a build-time concept",
 	),
 };
+
+/**
+ * Names of the builtins this module registers, derived from the
+ * implementations above so they can't drift. The config auto-mirror skips
+ * these so a user's same-named config helper doesn't clobber our browser port.
+ * `renderContent` / `renderFile` are the RenderPlugin shims wired on in
+ * `registerEleventyBuiltins` (`renderTemplate` is a tag and isn't mirrored).
+ *
+ * @type {string[]}
+ */
+export const builtinFilterNames = [
+	...Object.keys(eleventyFilters),
+	"renderContent",
+];
+
+/** @type {string[]} */
+export const builtinShortcodeNames = ["renderFile"];
 
 /**
  * Wires the plain filters from `eleventyFilters` plus the RenderPlugin shims

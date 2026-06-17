@@ -24,6 +24,10 @@ import {
 	registerShortcode,
 } from "../../liquid/index.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
+import {
+	builtinFilterNames,
+	builtinShortcodeNames,
+} from "./liquid-builtins.mjs";
 
 /**
  * The runtime registration fn for each helper kind.
@@ -77,9 +81,9 @@ function emptyLayer() {
  * @param {unknown} configFn - The Eleventy config's default export (a function),
  *   or a module namespace whose `.default` is that function (ESM/CJS interop).
  * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] -
- *   Per-kind names to skip: handwritten browser ports (so those win) and
- *   names the user overrode via `pluginOptions.liquid.<kind>` (emitted
- *   separately as module imports so the override wins).
+ *   Per-kind override names to skip (from `pluginOptions.liquid.<kind>`,
+ *   registered separately as module imports so the override wins). Builtin
+ *   browser-port names are skipped automatically — see the skip seeding below.
  */
 export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 	const fn =
@@ -97,10 +101,17 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		return;
 	}
 
+	// Builtin browser-port names are skipped here (single source of truth: the
+	// lists are derived from the implementations in `liquid-builtins.mjs`) so a
+	// same-named config helper can't clobber our port. The caller adds only its
+	// override names on top.
 	/** @type {Record<HelperKind, Set<string>>} */
 	const skip = {
-		filters: new Set(options.skip?.filters ?? []),
-		shortcodes: new Set(options.skip?.shortcodes ?? []),
+		filters: new Set([...builtinFilterNames, ...(options.skip?.filters ?? [])]),
+		shortcodes: new Set([
+			...builtinShortcodeNames,
+			...(options.skip?.shortcodes ?? []),
+		]),
 		pairedShortcodes: new Set(options.skip?.pairedShortcodes ?? []),
 		tags: new Set(options.skip?.tags ?? []),
 	};

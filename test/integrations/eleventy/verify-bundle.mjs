@@ -54,14 +54,18 @@ const expectations = [
   // to bundle for the browser at all.
   { name: "node/build-time imports stubbed", match: "Node/build-time API was called" },
 
-  // Skip object handed to the collector — four contract properties:
-  // (1) built-in port names are skipped so the ports win,
-  { name: "skip — builtin names skipped", match: /"skip":\s*\{[\s\S]*?"filters":\s*\[[^\]]*"slugify"/ },
-  // (2) override names are skipped so the override wins,
-  { name: "skip — override names skipped", match: /"filters":\s*\[[^\]]*"readmeSize"/ },
-  // (3) auto-mirrored names are NOT skipped (else they'd be dropped),
+  // Skip handling. Builtin ports are skipped inside the collector (single
+  // source of truth, derived from the implementations); the emitted call only
+  // passes override names on top.
+  // (1) the collector seeds the builtin-port skip from the derived list,
+  { name: "collector seeds builtin skip", match: /new Set\(\[\s*\.\.\.builtinFilterNames/ },
+  // (2) that list is derived from the implementations, not hand-maintained,
+  { name: "builtin names derived from implementations", match: /builtinFilterNames = \[[\s\S]*?Object\.keys\([\s\S]*?"renderContent"/ },
+  // (3) override names ARE passed in the emitted skip so the override wins,
+  { name: "skip — override names passed", match: /"skip":\s*\{[\s\S]*?"filters":\s*\[[^\]]*"readmeSize"/ },
+  // (4) auto-mirrored names are NOT skipped (else they'd be dropped),
   { name: "skip — mirrored names not skipped", match: /"skip":\s*\{(?:(?!"stamp")[\s\S])*?\}\s*\}\s*\)/ },
-  // (4) all four kind-keys present, so skipping can't silently break for a kind.
+  // (5) all four kind-keys present, so skipping can't silently break for a kind.
   { name: "skip — object has all four kinds", match: /"skip":\s*\{\s*"filters":\s*\[[\s\S]*?"shortcodes":\s*\[[\s\S]*?"pairedShortcodes":\s*\[[\s\S]*?"tags":\s*\[/ },
 
   // Import-registrations (the consolidated emit path) — an override and a

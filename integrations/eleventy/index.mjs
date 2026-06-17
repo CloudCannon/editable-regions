@@ -3,10 +3,6 @@ import { builtinModules, createRequire } from "node:module";
 import path from "node:path";
 import esbuild from "esbuild";
 import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
-import {
-	builtinFilterNames,
-	builtinShortcodeNames,
-} from "./browser/builtin-names.mjs";
 
 /**
  * @typedef {import("../../types/eleventy").LiquidOptions} LiquidOptions
@@ -251,9 +247,10 @@ function resolveEleventyConfigPath(liquidOptions) {
  * (see `collectAndRegisterEleventyHelpers`). Importing the real config keeps
  * each helper's closures and imports intact.
  *
- * Skips two name sets per kind: handwritten browser ports (so those win) and
- * names overridden via `pluginOptions.liquid.<kind>` (emitted separately by
- * `emitImportRegistrations` so the override wins).
+ * Passes only the override names per kind (from `pluginOptions.liquid.<kind>`,
+ * emitted separately by `emitImportRegistrations` so the override wins). The
+ * collector skips builtin browser-port names itself, derived from their
+ * implementations — see `collectAndRegisterEleventyHelpers`.
  *
  * @param {string} configPath - Absolute path to the Eleventy config
  * @param {LiquidOptions | undefined} liquidOptions
@@ -261,14 +258,8 @@ function resolveEleventyConfigPath(liquidOptions) {
  */
 function emitConfigMirror(configPath, liquidOptions) {
 	const skip = {
-		filters: [
-			...builtinFilterNames,
-			...Object.keys(liquidOptions?.filters ?? {}),
-		],
-		shortcodes: [
-			...builtinShortcodeNames,
-			...Object.keys(liquidOptions?.shortcodes ?? {}),
-		],
+		filters: Object.keys(liquidOptions?.filters ?? {}),
+		shortcodes: Object.keys(liquidOptions?.shortcodes ?? {}),
 		pairedShortcodes: Object.keys(liquidOptions?.pairedShortcodes ?? {}),
 		tags: Object.keys(liquidOptions?.tags ?? {}),
 	};

@@ -48,9 +48,11 @@ helpers. After `npm run build`, `_site/register-components.js` should contain:
   `fn.toString()`)
 - the browser-stub body (`"…Node/build-time API was called…"`) — the config
   imports `node:fs` / `@11ty/eleventy`, which must resolve to the stub
-- the skip object handed to the collector, with all four contract properties:
-  built-in names skipped, override names skipped, mirrored names *not*
-  skipped, and all four kind-keys present
+- skip handling: builtin ports are skipped inside the collector from a list
+  derived from the implementations (single source of truth), while the emitted
+  call passes only override names on top. Asserts the collector seeds the
+  derived list, the derivation itself, override names passed, mirrored names
+  *not* skipped, and all four kind-keys present
 - an override register call (`registerFilter("readmeSize", ...)`) and a pinned
   component (`registerLiquidComponent("card", ...)`)
 - the static globals — `registerProcessEnv` (allowlist + `PUBLIC_` prefix),

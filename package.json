@@ -60,7 +60,7 @@
 				"default": "./integrations/eleventy/index.mjs"
 			}
 		},
-		"./eleventy/browser": "./integrations/eleventy/browser/liquid-builtins.mjs",
+		"./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},
