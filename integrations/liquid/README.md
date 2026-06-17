@@ -12,7 +12,7 @@ build time; this directory is what that bundle pulls in.
 - [How it fits together](#how-it-fits-together)
 - [Globals](#globals)
   - [`page` properties](#page-properties)
-  - [Environment variables](#environment-variables)
+  - [Custom globals](#custom-globals)
   - [Eleventy global](#eleventy-global)
   - [`pkg` global](#pkg-global)
 - [Filters](#filters)
@@ -76,8 +76,9 @@ eleventyConfig.addPlugin(editableRegions, {
     extensions: [".liquid"],
     // see "Adding custom …" sections below for filter / shortcode / tag overrides
   },
-  env: ["NODE_ENV"],          // optional — see "Environment variables"
-  envPrefix: "PUBLIC_",       // optional — see "Environment variables"
+  globals: {                  // optional — see "Custom globals"
+    env: { API_BASE: process.env.API_BASE },
+  },
 });
 ```
 
@@ -117,8 +118,7 @@ works too.
 | --- | --- |
 | `output` | Where to write the bundle. Defaults to `register-components.js` inside Eleventy's `dir.output`. |
 | `verbose` | Enable verbose browser logging. |
-| `env` | Allowlist of `process.env` names to expose. See "Environment variables". |
-| `envPrefix` | Auto-include any env var matching this prefix. See "Environment variables". |
+| `globals` | Extra globals to expose to editor-rendered templates (JSON-serialisable). See "Custom globals". |
 | `liquid.extensions` | Template file extensions to bundle. Defaults to `[".liquid", ".html"]`. |
 | `liquid.componentDirs` | Directories to walk for component templates. Defaults to `[directories.includes, directories.input]`. |
 | `liquid.ignoreDirectories` | Directory names to skip when walking. Defaults to `[directories.output, "node_modules"]`. |
@@ -156,7 +156,7 @@ Globals are passed to `new Liquid({ globals })` inside `createSharedLiquidEngine
 | `collections` | Implemented | `Proxy` that lazily resolves `collections.foo` to an array of items via the Visual Editor API. Items shaped roughly like Eleventy's: `{ url, inputPath, data }`. |
 | `ENV_CLIENT` | Implemented | Always `true` in this bundle. Templates can branch on it to opt out of build-only logic. |
 | `page` | Partial | `Proxy` backed by `CloudCannon.currentFile()`. See below for which properties are supported. |
-| `process.env` | Opt-in | Build-time-filtered subset of the host's `process.env`, exposed only when the user configures `pluginOptions.env` and/or `pluginOptions.envPrefix`. See "Environment variables" below. |
+| custom globals | Opt-in | Whatever you pass via `pluginOptions.globals` (e.g. an `env` object), embedded at build time. See "Custom globals" below. |
 | `eleventy` | Partial | Static object built at build time. See "Eleventy global" below. |
 | `pkg` | Implemented | Project `package.json`, mirrored verbatim. See "`pkg` global" below. |
 
@@ -178,48 +178,40 @@ matter (`file.data.get()`).
 | `templateSyntax` | — | Unimplemented. |
 | `lang` | — | Unimplemented (would need the i18n plugin's runtime state). |
 
-### Environment variables
+### Custom globals
 
-11ty exposes the host's `process.env` to templates at build time. We don't
-want to leak the entire host environment to the browser, so the bundle ships
-**no** env vars by default. Users opt in two ways, which can be combined:
+11ty doesn't expose `process.env` to templates — global data reaches them by
+name instead (a `_data/env.js` file becomes `{{ env.* }}`, or
+`addGlobalData("env", …)`). The live-editing runtime doesn't auto-load your
+global data, so anything a component reads that isn't `page` / `collections` /
+`eleventy` / `pkg` has to be passed in explicitly via `pluginOptions.globals`.
+Mirror whatever your build already exposes, so the editor and build agree:
 
 ```js
+const env = { API_BASE: process.env.API_BASE };
+
+eleventyConfig.addGlobalData("env", env); // server-side build
+
 eleventyConfig.addPlugin(editableRegions, {
-  liquid: { /* ... */ },
-
-  // Explicit allowlist — recommended.
-  env: ["API_BASE_URL", "FEATURE_FLAGS"],
-
-  // Optional Vite-style prefix convention.
-  envPrefix: "PUBLIC_",
+  globals: { env }, // live editing
 });
 ```
 
-At build time, `eleventy/index.mjs` reads `process.env`, filters by the allowlist
-and (if set) the prefix, and embeds the resulting object as a JSON literal in
-the bundle. The runtime call is `registerProcessEnv(env)`, which sets
-`engine.globals.process = { env }`. Templates then read it the same way 11ty
-does:
+Templates then read it by name, identically in both places:
 
 ```liquid
-<a href="{{ process.env.API_BASE_URL }}">…</a>
+<a href="{{ env.API_BASE }}">…</a>
 ```
 
-> ⚠️ **Never allowlist secrets.** Anything that ends up in `env` or matches
-> `envPrefix` is embedded verbatim into the static JS bundle the browser
-> downloads. Treat this option the same as Vite's `PUBLIC_` prefix or
-> Next's `NEXT_PUBLIC_` prefix: public-by-design only. Keep API keys,
-> tokens, signing secrets, and database URLs out of it.
+The object is embedded into the bundle as a JSON literal at build time, so
+values must be JSON-serialisable (no functions). The built-in globals
+(`page`, `collections`, `eleventy`, `pkg`) are applied separately and win on a
+name collision.
 
-Notes:
-- Reading `process.env` happens once, in Node, at build time. The browser
-  never sees the host process; only the values you allowlist make it into
-  the bundle.
-- Empty-string prefixes are ignored (every env-var name starts with `""`,
-  which would defeat the point).
-- Names listed in `env` that aren't actually set in `process.env` are
-  silently dropped — no template-time error.
+> ⚠️ **Never include secrets.** Anything in `globals` is embedded verbatim
+> into the static JS bundle the browser downloads. Treat it like Vite's
+> `PUBLIC_` or Next's `NEXT_PUBLIC_` convention: public-by-design only. Keep
+> API keys, tokens, signing secrets, and database URLs out of it.
 
 ### Eleventy global
 

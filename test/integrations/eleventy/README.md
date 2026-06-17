@@ -30,7 +30,7 @@ re-renders the corresponding component.
 | `/shortcodes/` | `shortcodesDemo` | `addShortcode("year")` + closure `buildTime`; `addPairedShortcode("highlight")` + closure `box`; async `asyncGreeting` (`addAsyncShortcode`) and `asyncWrap` (`addPairedAsyncShortcode`). | All auto-mirror end to end, closures and async included. Editing the highlight colour/content re-renders. |
 | `/custom-tags/` | `customTagsDemo` | `addLiquidTag("echo", ...)` (auto-mirrored from the config, no override needed) and the built-in `includeWith` tag. | Custom tag is wired in both server and browser. `includeWith` spreads `customTagsDemo.cardProps` into the `card` component. |
 | `/render-plugin/` | `renderPluginDemo` | RenderPlugin shims: `renderTemplate`, `renderFile`, `renderContent`. | Server-side: 11ty's `EleventyRenderPlugin` (explicitly added in the config). Browser-side: our shims via the component re-render. |
-| `/globals/` | `globalsDemo` | `eleventy`, `page`, `pkg`, `collections.posts`, `process.env` globals. The `globalsDemo.note` field is editable to trigger re-renders. | Server-side values are 11ty's. Browser-side values come from the proxies in `integrations/liquid/globals.mjs` plus the static globals registered by `registerEleventyData` / `registerPkg`. |
+| `/globals/` | `globalsDemo` | `eleventy`, `page`, `pkg`, `collections.posts`, and a custom `env` global (passed via `globals`, mirroring `addGlobalData("env", …)`). The `globalsDemo.note` field is editable to trigger re-renders. | Server-side values are 11ty's. Browser-side values come from the proxies in `integrations/liquid/globals.mjs` plus the static globals registered by `registerEleventyData` / `registerPkg` / `registerGlobals`. |
 | `/posts/*` | (post front matter) | `getCollectionItem` / `getPreviousCollectionItem` / `getNextCollectionItem` / `getCollectionItemIndex` via the `post-meta` component. | Editing a post's front matter re-renders the metadata block via the browser ports — exercises our collection-item filters in the positive case. |
 | `/unsupported/` | `unsupportedDemo` | `inputPathToUrl` (a default 11ty 3.x filter). | Server-side: real 11ty filter. Browser-side: page-map lookup, or warn-once pass-through on miss. Editing the input path re-runs the lookup. |
 | `/location-probe/` | — | Diagnostic-only — surfaces `window.location.*`, `document.referrer`, `window.inEditorMode`, and `window.CloudCannonAPI`. | Used to verify what the browser sees inside CC's Visual Editor. Inline script, no component re-render. |
@@ -55,7 +55,7 @@ helpers. After `npm run build`, `_site/register-components.js` should contain:
   *not* skipped, and all four kind-keys present
 - an override register call (`registerFilter("readmeSize", ...)`) and a pinned
   component (`registerLiquidComponent("card", ...)`)
-- the static globals — `registerProcessEnv` (allowlist + `PUBLIC_` prefix),
+- the static globals — `registerGlobals` (the user's `env` global data),
   `registerEleventyData` (`version` + `directories`, `env.runMode: "serve"`),
   `registerPkg` (package.json mirrored verbatim), `registerPageMap` (a
   resolved `url`)

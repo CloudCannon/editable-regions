@@ -305,7 +305,7 @@ async function generateLiveEditingSource(
 		);
 
 		source += `
-      import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerProcessEnv, registerEleventyData, registerPkg, registerPageMap, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
+      import { createSharedLiquidEngine, registerLiquidComponent, registerFilter, registerShortcode, registerPairedShortcode, registerCustomTag, registerGlobals, registerEleventyData, registerPkg, registerPageMap, initComponentProxy, setVerbose } from '@cloudcannon/editable-regions/liquid';
       import { registerEleventyBuiltins, collectAndRegisterEleventyHelpers } from '@cloudcannon/editable-regions/eleventy/browser';
 
       setVerbose(${Boolean(options.verbose)});
@@ -323,11 +323,11 @@ async function generateLiveEditingSource(
     	window.cc_liquid_files = {};
   `;
 
-		// Build the filtered env object in Node and embed it as a static literal —
-		// the browser never sees the host `process.env`, only the allowlisted keys.
-		const exposedEnv = collectExposedEnv(options.env, options.envPrefix);
-		if (Object.keys(exposedEnv).length > 0) {
-			source += `\nregisterProcessEnv(${JSON.stringify(exposedEnv)});\n`;
+		// User-supplied globals, embedded as a static literal. Mirrors whatever
+		// global data the build already exposes (via `_data/` / `addGlobalData`)
+		// so editor-rendered templates can read the same values.
+		if (options.globals && Object.keys(options.globals).length > 0) {
+			source += `\nregisterGlobals(${JSON.stringify(options.globals)});\n`;
 		}
 
 		// Static `eleventy` global, embedded as a literal so templates branching
@@ -399,39 +399,6 @@ async function generateLiveEditingSource(
     `;
 	}
 	return source;
-}
-
-/**
- * Builds the `process.env` subset to ship to the browser. Both inputs are
- * opt-in: with neither set, the result is empty.
- *
- * Empty-string prefixes are ignored — `"".startsWith("")` is true for every
- * env var, which would silently leak the entire host environment.
- *
- * @param {string[] | undefined} allowlist
- * @param {string | undefined} prefix
- */
-function collectExposedEnv(allowlist, prefix) {
-	/** @type {Record<string, string>} */
-	const out = {};
-
-	if (Array.isArray(allowlist)) {
-		for (const name of allowlist) {
-			if (typeof name !== "string") continue;
-
-			const value = process.env[name];
-			if (typeof value === "string") out[name] = value;
-		}
-	}
-
-	if (typeof prefix === "string" && prefix.length > 0) {
-		for (const [name, value] of Object.entries(process.env)) {
-			if (name.startsWith(prefix) && typeof value === "string") {
-				out[name] = value;
-			}
-		}
-	}
-	return out;
 }
 
 /**

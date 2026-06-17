@@ -65,17 +65,14 @@ export interface PluginOptions {
 	 */
 	liquid?: LiquidOptions | boolean;
 	/**
-	 * Allowlist of `process.env` names to expose to live-editing templates as
-	 * `process.env.NAME`. Read from the host `process.env` at build time and
-	 * embedded in the bundle as static literals. Don't list secrets.
+	 * Extra globals to expose to editor-rendered templates, mirroring whatever
+	 * global data your build already provides (via `_data/` or
+	 * `addGlobalData`). Embedded into the bundle at build time, so values must
+	 * be JSON-serialisable. To surface env vars, pass them in explicitly, e.g.
+	 * `globals: { env: { API_BASE: process.env.API_BASE } }`, and register the
+	 * same data server-side so the editor and build agree. Don't include secrets.
 	 */
-	env?: string[];
-	/**
-	 * Auto-include any `process.env.NAME` whose name starts with this prefix,
-	 * alongside `env`. Empty strings are rejected to prevent accidental
-	 * full-environment leaks.
-	 */
-	envPrefix?: string;
+	globals?: Record<string, unknown>;
 }
 
 /**

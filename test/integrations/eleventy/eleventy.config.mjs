@@ -90,6 +90,16 @@ export default function (eleventyConfig) {
 		}, new Date(0));
 	});
 
+	// 11ty doesn't expose `process.env` to templates, so surface selected env
+	// vars the normal way: a global data value the build renders server-side,
+	// mirrored into live editing via `globals` below so the editor agrees.
+	const env = {
+		NODE_ENV: process.env.NODE_ENV,
+		PUBLIC_SITE_NAME: process.env.PUBLIC_SITE_NAME,
+		PUBLIC_API_BASE: process.env.PUBLIC_API_BASE,
+	};
+	eleventyConfig.addGlobalData("env", env);
+
 	eleventyConfig.addPlugin(editableRegions, {
 		verbose: true,
 		liquid: {
@@ -103,8 +113,8 @@ export default function (eleventyConfig) {
 				readmeSize: "./overrides/readme-size-filter.mjs",
 			},
 		},
-		env: ["NODE_ENV"],
-		envPrefix: "PUBLIC_",
+		// Mirror the `env` global data into live editing.
+		globals: { env },
 	});
 
 	return {

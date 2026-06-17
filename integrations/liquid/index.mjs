@@ -129,21 +129,22 @@ export function registerEleventyData(data) {
 }
 
 /**
- * Sets the `process.env` global so templates can read build-time env vars
- * via `{{ process.env.NAME }}`. The bundle generator builds `env` from
- * `pluginOptions.env` / `pluginOptions.envPrefix` at build time; this
- * function never reads `process.env` itself.
+ * Merges user-supplied globals (`pluginOptions.globals`) onto the engine so
+ * editor-rendered templates can read them. The bundle generator embeds the
+ * values at build time; the built-in globals (`page`, `collections`,
+ * `eleventy`, `pkg`) are applied separately and take precedence per render.
  *
- * @param {Record<string, string>} env
+ * @param {Record<string, unknown>} globals
  */
-export function registerProcessEnv(env) {
+export function registerGlobals(globals) {
 	if (!sharedLiquidEngine) {
-		throw new Error(
-			"sharedLiquidEngine not defined when registering process.env",
-		);
+		throw new Error("sharedLiquidEngine not defined when registering globals");
 	}
-	/** @type {any} */ (sharedLiquidEngine).options.globals.process = { env };
-	log("Registered", Object.keys(env).length, "process.env vars");
+	Object.assign(
+		/** @type {any} */ (sharedLiquidEngine).options.globals,
+		globals ?? {},
+	);
+	log("Registered", Object.keys(globals ?? {}).length, "custom globals");
 }
 
 /**

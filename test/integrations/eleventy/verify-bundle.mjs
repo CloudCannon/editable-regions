@@ -73,9 +73,9 @@ const expectations = [
   { name: "override register call emitted", match: 'registerFilter("readmeSize"' },
   { name: "component register call emitted", match: 'registerLiquidComponent("card"' },
 
-  // Env: allowlist + prefix are two distinct features.
-  { name: "env allowlist emitted", match: /registerProcessEnv\(\{[^)]*"NODE_ENV"/ },
-  { name: "env prefix emitted", match: /registerProcessEnv\(\{[^)]*"PUBLIC_/ },
+  // Custom globals — passed through verbatim (here, an `env` object).
+  { name: "globals emitted", match: /registerGlobals\(\{[\s\S]*?"env"/ },
+  { name: "globals carry the env values", match: /registerGlobals\(\{[\s\S]*?"NODE_ENV"[\s\S]*?"PUBLIC_/ },
 
   // Static eleventy global — shape + the deliberate runMode hardcode.
   { name: "eleventyData has version + directories", match: /registerEleventyData\(\{[\s\S]*?"version"[\s\S]*?"directories"/ },

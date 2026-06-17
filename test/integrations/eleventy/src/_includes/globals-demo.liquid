@@ -38,11 +38,11 @@
 </section>
 
 <section class="env-vars">
-	<h2>process.env</h2>
+	<h2>env (global data, mirrored via globals)</h2>
 	<dl>
-		<dt>NODE_ENV (allowlist)</dt><dd>{{ process.env.NODE_ENV }}</dd>
-		<dt>PUBLIC_SITE_NAME (PUBLIC_ prefix)</dt><dd>{{ process.env.PUBLIC_SITE_NAME }}</dd>
-		<dt>PUBLIC_API_BASE (PUBLIC_ prefix)</dt><dd>{{ process.env.PUBLIC_API_BASE }}</dd>
+		<dt>env.NODE_ENV</dt><dd>{{ env.NODE_ENV }}</dd>
+		<dt>env.PUBLIC_SITE_NAME</dt><dd>{{ env.PUBLIC_SITE_NAME }}</dd>
+		<dt>env.PUBLIC_API_BASE</dt><dd>{{ env.PUBLIC_API_BASE }}</dd>
 	</dl>
 </section>
 
