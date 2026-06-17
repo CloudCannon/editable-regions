@@ -1,0 +1,19 @@
+---
+title: RenderPlugin shims
+layout: page-shell
+renderPluginDemo:
+  templateData:
+    who: "world"
+  renderTargetData:
+    title: "Override title"
+  renderContentBody: "raw <strong>{{ title }}</strong>"
+---
+
+<p>
+	Edit <code>renderPluginDemo.*</code> in front matter to see the three
+	RenderPlugin shims re-render via the browser ports.
+</p>
+
+<div data-editable="component" data-component="render-plugin-demo" data-prop="renderPluginDemo">
+	{% includeWith "render-plugin-demo", renderPluginDemo %}
+</div>

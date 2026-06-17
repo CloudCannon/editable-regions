@@ -1,20 +1,31 @@
-import { evalToken, Liquid, Tokenizer, toPromise } from "liquidjs";
-import { eleventyFilters } from "./11ty-filters.mjs";
+import { Liquid } from "liquidjs";
+import { enhanceLiquidError } from "./errors.mjs";
 import { inMemoryFs } from "./fs.mjs";
+import {
+	buildCollectionsData,
+	buildPageData,
+	setEleventyData,
+} from "./globals.mjs";
+import { createIncludeWithTag } from "./include-with-tag.mjs";
 import { group, groupEnd, log } from "./logger.mjs";
 import { createPairedShortcodeTag, createShortcodeTag } from "./shortcodes.mjs";
 
-// Re-export logger utilities for external use
+// Re-exported from their own modules (which avoid the browser-runtime
+// side-effects / import cycles of importing this file) so the Node-side plugin
+// and non-engine consumers can reach them via the package root.
+export { createIncludeWithTag } from "./include-with-tag.mjs";
 export { group, groupEnd, log, setVerbose } from "./logger.mjs";
+export { registerPageMap } from "./page-map.mjs";
 
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
 /**
- * Creates and configures the shared Liquid engine instance.
+ * Creates and configures the shared Liquid engine, registering the built-in
+ * `includeWith` tag. Host-specific filters, shortcodes, and built-in ports are
+ * wired up afterwards by the host (e.g. `registerEleventyBuiltins(engine)`).
  *
- * @param {{componentDirs?: string[]}} options - Liquid engine options
- * @returns {void}
+ * @param {import("liquidjs").LiquidOptions} [options] - Spread into `new Liquid(...)`
  */
 export function createSharedLiquidEngine(options) {
 	log("Creating shared Liquid engine");
@@ -26,141 +37,194 @@ export function createSharedLiquidEngine(options) {
 		},
 		...options,
 	});
-	log("Liquid engine instantiated");
-
-	// Register Eleventy's built-in filters
-	for (const [name, fn] of Object.entries(eleventyFilters)) {
-		sharedLiquidEngine.registerFilter(name, fn);
-	}
-	log(
-		"Registered",
-		Object.keys(eleventyFilters).length,
-		"built-in 11ty filters",
-	);
 
 	log(
-		"Available files in window.cc_files:",
-		Object.keys(window.cc_files || {}),
+		"Available files in window.cc_liquid_files:",
+		Object.keys(window.cc_liquid_files || {}),
 	);
 
 	sharedLiquidEngine.registerTag(
-		"bind_include",
-		createBindIncludeTag(sharedLiquidEngine),
+		"includeWith",
+		createIncludeWithTag(sharedLiquidEngine),
 	);
-	log("bind_include tag registered");
+
+	return sharedLiquidEngine;
 }
 
 /**
- * Registers a Liquid component with the CloudCannon component system.
- * Creates a wrapper that renders the Liquid template to an HTMLElement.
+ * Registers a Liquid component under `key`, taking precedence over the
+ * include-resolution proxy installed by `initComponentProxy` for that name.
+ * Use this when you need to pin a different template — typically via
+ * `pluginOptions.liquid.components` — for a name that would otherwise
+ * resolve to its auto-discovered file via `{% include %}`.
  *
- * @param {string} key - Unique identifier for the component
- * @param {string} contents - The Liquid template contents
- * @returns {void}
+ * @param {string} key
+ * @param {string} contents
  */
 export function registerLiquidComponent(key, contents) {
 	log("Registering component:", key);
-	log("Component contents preview:", contents?.substring?.(0, 200) || contents);
 
 	if (!sharedLiquidEngine) {
 		throw new Error(
 			`sharedLiquidEngine not defined when registering component ${key}`,
 		);
 	}
-	const liquidEngine = sharedLiquidEngine;
-
-	/**
-	 * Wrapper function that renders the Liquid component to an HTMLElement.
-	 *
-	 * @param {Object} props - Props to pass to the Liquid template
-	 * @returns {Promise<HTMLElement>} The rendered component as an HTMLElement
-	 */
-	const wrappedComponent = async (props) => {
-		group(`Rendering component: ${key}`);
-		log("Props:", props);
-		log("Parsing and rendering template...");
-		const htmlString = await liquidEngine.parseAndRender(contents, props);
-		log(
-			"Rendered HTML preview:",
-			htmlString?.substring?.(0, 200) || htmlString,
-		);
-		const rootEl = document.createElement("div");
-		rootEl.innerHTML = htmlString;
-		groupEnd();
-		return rootEl;
-	};
 
 	window.cc_components = window.cc_components || {};
-	window.cc_components[key] = wrappedComponent;
-	log(`Component registered, ${key}`);
+	window.cc_components[key] = createComponentRenderer(key, contents);
 }
 
 /**
- * Registers a custom Liquid filter.
+ * Wraps `window.cc_components` in a Proxy that resolves any component name to a
+ * renderer on demand, delegating to `{% include %}` (which finds the file via
+ * the engine's configured `root`/`extname`). This is the primary resolution
+ * path; names registered via `registerLiquidComponent` take precedence.
  *
- * @param {string} name - The filter name
- * @param {any} fn - The filter function
+ * Must be called after `createSharedLiquidEngine()`.
+ *
  * @returns {void}
  */
-export function registerCustomFilter(name, fn) {
+export function initComponentProxy() {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when initializing component proxy",
+		);
+	}
+
+	const target = window.cc_components || {};
+
+	window.cc_components = new Proxy(target, {
+		get(registered, key, receiver) {
+			// Explicit registrations take precedence over include resolution
+			if (Reflect.has(registered, key)) {
+				return Reflect.get(registered, key, receiver);
+			}
+			// Resolve via Liquid's include — the primary path for auto-discovered components
+			if (typeof key === "string") {
+				return createComponentRenderer(key, `{% include "${key}" %}`);
+			}
+			return undefined;
+		},
+	});
+}
+
+/**
+ * Sets the `eleventy` global on the shared engine, mirroring the
+ * browser-applicable subset of https://www.11ty.dev/docs/data-eleventy-supplied/.
+ * The bundle generator builds the data at build time; this is a thin setter.
+ *
+ * @param {{version: string, generator: string, env: {runMode: string, source: string}, directories: Record<string, string>}} data
+ */
+export function registerEleventyData(data) {
+	if (!sharedLiquidEngine) {
+		throw new Error(
+			"sharedLiquidEngine not defined when registering eleventy data",
+		);
+	}
+	/** @type {any} */ (sharedLiquidEngine).options.globals.eleventy = data;
+	// Also surface to the `globals` module so the page proxy can derive
+	// `outputPath` without reaching into the engine.
+	setEleventyData(data);
+	log("Registered eleventy data, version:", data?.version);
+}
+
+/**
+ * Merges user-supplied globals (`pluginOptions.globals`) onto the engine so
+ * editor-rendered templates can read them. The bundle generator embeds the
+ * values at build time; the built-in globals (`page`, `collections`,
+ * `eleventy`, `pkg`) are applied separately and take precedence per render.
+ *
+ * @param {Record<string, unknown>} globals
+ */
+export function registerGlobals(globals) {
+	if (!sharedLiquidEngine) {
+		throw new Error("sharedLiquidEngine not defined when registering globals");
+	}
+	Object.assign(
+		/** @type {any} */ (sharedLiquidEngine).options.globals,
+		globals ?? {},
+	);
+	log("Registered", Object.keys(globals ?? {}).length, "custom globals");
+}
+
+/**
+ * Sets the `pkg` global, mirroring 11ty's default exposure of `package.json`.
+ *
+ * @param {Record<string, any>} pkg
+ */
+export function registerPkg(pkg) {
+	if (!sharedLiquidEngine) {
+		throw new Error("sharedLiquidEngine not defined when registering pkg");
+	}
+	/** @type {any} */ (sharedLiquidEngine).options.globals.pkg = pkg ?? {};
+	log("Registered pkg, fields:", Object.keys(pkg ?? {}).length);
+}
+
+/**
+ * Registers a Liquid filter. Called by both the build-time auto-mirror pass
+ * and by user-supplied browser overrides (`pluginOptions.liquid.filters`).
+ * Overrides emitted last would win on collision, but the mirror pass already
+ * skips override names so collisions shouldn't arise.
+ *
+ * @param {string} name
+ * @param {any} fn
+ */
+export function registerFilter(name, fn) {
 	log("Registering filter:", name);
 	if (!sharedLiquidEngine) {
 		throw new Error(
-			`sharedLiquidEngine not defined when registering custom filter ${name}`,
+			`sharedLiquidEngine not defined when registering filter ${name}`,
 		);
 	}
 	sharedLiquidEngine.registerFilter(name, fn);
 }
 
 /**
- * Registers a custom shortcode.
+ * Registers a Liquid shortcode. Same dual-caller pattern as `registerFilter`.
  *
  * Usage in templates: {% shortcodeName arg1, arg2 %}
  *
- * @param {string} name - The shortcode name (used as the tag name)
- * @param {any} fn - The shortcode function (arg1, arg2, ...) => string
- * @returns {void}
+ * @param {string} name
+ * @param {any} fn - (arg1, arg2, ...) => string
  */
-export function registerCustomShortcode(name, fn) {
+export function registerShortcode(name, fn) {
 	log("Registering shortcode:", name);
 	if (!sharedLiquidEngine) {
 		throw new Error(
-			`sharedLiquidEngine not defined when registering custom shortcode ${name}`,
+			`sharedLiquidEngine not defined when registering shortcode ${name}`,
 		);
 	}
-	sharedLiquidEngine.registerTag(name, createShortcodeTag(fn, name));
+	sharedLiquidEngine.registerTag(name, createShortcodeTag(name, fn));
 }
 
 /**
- * Registers a custom paired shortcode (with content between tags).
+ * Registers a Liquid paired shortcode. Same dual-caller pattern as
+ * `registerFilter`.
  *
  * Usage in templates: {% shortcodeName arg %}content{% endshortcodeName %}
  *
- * @param {string} name - The shortcode name (used as the tag name)
- * @param {any} fn - The shortcode function (content, arg1, ...) => string
- * @returns {void}
+ * @param {string} name
+ * @param {any} fn - (content, arg1, ...) => string
  */
-export function registerCustomPairedShortcode(name, fn) {
+export function registerPairedShortcode(name, fn) {
 	log("Registering paired shortcode:", name);
 	if (!sharedLiquidEngine) {
 		throw new Error(
-			`sharedLiquidEngine not defined when registering custom paired shortcode ${name}`,
+			`sharedLiquidEngine not defined when registering paired shortcode ${name}`,
 		);
 	}
 	sharedLiquidEngine.registerTag(name, createPairedShortcodeTag(name, fn));
 }
 
 /**
- * Registers a custom tag with full LiquidJS parser access.
- *
- * Custom tags are more powerful than shortcodes - they receive full access to
- * the LiquidJS parser and can implement complex parsing/rendering logic.
+ * Registers a custom tag with full LiquidJS parser access — more powerful
+ * than a shortcode, since the factory receives the engine and can implement
+ * arbitrary parse/render logic.
  *
  * Usage in templates: {% tagName args %}
  *
- * @param {string} name - The tag name
- * @param {any} factory - Factory function (liquidEngine) => { parse(), render() }
- * @returns {void}
+ * @param {string} name
+ * @param {any} factory - (liquidEngine) => { parse(), render() }
  */
 export function registerCustomTag(name, factory) {
 	log("Registering custom tag:", name);
@@ -173,97 +237,49 @@ export function registerCustomTag(name, factory) {
 }
 
 /**
- * Creates a bind_include tag for spreading object props into includes.
- * Like Astro's {...props} spread for Liquid includes.
+ * Wraps `parseAndRender` with logging, error mapping, and HTMLElement output.
+ * Used by both the include-resolution proxy (`initComponentProxy`, the
+ * primary path) and explicit registrations (`registerLiquidComponent`).
  *
- * Usage: {% bind_include "path/to/partial", objectToSpread %}
- *
- * @param {any} _liquidEngine - The LiquidJS engine instance (provided by LiquidJS, accessed via this.liquid)
- * @returns {any} Tag implementation with parse and render methods
+ * @param {string} name
+ * @param {string} templateSource - A literal template, or `{% include "name" %}`
+ * @returns {(props: Record<string, any>) => Promise<HTMLElement>}
  */
-export function createBindIncludeTag(_liquidEngine) {
-	return {
-		/**
-		 * Parses the bind_include tag arguments.
-		 * @param {any} tagToken - The tag token from LiquidJS parser
-		 */
-		parse(tagToken) {
-			log("bind_include parsing tag with args:", tagToken.args);
-			const tokenizer = new Tokenizer(
-				tagToken.args,
-				this.liquid.options.operatorsTrie,
+function createComponentRenderer(name, templateSource) {
+	return async (props) => {
+		if (!sharedLiquidEngine) {
+			throw new Error(
+				`sharedLiquidEngine not defined when rendering component ${name}`,
 			);
+		}
+		group(`Rendering component: ${name}`);
+		log("Props:", props);
 
-			this.pathToken = tokenizer.readValue();
-			if (!this.pathToken)
-				throw new Error("bind_include: missing path argument");
-			log("bind_include parsed path token:", this.pathToken);
-
-			tokenizer.skipBlank();
-			if (tokenizer.peek() !== ",")
-				throw new Error("bind_include: expected comma separator");
-			tokenizer.advance();
-			tokenizer.skipBlank();
-
-			this.objectToken = tokenizer.readValue();
-			if (!this.objectToken)
-				throw new Error("bind_include: missing object argument");
-			log("bind_include parsed object token:", this.objectToken);
-		},
-
-		/**
-		 * Renders the included template with spread props.
-		 * @param {any} context - The LiquidJS render context
-		 */
-		async render(context) {
-			group("bind_include rendering");
-			log("Evaluating path token...");
-			const path = await toPromise(evalToken(this.pathToken, context));
-			log("Path resolved to:", path);
-
-			log("Evaluating object token...");
-			const obj = await toPromise(evalToken(this.objectToken, context));
-			log("Object resolved to:", obj);
-
-			if (!path || typeof path !== "string") {
-				groupEnd();
-				throw new Error(`bind_include: invalid path "${path}"`);
-			}
-			if (!obj || typeof obj !== "object") {
-				log("Object is not valid, returning empty");
-				groupEnd();
-				return;
-			}
-
-			log(
-				"Including:",
-				path,
-				"with",
-				Object.keys(obj).length,
-				"props:",
-				Object.keys(obj),
+		let htmlString;
+		try {
+			htmlString = await sharedLiquidEngine.parseAndRender(
+				templateSource,
+				// LiquidJS awaits top-level Promise scope values but not Promises
+				// returned from property-access chains. `page` and `collections` are
+				// spread last so component props cannot shadow them, mirroring 11ty.
+				{
+					...props,
+					page: buildPageData(),
+					collections: buildCollectionsData(),
+				},
 			);
-
-			context.push(obj);
-			try {
-				log("Parsing file:", path);
-				const templates = await this.liquid.parseFile(path);
-				log("File parsed, template count:", templates?.length || 0);
-
-				log("Rendering templates...");
-				const result = await this.liquid.render(templates, context);
-				log("Rendered result preview:", result?.substring?.(0, 200) || result);
-				groupEnd();
-				return result;
-			} catch (err) {
-				const error = /** @type {Error} */ (err);
-				log("Error during render:", error.message);
-				log("Full error:", error);
-				groupEnd();
-				throw error;
-			} finally {
-				context.pop();
-			}
-		},
+		} catch (err) {
+			log("Error during render:", err);
+			groupEnd();
+			throw enhanceLiquidError(err, name);
+		}
+		log(
+			"Rendered HTML preview:",
+			htmlString?.substring?.(0, 200) || htmlString,
+		);
+		const rootEl = document.createElement("div");
+		rootEl.innerHTML = htmlString;
+		groupEnd();
+		return rootEl;
 	};
 }

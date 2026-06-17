@@ -9,4 +9,4 @@ npm-debug.log
 next-env.d.ts
 dist
 .astro
-test/integrations/**/package-lock.json
+_site

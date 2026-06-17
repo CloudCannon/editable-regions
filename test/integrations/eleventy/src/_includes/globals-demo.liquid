@@ -1,0 +1,61 @@
+<p class="globals-note">
+	Note (edit me in front matter to confirm the component re-renders):
+	<em>{{ note }}</em>
+</p>
+
+<section class="eleventy-globals">
+	<h2>eleventy</h2>
+	<dl>
+		<dt>eleventy.version</dt><dd>{{ eleventy.version }}</dd>
+		<dt>eleventy.generator</dt><dd>{{ eleventy.generator }}</dd>
+		<dt>eleventy.env.runMode</dt><dd>{{ eleventy.env.runMode }}</dd>
+		<dt>eleventy.env.source</dt><dd>{{ eleventy.env.source }}</dd>
+		<dt>eleventy.directories.input</dt><dd>{{ eleventy.directories.input }}</dd>
+		<dt>eleventy.directories.includes</dt><dd>{{ eleventy.directories.includes }}</dd>
+		<dt>eleventy.directories.output</dt><dd>{{ eleventy.directories.output }}</dd>
+	</dl>
+</section>
+
+<section class="pkg">
+	<h2>pkg</h2>
+	<dl>
+		<dt>pkg.name</dt><dd>{{ pkg.name }}</dd>
+		<dt>pkg.version</dt><dd>{{ pkg.version }}</dd>
+		<dt>pkg.type</dt><dd>{{ pkg.type }}</dd>
+	</dl>
+</section>
+
+<section class="page-globals">
+	<h2>page</h2>
+	<dl>
+		<dt>inputPath</dt><dd>{{ page.inputPath }}</dd>
+		<dt>fileSlug</dt><dd>{{ page.fileSlug }}</dd>
+		<dt>filePathStem</dt><dd>{{ page.filePathStem }}</dd>
+		<dt>outputFileExtension</dt><dd>{{ page.outputFileExtension }}</dd>
+		<dt>url</dt><dd>{{ page.url }}</dd>
+		<dt>outputPath</dt><dd>{{ page.outputPath }}</dd>
+	</dl>
+</section>
+
+<section class="env-vars">
+	<h2>env (global data, mirrored via globals)</h2>
+	<dl>
+		<dt>env.NODE_ENV</dt><dd>{{ env.NODE_ENV }}</dd>
+		<dt>env.PUBLIC_SITE_NAME</dt><dd>{{ env.PUBLIC_SITE_NAME }}</dd>
+		<dt>env.PUBLIC_API_BASE</dt><dd>{{ env.PUBLIC_API_BASE }}</dd>
+	</dl>
+</section>
+
+<section class="collections">
+	<h2>collections.posts</h2>
+	<ul>
+		{% for post in collections.posts %}
+			<li>
+				<a href="{{ post.url }}">{{ post.data.title }}</a>
+				<time datetime="{{ post.date | dateToRfc3339 }}">{{ post.date | htmlDateString }}</time>
+				<small>(slug: {{ post.fileSlug }}, stem: {{ post.filePathStem }})</small>
+			</li>
+		{% endfor %}
+	</ul>
+	<p>Newest post date: {{ collections.posts | getNewestCollectionItemDate | dateToRfc822 }}</p>
+</section>

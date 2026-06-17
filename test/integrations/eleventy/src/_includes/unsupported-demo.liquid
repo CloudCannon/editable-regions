@@ -1,0 +1,11 @@
+<dl>
+	<dt><code>inputPathToUrl("{{ inputPath }}")</code></dt>
+	<dd>{{ inputPath | inputPathToUrl }}</dd>
+</dl>
+
+<p>
+	Edit <code>unsupportedDemo.inputPath</code> in front matter to re-run
+	the lookup. The browser port resolves against the build-time page map;
+	misses (file not in last build) warn once at the console and pass
+	through unchanged.
+</p>
