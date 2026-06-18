@@ -134,14 +134,11 @@ function normalizeLiquidOption(liquid) {
 }
 
 /**
- * Bare specifiers that must never reach the browser bundle: the 11ty toolchain
- * (and subpaths) and the Node plugin itself. NOT the `/browser` or `/liquid`
- * subpaths — those are the real browser runtime and bundle normally.
+ * Specifiers stubbed by exact match (subpaths bundle normally — notably the
+ * Node plugin's own `/browser` and `/liquid` runtime). `@11ty/eleventy` is
+ * matched separately in `shouldStub` because its subpaths must be stubbed too.
  */
-const ALWAYS_STUBBED = [
-	"@11ty/eleventy",
-	"@cloudcannon/editable-regions/eleventy",
-];
+const ALWAYS_STUBBED = ["@cloudcannon/editable-regions/eleventy"];
 
 /**
  * esbuild plugin resolving Node built-ins and build-time-only packages to a
@@ -158,14 +155,16 @@ function createBrowserStubPlugin(extraStubs = []) {
 		...builtinModules,
 		...builtinModules.map((m) => `node:${m}`),
 	]);
-	const bareStubs = [...ALWAYS_STUBBED, ...extraStubs];
+	const exactStubs = new Set([...ALWAYS_STUBBED, ...extraStubs]);
 
 	const shouldStub = (/** @type {string} */ id) => {
 		if (nodeBuiltins.has(id)) return true;
+
 		if (id === "@11ty/eleventy" || id.startsWith("@11ty/eleventy/")) {
 			return true;
 		}
-		return bareStubs.some((b) => id === b);
+
+		return exactStubs.has(id);
 	};
 
 	return {
