@@ -52,8 +52,22 @@ const METHOD_TARGETS = {
 	addLiquidTag: ["tags", "liquid"],
 };
 
+/**
+ * Eleventy accepts a plugin as either a config function directly or as a
+ * `{ configFunction, ... }` object. Returns the underlying function, or `null`
+ * if it's neither (so the caller can skip it).
+ *
+ * @param {any} plugin
+ * @returns {((config: any, opts: any) => void) | null}
+ */
+function resolvePluginFunction(plugin) {
+	if (typeof plugin === "function") return plugin;
+	if (typeof plugin?.configFunction === "function") return plugin.configFunction;
+	return null;
+}
+
 /** @returns {Record<HelperKind, Map<string, any>>} */
-function emptyLayer() {
+function createEmptyLayer() {
 	return {
 		filters: new Map(),
 		shortcodes: new Map(),
@@ -66,18 +80,18 @@ function emptyLayer() {
  * Replays `configFn` against a recording stand-in and registers every
  * collected helper that isn't skipped.
  *
- * @param {unknown} configFn - The config's default export (a function), or a
+ * @param {unknown} config - The config's default export (a function), or a
  *   module namespace whose `.default` is that function (ESM/CJS interop).
  * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] - Per-kind
  *   override names to skip; builtin browser-port names are skipped automatically.
  */
-export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
-	const fn =
-		typeof configFn === "function"
-			? configFn
-			: /** @type {any} */ (configFn)?.default;
+export function collectAndRegisterEleventyHelpers(config, options = {}) {
+	const configFn =
+		typeof config === "function"
+			? config
+			: /** @type {any} */ (config)?.default;
 
-	if (typeof fn !== "function") {
+	if (typeof configFn !== "function") {
 		warnOnce(
 			"eleventy-config-shape",
 			"Could not auto-mirror Eleventy config helpers: the config's default " +
@@ -100,43 +114,46 @@ export function collectAndRegisterEleventyHelpers(configFn, options = {}) {
 		tags: new Set(options.skip?.tags ?? []),
 	};
 
-	const layers = { universal: emptyLayer(), liquid: emptyLayer() };
+	const layers = { universal: createEmptyLayer(), liquid: createEmptyLayer() };
 
 	/** @type {Record<string, any>} */
 	const recorder = {};
 	for (const [method, [kind, layer]] of Object.entries(METHOD_TARGETS)) {
-		recorder[method] = (/** @type {string} */ name, /** @type {any} */ fn2) => {
-			if (typeof name === "string" && typeof fn2 === "function") {
-				layers[layer][kind].set(name, fn2);
+		recorder[method] = (
+			/** @type {string} */ name,
+			/** @type {any} */ helperFn,
+		) => {
+			if (typeof name === "string" && typeof helperFn === "function") {
+				layers[layer][kind].set(name, helperFn);
 			}
 		};
 	}
 
 	// Unrecorded methods are no-ops so running the real config (which calls
 	// `addPassthroughCopy`, `on`, sets `dir`, ...) doesn't throw.
-	const fakeConfig = new Proxy(recorder, {
+	const configRecorder = new Proxy(recorder, {
 		get(target, prop, receiver) {
 			if (prop in target) return Reflect.get(target, prop, receiver);
 			return () => {};
 		},
 	});
 
-	// Replay function plugins too, so plugin-registered helpers are mirrored.
-	// A throwing plugin (e.g. a stubbed Node-only one) is contained: helpers it
-	// registered before throwing are kept, the rest of the config continues.
 	recorder.addPlugin = (/** @type {any} */ plugin, /** @type {any} */ opts) => {
-		const pluginFn =
-			typeof plugin === "function" ? plugin : plugin?.configFunction;
-		if (typeof pluginFn !== "function") return;
+		const pluginFn = resolvePluginFunction(plugin);
+		if (!pluginFn) return;
+
+		// A plugin is itself a config function, so replay it against the same
+		// recorder to capture the helpers it registers.
 		try {
-			pluginFn(fakeConfig, opts);
+			pluginFn(configRecorder, opts);
 		} catch {
-			// Stubbed/Node-only plugins are expected to throw here — ignore.
+			// Node-only plugins are stubbed at bundle time and throw when called.
+			// Helpers registered before the throw are kept; the config continues.
 		}
 	};
 
 	try {
-		fn(fakeConfig);
+		configFn(configRecorder);
 	} catch (err) {
 		warnOnce(
 			"eleventy-config-replay",
