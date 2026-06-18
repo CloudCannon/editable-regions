@@ -110,26 +110,27 @@ function normalizePluginOptions(pluginOptions) {
 	const opts = pluginOptions ?? {};
 	return {
 		...opts,
-		liquid: /** @type {LiquidOptions | false} */ (
-			normalizeLanguageOption(opts.liquid, { defaultOn: true })
-		),
+		liquid: normalizeLiquidOption(opts.liquid),
 	};
 }
 
 /**
- * Resolves a per-language option: `false` → off, `true` → on with defaults,
- * object → on with those options, `undefined` → `defaultOn`.
+ * Resolves the `liquid` option to either an options object (enabled) or
+ * `false` (disabled). Liquid is on by default, so anything but an explicit
+ * `false` enables it; `true` and an omitted value mean "on with defaults".
  *
- * @template {object} Options
- * @param {Options | boolean | undefined} value
- * @param {{ defaultOn: boolean }} opts
- * @returns {Options | false}
+ * @param {LiquidOptions | boolean | undefined} liquid
+ * @returns {LiquidOptions | false}
  */
-function normalizeLanguageOption(value, { defaultOn }) {
-	if (value === false) return false;
-	if (value === true) return /** @type {Options} */ ({});
-	if (value == null) return defaultOn ? /** @type {Options} */ ({}) : false;
-	return value;
+function normalizeLiquidOption(liquid) {
+	// Explicit opt-out is the only way to disable Liquid.
+	if (liquid === false) return false;
+
+	// An options object is used as-is.
+	if (liquid && typeof liquid === "object") return liquid;
+
+	// `true`, `undefined`, or `null` → enabled with default options.
+	return {};
 }
 
 /**
