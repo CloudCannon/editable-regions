@@ -247,6 +247,12 @@ export default class EditableSource extends EditableText {
 
 	onChange(value?: string | null) {
 		this.file?.get().then((source) => {
+			if (!source) {
+				throw new Error(
+					"Source editable region tried to update a non-existent file",
+				);
+			}
+
 			value = beautifyHtml(value ?? "", {
 				indent_char: this.format.indentChar,
 				indent_size: this.format.indentSize,
