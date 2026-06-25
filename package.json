@@ -64,7 +64,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.0",
-		"@cloudcannon/visual-editor-api": "0.0.17",
+		"@cloudcannon/visual-editor-api": "0.0.18",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "25.9.4",
