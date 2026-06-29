@@ -215,6 +215,12 @@ export default class EditableComponent extends Editable {
 				continue;
 			}
 
+			// Both children are the same subclass (node/element) but are of different types (e.g. text -> comment)
+			if (renderChild.nodeName !== targetChild.nodeName) {
+				targetChild.replaceWith(renderChild);
+				continue;
+			}
+
 			// Both existing and rendered children are nodes (i.e. some text)
 			if (
 				!(renderChild instanceof Element) &&
@@ -222,12 +228,6 @@ export default class EditableComponent extends Editable {
 			) {
 				// Render the offscreen node's content into the existing node.
 				targetChild.nodeValue = renderChild.nodeValue;
-				continue;
-			}
-
-			// Both children are elements but are different types
-			if (renderChild.nodeName !== targetChild.nodeName) {
-				targetChild.replaceWith(renderChild);
 				continue;
 			}
 
