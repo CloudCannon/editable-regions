@@ -63,8 +63,8 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.0",
-		"@cloudcannon/visual-editor-api": "0.0.18",
+		"@biomejs/biome": "2.5.1",
+		"@cloudcannon/visual-editor-api": "0.0.19",
 		"@sindresorhus/slugify": "3.0.0",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "25.9.4",
@@ -72,7 +72,7 @@
 		"@types/react-dom": "19.2.3",
 		"astro": "6.4.8",
 		"js-beautify": "1.15.4",
-		"liquidjs": "10.27.0",
+		"liquidjs": "10.27.1",
 		"typescript": "6.0.3"
 	},
 	"dependencies": {
