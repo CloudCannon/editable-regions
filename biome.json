@@ -18,14 +18,23 @@
 			"types/**",
 			"!test/integrations",
 			"!**/*.astro",
-			"!**/*.d.mts"
+			"!**/*.d.mts",
+			"!integrations/hugo/renderer",
+			"!integrations/hugo/browser/wasm_exec.js",
+			"!integrations/hugo/hugo-module"
 		]
 	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {

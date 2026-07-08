@@ -1,0 +1,4 @@
+<nav>
+	{{ range site.Menus.main }}<a href="{{ .URL }}">{{ .Name }}</a>{{ end }}
+	{{ range site.Data.links.footer }}<a href="{{ .url }}">{{ .label }}</a>{{ end }}
+</nav>

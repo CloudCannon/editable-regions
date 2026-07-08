@@ -1,0 +1,6 @@
+{{- /*
+  Loads the editable-regions bundle. Include in the site's <head>. Safe on
+  production pages: the runtime only fetches the Hugo WASM once the
+  CloudCannon Visual Editor API announces itself.
+*/ -}}
+<script src="{{ "register-components.js" | relURL }}" defer></script>
