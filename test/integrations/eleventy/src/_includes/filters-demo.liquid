@@ -1,0 +1,60 @@
+<section class="auto-mirror">
+	<h2>Auto-mirrored filter: <code>shout</code></h2>
+	<dl>
+		<dt><code>shout("{{ shoutInput }}")</code></dt>
+		<dd>{{ shoutInput | shout }}</dd>
+	</dl>
+</section>
+
+<section class="auto-mirror">
+	<h2>Auto-mirrored filter (closure): <code>stamp</code></h2>
+	<p>Closes over a module-level <code>buildInfo</code> object. The real config is bundled, so the closure survives — this auto-mirrors with no override, and the browser shows the same build stamp as the server render.</p>
+	<dl>
+		<dt><code>stamp("{{ stampInput }}")</code></dt>
+		<dd>{{ stampInput | stamp }}</dd>
+	</dl>
+</section>
+
+<section class="async">
+	<h2>Async filter: <code>asyncReverse</code></h2>
+	<p>Registered with <code>addAsyncFilter</code>. Mirrors like any other filter; the browser re-render reverses the string (try editing the input).</p>
+	<dl>
+		<dt><code>asyncReverse("{{ shoutInput }}")</code></dt>
+		<dd>{{ shoutInput | asyncReverse }}</dd>
+	</dl>
+</section>
+
+<section class="override">
+	<h2>Override filter: <code>readmeSize</code></h2>
+	<p>Genuinely non-portable — server-side it reads a file size from disk via <code>fs.statSync</code>, which can't run in the browser. A browser override (<code>liquid.filters.readmeSize</code>) returns a placeholder, so the editor shows <code>—</code> while the server render shows the byte count.</p>
+	<dl>
+		<dt><code>readmeSize()</code></dt>
+		<dd>{{ "" | readmeSize }}</dd>
+	</dl>
+</section>
+
+<section class="page-global">
+	<h2>page global (no filter needed)</h2>
+	<dl>
+		<dt><code>page.url</code></dt>
+		<dd>{{ page.url }}</dd>
+	</dl>
+</section>
+
+<section class="builtins">
+	<h2>Built-in filters</h2>
+	<dl>
+		<dt><code>slugify("{{ slugifyInput }}")</code></dt>
+		<dd>{{ slugifyInput | slugify }}</dd>
+		<dt><code>slug("{{ slugInput }}")</code></dt>
+		<dd>{{ slugInput | slug }}</dd>
+		<dt><code>url("{{ urlInput }}")</code></dt>
+		<dd>{{ urlInput | url }}</dd>
+		<dt><code>dateToRfc3339({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | dateToRfc3339 }}</dd>
+		<dt><code>dateToRfc822({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | dateToRfc822 }}</dd>
+		<dt><code>htmlDateString({{ dateInput }})</code></dt>
+		<dd>{{ dateInput | htmlDateString }}</dd>
+	</dl>
+</section>

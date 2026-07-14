@@ -4,10 +4,7 @@ import { fileURLToPath } from "node:url";
 /** @type{string[]} */
 const SUPPORTED_VIRTUAL_MODULES = ["assets", "content"];
 
-/**
- * @param {*} original
- * @returns
- */
+/** @param {*} original */
 function wrapTransform(original) {
 	/**
 	 * @this {*}

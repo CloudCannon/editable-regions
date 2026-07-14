@@ -7,6 +7,9 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.18
+* Added full support for Eleventy sites with liquid components.
+
 ## 0.0.17
 * Fixed an issue where text nodes were not re-rendering correctly in some cases
 

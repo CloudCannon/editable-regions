@@ -1,0 +1,16 @@
+---
+layout: page-shell
+---
+<article class="post">
+	{{ content }}
+
+	<p>
+		The collection-item filters below run via our browser ports when the
+		block re-renders client-side. Edit this post's front matter (title,
+		date) to confirm the re-render goes through.
+	</p>
+
+	<div data-editable="component" data-component="post-meta">
+		{% include "post-meta" %}
+	</div>
+</article>

@@ -47,10 +47,8 @@ export const getCollection = async (collectionKey, filter) => {
 };
 
 /**
- *
  * @param {string | {collection: string, slug?: string, id?: string}} objOrString
  * @param {string} [maybeString]
- * @returns
  */
 export const getEntry = async (objOrString, maybeString) => {
 	if (typeof objOrString === "object") {
@@ -85,10 +83,7 @@ export const getEntry = async (objOrString, maybeString) => {
 	);
 };
 
-/**
- * @param {{collection: string, slug?: string, id?: string}[]} entries
- * @returns
- */
+/** @param {{collection: string, slug?: string, id?: string}[]} entries */
 export const getEntries = (entries) => {
 	return Promise.all(entries.map((entry) => getEntry(entry)));
 };
@@ -96,16 +91,12 @@ export const getEntries = (entries) => {
 /**
  * @param {string} collection
  * @param {string} slug
- * @returns
  */
 export const getEntryBySlug = (collection, slug) => {
 	return getEntry({ collection, slug });
 };
 
-/**
- * @param {any} entry
- * @returns
- */
+/** @param {any} entry */
 export const render = async (entry) => ({
 	Content: () => entry?.body ?? "Content is not available when live editing",
 	headings: [],

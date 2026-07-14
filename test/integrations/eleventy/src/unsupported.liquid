@@ -1,0 +1,18 @@
+---
+title: Browser-side built-in filters
+layout: page-shell
+unsupportedDemo:
+  inputPath: "src/index.liquid"
+---
+
+<p>
+	Server-side, 11ty's default <code>inputPathToUrl</code> resolves the
+	path. Browser-side, our port looks it up in the build-time page map.
+	<code>htmlBaseUrl</code> and <code>serverlessUrl</code> aren't
+	exercised here — they aren't default 11ty 3.x filters — but the bundle
+	ships warn-once pass-throughs for both.
+</p>
+
+<div data-editable="component" data-component="unsupported-demo" data-prop="unsupportedDemo">
+	{% includeWith "unsupported-demo", unsupportedDemo %}
+</div>

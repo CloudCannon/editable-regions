@@ -4,10 +4,7 @@ import PictureInternal from "./picture.astro";
 export const Image = ImageInternal;
 export const Picture = PictureInternal;
 
-/**
- * @param {{src: any }} options
- * @returns
- */
+/** @param {{src: any }} options */
 export const getImage = async (options) => {
 	const resolvedSrc =
 		typeof options.src === "object" && "then" in options.src

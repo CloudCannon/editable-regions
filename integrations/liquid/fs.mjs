@@ -1,104 +1,64 @@
 import { log, warn } from "./logger.mjs";
 
 /**
- * In-memory filesystem for LiquidJS that reads from window.cc_files.
- *
- * @type {any} LiquidJS-compatible filesystem object
+ * In-memory filesystem for LiquidJS, reading from `window.cc_liquid_files`.
+ * @type {any}
  */
 export const inMemoryFs = {
 	sep: "/",
 
-	/**
-	 * Gets the directory name from a file path.
-	 *
-	 * @param {string} filePath - The file path
-	 * @returns {string} The directory portion of the path
-	 */
-	dirname(filePath) {
+	dirname(/** @type {string} */ filePath) {
 		const parts = filePath.split("/");
 		parts.pop();
 		return parts.join("/") || "/";
 	},
 
-	/**
-	 * Synchronously reads a file from the in-memory store.
-	 *
-	 * @param {string} filePath - The file path to read
-	 * @returns {string | undefined} The file contents or undefined if not found
-	 */
-	readFileSync(filePath) {
-		log("readFileSync:", filePath);
-		const fileContents = window.cc_files?.[filePath];
+	readFileSync(/** @type {string} */ filePath) {
+		const fileContents = window.cc_liquid_files?.[filePath];
 
-		if (fileContents === undefined) {
-			const availableFiles = Object.keys(window.cc_files || {});
+		if (fileContents === undefined || fileContents === null) {
+			const availableFiles = Object.keys(window.cc_liquid_files || {});
 			warn("File not found:", filePath);
 			log("Available files:", availableFiles);
-		} else {
-			log("File found, length:", fileContents?.length || 0);
+			throw new Error(
+				`ENOENT: Failed to find "${filePath}" in the bundled template files. Please check that this file exists and is within your configured component directories.`,
+			);
 		}
 
 		return fileContents;
 	},
 
-	/**
-	 * Asynchronously reads a file from the in-memory store.
-	 *
-	 * @param {string} filePath - The file path to read
-	 * @returns {Promise<string>} The file contents
-	 * @throws {Error} If filePath is empty
-	 */
-	async readFile(filePath) {
-		log("readFile:", filePath);
+	async readFile(/** @type {string} */ filePath) {
 		if (!filePath) {
 			throw new Error("readFile called with empty path");
 		}
 		return this.readFileSync(filePath);
 	},
 
-	/**
-	 * Asynchronously checks if a file exists.
-	 *
-	 * @param {string} filePath - The file path to check
-	 * @returns {Promise<boolean>} True if the file exists
-	 */
-	async exists(filePath) {
-		if (!filePath || typeof filePath !== "string") {
-			log("exists: invalid path", filePath);
-			return false;
-		}
-		const result = this.existsSync(filePath);
-		log("exists:", filePath, "=", result);
-		return result;
-	},
-
-	/**
-	 * Synchronously checks if a file exists.
-	 *
-	 * @param {string} filePath - The file path to check
-	 * @returns {boolean} True if the file exists
-	 */
-	existsSync(filePath) {
+	existsSync(/** @type {string} */ filePath) {
 		if (!filePath || typeof filePath !== "string") {
 			return false;
 		}
-		const fileContents = window.cc_files?.[filePath];
-		const exists = fileContents !== null && fileContents !== undefined;
-		log("existsSync:", filePath, "=", exists);
-		return exists;
+		const fileContents = window.cc_liquid_files?.[filePath];
+		return fileContents !== null && fileContents !== undefined;
+	},
+
+	async exists(/** @type {string} */ filePath) {
+		if (!filePath || typeof filePath !== "string") {
+			return false;
+		}
+		return this.existsSync(filePath);
 	},
 
 	/**
-	 * Resolves a file path by joining the root with the file name and extension.
-	 * LiquidJS calls this once per root directory and checks exists() on the
+	 * LiquidJS calls this once per root directory and checks `exists()` on the
 	 * result, so no directory searching is needed here.
-	 *
-	 * @param {string} root - The root directory provided by LiquidJS
-	 * @param {string} file - The file name to resolve
-	 * @param {string} [ext] - The file extension (defaults to ".liquid")
-	 * @returns {string} The resolved file path
 	 */
-	resolve(root, file, ext) {
+	resolve(
+		/** @type {string} */ root,
+		/** @type {string} */ file,
+		/** @type {string} */ ext,
+	) {
 		const extension = ext || ".liquid";
 		const fileWithExt = file.endsWith(extension) ? file : `${file}${extension}`;
 		const normalizedRoot = root.replace(/^\.\//, "").replace(/\/*$/, "/");
@@ -107,21 +67,12 @@ export const inMemoryFs = {
 		return resolved;
 	},
 
-	/**
-	 * Returns file stat (always returns isFile: true for compatibility).
-	 *
-	 * @returns {Promise<{isFile: () => boolean}>}
-	 */
-	async statAsync() {
+	// The store is flat, so anything stat'd is a file.
+	statSync() {
 		return { isFile: () => true };
 	},
 
-	/**
-	 * Returns file stat synchronously (always returns isFile: true for compatibility).
-	 *
-	 * @returns {{isFile: () => boolean}}
-	 */
-	statSync() {
+	async statAsync() {
 		return { isFile: () => true };
 	},
 };

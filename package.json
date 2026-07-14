@@ -58,7 +58,17 @@
 			"default": "./integrations/astro/svelte-renderer.mjs"
 		},
 		"./liquid": "./integrations/liquid/index.mjs",
-		"./eleventy": "./integrations/eleventy.mjs",
+		"./eleventy": {
+			"require": {
+				"types": "./types/eleventy.d.cts",
+				"default": "./integrations/eleventy/index.cjs"
+			},
+			"import": {
+				"types": "./types/eleventy.d.ts",
+				"default": "./integrations/eleventy/index.mjs"
+			}
+		},
+		"./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},
@@ -73,6 +83,7 @@
 		"astro": "7.0.7",
 		"js-beautify": "2.0.3",
 		"liquidjs": "10.27.2",
+		"slugify": "1.6.9",
 		"typescript": "6.0.3"
 	},
 	"dependencies": {

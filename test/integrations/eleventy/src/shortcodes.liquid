@@ -1,0 +1,16 @@
+---
+title: Shortcodes
+layout: page-shell
+shortcodesDemo:
+  highlightColor: "lime"
+  highlightContent: "note"
+---
+
+<p>
+	Edit <code>shortcodesDemo.*</code> in front matter to see the paired
+	shortcode re-render via the browser port.
+</p>
+
+<div data-editable="component" data-component="shortcodes-demo" data-prop="shortcodesDemo">
+	{% includeWith "shortcodes-demo", shortcodesDemo %}
+</div>

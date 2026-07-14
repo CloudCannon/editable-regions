@@ -1,0 +1,45 @@
+<section class="auto-mirror">
+	<h2>Auto-mirrored shortcode: <code>year</code></h2>
+	<dl>
+		<dt>{% year %}</dt>
+	</dl>
+</section>
+
+<section class="auto-mirror">
+	<h2>Auto-mirrored shortcode (closure): <code>buildTime</code></h2>
+	<p>Closes over a module-level <code>buildInfo</code> object. The real config is bundled, so the closure survives — this auto-mirrors with no override, and the browser shows the same build stamp as the server render.</p>
+	<dl>
+		<dt>{% buildTime %}</dt>
+	</dl>
+</section>
+
+<section class="auto-mirror">
+	<h2>Auto-mirrored paired shortcode: <code>highlight</code></h2>
+	<dl>
+		<dt>{% highlight highlightColor %}{{ highlightContent }}{% endhighlight %}</dt>
+	</dl>
+</section>
+
+<section class="auto-mirror">
+	<h2>Auto-mirrored paired shortcode (closure): <code>box</code></h2>
+	<p>Also closes over <code>buildInfo</code>; the <code>data-stamp</code> attribute survives into the browser unchanged.</p>
+	<dl>
+		<dt>{% box %}{{ highlightContent }}{% endbox %}</dt>
+	</dl>
+</section>
+
+<section class="async">
+	<h2>Async shortcode: <code>asyncGreeting</code></h2>
+	<p>Registered with <code>addAsyncShortcode</code>. Renders the same server-side and in the browser re-render.</p>
+	<dl>
+		<dt>{% asyncGreeting %}</dt>
+	</dl>
+</section>
+
+<section class="async">
+	<h2>Async paired shortcode: <code>asyncWrap</code></h2>
+	<p>Registered with <code>addPairedAsyncShortcode</code>. Wraps its content in an <code>&lt;aside&gt;</code>.</p>
+	<dl>
+		<dt>{% asyncWrap %}{{ highlightContent }}{% endasyncWrap %}</dt>
+	</dl>
+</section>

@@ -1,0 +1,16 @@
+<section>
+	<h2><code>renderTemplate</code> (paired tag)</h2>
+	{% renderTemplate "liquid", templateData %}
+		<span data-render-template>hello {{ who }}</span>
+	{% endrenderTemplate %}
+</section>
+
+<section>
+	<h2><code>renderFile</code> (shortcode — browser fetches via CC API)</h2>
+	{% renderFile "src/_includes/render-target.liquid", renderTargetData %}
+</section>
+
+<section>
+	<h2><code>renderContent</code> (filter)</h2>
+	{{ renderContentBody | renderContent: "liquid", page }}
+</section>

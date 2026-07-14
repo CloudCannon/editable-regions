@@ -1,0 +1,18 @@
+---
+title: Globals
+layout: page-shell
+date: 2026-04-21
+globalsDemo:
+  note: "Live edit me to confirm the component re-rendered"
+---
+
+<p>
+	Every global read below goes through our browser proxies (or the
+	statically-registered eleventy / pkg / process.env globals) when this
+	block renders client-side. Edit <code>globalsDemo.note</code> in front
+	matter to trigger a re-render and confirm the wiring.
+</p>
+
+<div data-editable="component" data-component="globals-demo" data-prop="globalsDemo">
+	{% includeWith "globals-demo", globalsDemo %}
+</div>
