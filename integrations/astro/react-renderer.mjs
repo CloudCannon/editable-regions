@@ -9,8 +9,26 @@ addFrameworkRenderer({
 	name: "@astrojs/react",
 	clientEntrypoint: "@astrojs/react/client.js",
 	ssr: {
-		// Handles all remaining components as React.
-		check: () => true,
+		/**
+		 * @param {any} Component
+		 * @returns {boolean}
+		 */
+		check: (Component) => {
+			if (typeof Component !== "function") return false;
+
+			// React class components have render on the prototype
+			if (typeof Component.prototype?.render === "function") return true;
+
+			// React functional components return vnodes with $$typeof
+			try {
+				const vnode = Component({});
+				return (
+					vnode != null && typeof vnode === "object" && "$$typeof" in vnode
+				);
+			} catch {
+				return false;
+			}
+		},
 		/**
 		 * Renders to static markup, falling back to a client-side render queue.
 		 * @param {any} Component

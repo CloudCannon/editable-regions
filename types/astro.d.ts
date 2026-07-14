@@ -17,3 +17,7 @@ declare module "@cloudcannon/editable-regions/astro" {
 declare module "@cloudcannon/editable-regions/astro-react-renderer" {
 	// Side-effect only module that registers React renderer
 }
+
+declare module "@cloudcannon/editable-regions/astro-svelte-renderer" {
+	// Side-effect only module that registers Svelte renderer
+}

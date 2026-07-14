@@ -7,6 +7,12 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.17
+* Fixed an issue where text nodes were not re-rendering correctly in some cases
+
+## 0.0.16
+* Adds experimental support for Svelte components.
+
 ## 0.0.14
 * Updated to TypeScript 6 internally.
 
