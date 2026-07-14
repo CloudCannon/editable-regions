@@ -62,7 +62,8 @@ const METHOD_TARGETS = {
  */
 function resolvePluginFunction(plugin) {
 	if (typeof plugin === "function") return plugin;
-	if (typeof plugin?.configFunction === "function") return plugin.configFunction;
+	if (typeof plugin?.configFunction === "function")
+		return plugin.configFunction;
 	return null;
 }
 
