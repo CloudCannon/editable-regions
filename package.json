@@ -21,8 +21,7 @@
 		"typecheck": "tsc --noEmit",
 		"typecheck:watch": "tsc --noEmit --watch",
 		"lint-autofix": "biome check --fix",
-		"lint": "biome check",
-		"build:hugo": "node integrations/hugo/build-runtime.mjs && bash integrations/hugo/renderer/build.sh"
+		"lint": "biome check"
 	},
 	"files": [
 		"components",
@@ -30,9 +29,7 @@
 		"integrations",
 		"nodes",
 		"styles",
-		"types",
-		"!integrations/hugo/renderer/hugo_renderer.wasm",
-		"!integrations/hugo/hugo-module/static/cc-editable-regions"
+		"types"
 	],
 	"exports": {
 		"./*": null,
@@ -64,10 +61,6 @@
 			}
 		},
 		"./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
-		"./hugo/browser": {
-			"types": "./types/hugo.d.ts",
-			"default": "./integrations/hugo/browser/index.mjs"
-		},
 		"./internal/components": "./components/index.js",
 		"./internal/styles": "./styles/index.js"
 	},

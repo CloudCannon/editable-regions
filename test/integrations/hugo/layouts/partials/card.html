@@ -1,6 +1,0 @@
-<div class="card">
-	<h2>{{ .title }}</h2>
-	{{ with .body }}<div class="body">{{ . | markdownify }}</div>{{ end }}
-	{{ range .tags }}<span class="tag">{{ . }}</span>{{ end }}
-	<span class="brand">{{ site.Params.brand }}</span>
-</div>

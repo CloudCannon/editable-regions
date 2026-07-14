@@ -7,9 +7,6 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
-## Unreleased
-* Added a Hugo integration: a Hugo module with an output-format emitter (no Node build step), a WASM Hugo renderer, and a prebuilt browser runtime. See integrations/hugo/README.md.
-
 ## 0.0.14
 * Updated to TypeScript 6 internally.
 
