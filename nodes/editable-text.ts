@@ -3,6 +3,12 @@ import Editable from "./editable.js";
 
 type EditableFocusEvent = CustomEvent<number>;
 
+export const hasEditableText = <T extends object>(
+	el: T,
+): el is T & { editable: EditableText } => {
+	return "editable" in el && el.editable instanceof EditableText;
+};
+
 export default class EditableText extends Editable {
 	editor?: any;
 	focused = false;

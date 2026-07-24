@@ -1,0 +1,16 @@
+---
+import { getImage } from "astro:assets";
+
+interface Props {
+  src?: string;
+}
+
+const { src = "/test-image.png" } = Astro.props;
+
+const optimized = await getImage({ src });
+---
+
+<div class="assets-get-image">
+  <p class="optimized-src">{optimized.src}</p>
+  <p class="src-set-count">{String(optimized.srcSet.values.length)}</p>
+</div>

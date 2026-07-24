@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the rendered Vue component matches the snapshot 1`] = `"<body><div class="vue-static"><h2>Hello from Vue</h2><p>Static Vue component inside Astro</p></div></body>"`;

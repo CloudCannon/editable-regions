@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the re-rendered DOM matches the snapshot 1`] = `"<div class="interactive-counter"><button type="button" class="increment">+1</button> <span class="count">0</span></div>"`;
+
+exports[`the rendered interactive component matches the snapshot 1`] = `"<div class="interactive-counter"><button type="button" class="increment">+1</button> <span class="count">0</span></div>"`;

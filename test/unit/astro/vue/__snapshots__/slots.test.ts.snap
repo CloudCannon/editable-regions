@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the slotted Vue component matches the snapshot 1`] = `"<body><div class="vue-slotted"><h2>Slotted Vue</h2><!--[--> <p class="slotted">Slotted from Astro</p> <!--]--></div></body>"`;

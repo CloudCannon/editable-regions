@@ -3,8 +3,13 @@ import type {
 	CloudCannonVisualEditorAPIV1Dataset,
 	CloudCannonVisualEditorAPIV1File,
 } from "@cloudcannon/visual-editor-api";
-import { hasEditable } from "../helpers/checks";
 import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.mjs";
+
+export const hasEditable = <T extends object>(
+	el: T,
+): el is T & { editable: Editable } => {
+	return "editable" in el && el.editable instanceof Editable;
+};
 
 declare global {
 	interface HTMLElement {

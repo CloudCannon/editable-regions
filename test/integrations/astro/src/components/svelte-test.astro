@@ -1,9 +1,11 @@
 ---
 import SvelteCounter from "./svelte-counter.svelte";
 import SvelteStatic from "./svelte-static.svelte";
+
+const word = Astro.props?.word ?? '🫈'
 ---
 
-<SvelteStatic title="Static inside Astro" />
-<SvelteCounter label="client:load inside Astro" client:load />
-<SvelteCounter label="client:idle inside Astro" client:idle />
-<SvelteCounter label="client:visible inside Astro" client:visible />
+<SvelteStatic title={`Static inside Astro - ${word}`} />
+<SvelteCounter label={`client:load inside Astro - ${word}`} client:load />
+<SvelteCounter label={`client:idle inside Astro - ${word}`} client:idle />
+<SvelteCounter label={`client:visible inside Astro - ${word}`} client:visible />

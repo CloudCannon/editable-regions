@@ -1,0 +1,13 @@
+{
+	"name": "eleventy-plugin-config-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"build": "node build-all.mjs"
+	},
+	"dependencies": {
+		"@11ty/eleventy": "^3.0.0",
+		"@cloudcannon/editable-regions": "file:../../../.."
+	}
+}

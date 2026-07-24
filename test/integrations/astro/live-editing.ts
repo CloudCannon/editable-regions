@@ -1,9 +1,11 @@
 import "@cloudcannon/editable-regions/astro-react-renderer";
 import "@cloudcannon/editable-regions/astro-svelte-renderer";
+import "@cloudcannon/editable-regions/astro-vue-renderer";
 
 import { registerAstroComponent } from "@cloudcannon/editable-regions/astro";
 import { registerReactComponent } from "@cloudcannon/editable-regions/react";
 import { registerSvelteComponent } from "@cloudcannon/editable-regions/svelte";
+import { registerVueComponent } from "@cloudcannon/editable-regions/vue";
 
 import ReactTest from "./src/components/react-test.astro";
 import ReactTestInner from "./src/components/react-test-inner";
@@ -19,6 +21,9 @@ import EnvDisplay from "./src/components/env-display.astro";
 import SvelteTest from "./src/components/svelte-test.astro";
 import SvelteCounter from "./src/components/svelte-counter.svelte";
 import SvelteStatic from "./src/components/svelte-static.svelte";
+import VueTest from "./src/components/vue-test.astro";
+import VueCounter from "./src/components/vue-counter.vue";
+import VueStatic from "./src/components/vue-static.vue";
 
 registerAstroComponent("astro-test", AstroTest);
 registerAstroComponent("slot-test", SlotTest);
@@ -34,3 +39,6 @@ registerReactComponent("react-test-inner", ReactTestInner);
 registerAstroComponent("svelte-test", SvelteTest);
 registerSvelteComponent("svelte-counter", SvelteCounter);
 registerSvelteComponent("svelte-static", SvelteStatic);
+registerAstroComponent("vue-test", VueTest);
+registerVueComponent("vue-counter", VueCounter);
+registerVueComponent("vue-static", VueStatic);

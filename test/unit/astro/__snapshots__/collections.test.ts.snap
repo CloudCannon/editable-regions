@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the rendered collection list matches the snapshot 1`] = `"<body><div class="collection-list"> <p>Found 2 entries in "blog"</p> <ul> <li class="collection-entry"> <span class="entry-title">First Test Post</span> <span class="entry-slug">first-post</span> </li><li class="collection-entry"> <span class="entry-title">Second Test Post</span> <span class="entry-slug">second-post</span> </li> </ul> </div></body>"`;

@@ -18,6 +18,8 @@
 			"types/**",
 			"!test/integrations",
 			"!**/*.astro",
+			"!**/*.svelte",
+			"!**/*.vue",
 			"!**/*.d.mts"
 		]
 	},
@@ -40,7 +42,8 @@
 				"noImportantStyles": "off"
 			},
 			"correctness": {
-				"noVoidTypeReturn": "off"
+				"noVoidTypeReturn": "off",
+				"useHookAtTopLevel": "off"
 			},
 			"suspicious": {
 				"noExplicitAny": "off",

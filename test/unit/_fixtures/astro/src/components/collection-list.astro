@@ -1,0 +1,23 @@
+---
+import { getCollection } from "astro:content";
+
+interface Props {
+  collectionName?: string;
+}
+
+const { collectionName = "blog" } = Astro.props;
+
+const entries = await getCollection(collectionName);
+---
+
+<div class="collection-list">
+  <p>Found {entries.length} entries in "{collectionName}"</p>
+  <ul>
+    {entries.map((entry) => (
+      <li class="collection-entry">
+        <span class="entry-title">{entry.data.title}</span>
+        <span class="entry-slug">{entry.slug}</span>
+      </li>
+    ))}
+  </ul>
+</div>

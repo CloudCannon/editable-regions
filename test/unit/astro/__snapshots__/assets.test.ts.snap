@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the rendered Image matches the snapshot 1`] = `"<body><div class="assets-image"> <img src="/snap.png" alt="Snapshot image" width="50" height="50"> </div></body>"`;
+
+exports[`the rendered Picture matches the snapshot 1`] = `"<body><div class="assets-picture"> <picture> <img src="/snap.png" alt="Snapshot picture" width="50" height="50"> </picture> </div></body>"`;

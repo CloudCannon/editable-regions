@@ -1,30 +1,8 @@
-import Editable from "../nodes/editable.js";
-import EditableArrayItem from "../nodes/editable-array-item.js";
-import EditableText from "../nodes/editable-text.js";
-
 const getEditableType = (el: HTMLElement): string | undefined => {
 	if (el.tagName.startsWith("EDITABLE-")) {
 		return el.tagName.slice(9).toLowerCase();
 	}
 	return el.dataset.editable;
-};
-
-export const hasEditable = <T extends object>(
-	el: T,
-): el is T & { editable: Editable } => {
-	return "editable" in el && el.editable instanceof Editable;
-};
-
-export const hasEditableText = <T extends object>(
-	el: T,
-): el is T & { editable: EditableText } => {
-	return "editable" in el && el.editable instanceof EditableText;
-};
-
-export const hasEditableArrayItem = <T extends object>(
-	el: T,
-): el is T & { editable: EditableArrayItem } => {
-	return "editable" in el && el.editable instanceof EditableArrayItem;
 };
 
 export const isEditableWebcomponent = (el: unknown): boolean => {

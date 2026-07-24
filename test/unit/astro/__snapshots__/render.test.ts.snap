@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`props passed to the renderer reach the Astro component and match the snapshot 1`] = `"<body><div class="with-props"> <h3>Hello</h3> <span class="count">7</span> </div></body>"`;
+
+exports[`the static renderer returns an HTMLElement matching the snapshot 1`] = `"<body><p>hello from astro</p></body>"`;
