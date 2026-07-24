@@ -7,6 +7,12 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.19
+* Added full support for Svelte components and Svelte in Astro components
+* Added full support for Vue components and Vue in Astro components
+* Fixed an issue where React in Astro components would not render correctly in some cases
+* Fixed an issue where slot contents would not be passed through Astro components in some cases
+
 ## 0.0.18
 * Added full support for Eleventy sites with liquid components.
 
