@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a component with a children snippet renders its shell gracefully when no child is provided 1`] = `"<div><div class="slot-shell"><!----></div></div>"`;
+
+exports[`a registered component passes snippet content to a child component 1`] = `"<div><div class="slot-parent"><div class="slot-shell"><p class="slotted">slotted from parent</p><!----></div><!----></div></div>"`;

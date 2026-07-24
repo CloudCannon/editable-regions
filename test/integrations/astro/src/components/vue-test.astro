@@ -1,0 +1,11 @@
+---
+import VueCounter from "./vue-counter.vue";
+import VueStatic from "./vue-static.vue";
+
+const word = Astro.props?.word ?? '🫈'
+---
+
+<VueStatic title={`Static inside Astro - ${word}`} />
+<VueCounter label={`client:load inside Astro - ${word}`} client:load />
+<VueCounter label={`client:idle inside Astro - ${word}`} client:idle />
+<VueCounter label={`client:visible inside Astro - ${word}`} client:visible />

@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a component with a slot renders its shell with an empty slot 1`] = `"<body><section class="with-slot"> <h2>Slot</h2>  </section></body>"`;
+
+exports[`a registered component passes slot content to a child component across the integration boundary 1`] = `"<body><section class="with-slot"> <h2>From parent</h2>  <p class="slotted">slotted from parent</p>  </section></body>"`;

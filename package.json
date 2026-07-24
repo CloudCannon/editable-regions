@@ -21,7 +21,14 @@
 		"typecheck": "tsc --noEmit",
 		"typecheck:watch": "tsc --noEmit --watch",
 		"lint-autofix": "biome check --fix",
-		"lint": "biome check"
+		"lint": "biome check",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:update-snapshots": "vitest run -u",
+		"test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config",
+		"test:build-astro-fixture": "npm --prefix test/unit/_fixtures/astro install --silent && npm --prefix test/unit/_fixtures/astro run build",
+		"test:build-eleventy-fixture": "npm --prefix test/unit/_fixtures/eleventy install --silent && npm --prefix test/unit/_fixtures/eleventy run build",
+		"test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build"
 	},
 	"files": [
 		"components",
@@ -41,6 +48,14 @@
 			"types": "./types/astro.d.ts",
 			"default": "./integrations/astro/react-renderer.mjs"
 		},
+		"./astro-svelte-renderer": {
+			"types": "./types/astro.d.ts",
+			"default": "./integrations/astro/svelte-renderer.mjs"
+		},
+		"./astro-vue-renderer": {
+			"types": "./types/astro.d.ts",
+			"default": "./integrations/astro/vue-renderer.mjs"
+		},
 		"./astro-integration": {
 			"types": "./types/astro.d.ts",
 			"default": "./integrations/astro/astro-integration.mjs"
@@ -53,9 +68,9 @@
 			"types": "./types/svelte.d.ts",
 			"default": "./integrations/svelte.mjs"
 		},
-		"./astro-svelte-renderer": {
-			"types": "./types/astro.d.ts",
-			"default": "./integrations/astro/svelte-renderer.mjs"
+		"./vue": {
+			"types": "./types/vue.d.ts",
+			"default": "./integrations/vue.mjs"
 		},
 		"./liquid": "./integrations/liquid/index.mjs",
 		"./eleventy": {
@@ -73,18 +88,30 @@
 		"./internal/styles": "./styles/index.js"
 	},
 	"devDependencies": {
+		"@astrojs/react": "6.0.1",
+		"@astrojs/svelte": "9.0.1",
+		"@astrojs/vue": "7.0.1",
 		"@biomejs/biome": "2.5.4",
 		"@cloudcannon/visual-editor-api": "0.0.19",
 		"@sindresorhus/slugify": "3.0.0",
+		"@sveltejs/vite-plugin-svelte": "7.2.0",
 		"@types/js-beautify": "1.14.3",
 		"@types/node": "26.1.1",
 		"@types/react": "19.2.17",
 		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-vue": "6.0.8",
 		"astro": "7.1.3",
+		"happy-dom": "20.11.0",
 		"js-beautify": "2.0.3",
 		"liquidjs": "10.27.2",
+		"react": "19.2.8",
+		"react-dom": "19.2.8",
 		"slugify": "1.6.9",
-		"typescript": "7.0.2"
+		"svelte": "5.56.7",
+		"typescript": "6.0.3",
+		"vitest": "4.1.10",
+		"vue": "3.5.40",
+		"vue-tsc": "3.3.8"
 	},
 	"dependencies": {
 		"esbuild": "0.28.1"

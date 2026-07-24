@@ -1,0 +1,56 @@
+---
+import VueCounter from "../components/vue-counter.vue";
+import VueStatic from "../components/vue-static.vue";
+import VueTest from "../components/vue-test.astro";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Vue Integration Test</title>
+    <script>
+      import("../../live-editing");
+    </script>
+  </head>
+  <body>
+    <h1>Vue Integration Tests</h1>
+
+    <section>
+      <h2>Top-level Vue — static (no directive)</h2>
+      <VueStatic title="Top-level static" />
+    </section>
+
+    <section>
+      <h2>Top-level Vue — client:load</h2>
+      <VueCounter label="Top-level client:load" client:load />
+    </section>
+
+    <section>
+      <h2>Top-level Vue — client:idle</h2>
+      <VueCounter label="Top-level client:idle" client:idle />
+    </section>
+
+    <section>
+      <h2>Top-level Vue — client:visible</h2>
+      <VueCounter label="Top-level client:visible" client:visible />
+    </section>
+
+    <section>
+      <h2>Vue inside Astro component</h2>
+      <div data-editable="component" data-component="vue-test">
+        <VueTest />
+      </div>
+    </section>
+
+    <section>
+      <h2>Editable Vue components</h2>
+      <div data-editable="component" data-component="vue-counter">
+        <VueCounter label="Editable counter" client:load />
+      </div>
+      <div data-editable="component" data-component="vue-static">
+        <VueStatic title="Editable static" />
+      </div>
+    </section>
+  </body>
+</html>
