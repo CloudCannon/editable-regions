@@ -260,6 +260,12 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
    at render time will throw when invoked in the browser — the signal to add
    an override.
 
+   `async` configs and `async` plugins are supported: the replay is awaited,
+   and component rendering is held until it finishes. This matters because
+   `await import("@11ty/eleventy")` — the usual way a CommonJS config reaches
+   the ESM-only `RenderPlugin` / `I18nPlugin` exports — makes the whole config
+   async, and none of its helpers exist until that import settles.
+
 3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name to
    module path. Two reasons to use this:
    - **A mirrored filter throws at render time** — supply a browser-safe

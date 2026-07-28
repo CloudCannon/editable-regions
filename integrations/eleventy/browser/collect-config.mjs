@@ -12,6 +12,7 @@
  */
 
 import {
+	deferRendersUntil,
 	registerCustomTag,
 	registerFilter,
 	registerPairedShortcode,
@@ -58,7 +59,8 @@ const METHOD_TARGETS = {
  * if it's neither (so the caller can skip it).
  *
  * @param {any} plugin
- * @returns {((config: any, opts: any) => void) | null}
+ * @returns {((config: any, opts: any) => any) | null} Async plugins return a
+ *   promise the caller must await.
  */
 function resolvePluginFunction(plugin) {
 	if (typeof plugin === "function") return plugin;
@@ -78,15 +80,34 @@ function createEmptyLayer() {
 }
 
 /**
- * Replays `configFn` against a recording stand-in and registers every
- * collected helper that isn't skipped.
+ * Mirrors the config's helpers into the live-editing engine, holding component
+ * rendering until they're all registered.
+ *
+ * The mirror is async because configs commonly are — `await
+ * import("@11ty/eleventy")` is how a CommonJS config reaches the ESM-only
+ * exports, and such a config registers nothing until that settles.
  *
  * @param {unknown} config - The config's default export (a function), or a
  *   module namespace whose `.default` is that function (ESM/CJS interop).
  * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] - Per-kind
  *   override names to skip; builtin browser-port names are skipped automatically.
+ * @returns {Promise<void>} Resolves once every mirrored helper is registered.
  */
 export function collectAndRegisterEleventyHelpers(config, options = {}) {
+	const mirrored = mirrorConfig(config, options);
+	deferRendersUntil(mirrored);
+	return mirrored;
+}
+
+/**
+ * Replays `configFn` against a recording stand-in and registers every
+ * collected helper that isn't skipped.
+ *
+ * @param {unknown} config
+ * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} options
+ * @returns {Promise<void>}
+ */
+async function mirrorConfig(config, options) {
 	const configFn =
 		typeof config === "function"
 			? config
@@ -139,6 +160,9 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		},
 	});
 
+	/** Async plugins, drained before the registration pass. @type {Promise<void>[]} */
+	const pendingPlugins = [];
+
 	recorder.addPlugin = (/** @type {any} */ plugin, /** @type {any} */ opts) => {
 		const pluginFn = resolvePluginFunction(plugin);
 		if (!pluginFn) return;
@@ -146,16 +170,27 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		// A plugin is itself a config function, so replay it against the same
 		// recorder to capture the helpers it registers.
 		try {
-			pluginFn(configRecorder, opts);
+			const result = pluginFn(configRecorder, opts);
+			if (typeof result?.then === "function") {
+				// An async stub rejects rather than throws; swallow either way.
+				pendingPlugins.push(Promise.resolve(result).catch(() => {}));
+			}
 		} catch {
 			// Node-only plugins are stubbed at bundle time and throw when called.
 			// Helpers registered before the throw are kept; the config continues.
 		}
 	};
 
+	let replayFailed = false;
+
 	try {
-		configFn(configRecorder);
+		await configFn(configRecorder);
+		// A plugin can register further plugins, so drain until nothing new lands.
+		while (pendingPlugins.length > 0) {
+			await Promise.all(pendingPlugins.splice(0));
+		}
 	} catch (err) {
+		replayFailed = true;
 		warnOnce(
 			"eleventy-config-replay",
 			"Replaying the Eleventy config to mirror its helpers threw: " +
@@ -165,12 +200,15 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		);
 	}
 
+	let mirroredCount = 0;
+
 	for (const kind of /** @type {HelperKind[]} */ (
 		Object.keys(KIND_REGISTRARS)
 	)) {
 		const register = KIND_REGISTRARS[kind];
 		// Liquid layer spread last so it wins on a name collision.
 		const merged = new Map([...layers.universal[kind], ...layers.liquid[kind]]);
+		mirroredCount += merged.size;
 
 		for (const [name, helperFn] of merged) {
 			if (skip[kind].has(name)) continue;
@@ -184,5 +222,22 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 				);
 			}
 		}
+	}
+
+	// An async config mirroring nothing otherwise surfaces as a `strictFilters`
+	// "unknown filter" error inside an unrelated template. A replay that threw
+	// has already warned, and explains the empty result.
+	if (
+		mirroredCount === 0 &&
+		!replayFailed &&
+		configFn.constructor?.name === "AsyncFunction"
+	) {
+		warnOnce(
+			"eleventy-async-config",
+			"Your Eleventy config is async and registered no helpers when replayed " +
+				"for live editing. If it defines filters/shortcodes they won't be " +
+				"available — define a browser override via " +
+				"`pluginOptions.liquid.<kind>` for any that are needed.",
+		);
 	}
 }

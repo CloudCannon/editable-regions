@@ -19,6 +19,22 @@ export { registerPageMap } from "./page-map.mjs";
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
+/** Component renders wait on this. @type {Promise<unknown>} */
+let registrationBarrier = Promise.resolve();
+
+/**
+ * Holds component renders until `promise` settles, for hosts that register
+ * helpers asynchronously (the Eleventy integration replays an `async` config).
+ * Rejections are ignored: a failed registration pass reports its own errors,
+ * and a rejected barrier would throw on every later render.
+ *
+ * @param {Promise<unknown>} promise
+ */
+export function deferRendersUntil(promise) {
+	const settled = Promise.resolve(promise).catch(() => {});
+	registrationBarrier = Promise.all([registrationBarrier, settled]);
+}
+
 /**
  * Creates the shared Liquid engine with the built-in `includeWith` tag. The
  * host wires up its filters/shortcodes/ports afterwards (e.g.
@@ -225,6 +241,8 @@ export function registerCustomTag(name, factory) {
  */
 function createComponentRenderer(name, templateSource) {
 	return async (props) => {
+		await registrationBarrier;
+
 		if (!sharedLiquidEngine) {
 			throw new Error(
 				`sharedLiquidEngine not defined when rendering component ${name}`,
