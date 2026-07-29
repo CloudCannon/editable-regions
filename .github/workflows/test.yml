@@ -27,5 +27,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Unit tests
+        run: npm run test:build-fixtures && npm test
+
       - name: Integration tests
         run: bash run-integration-tests.sh

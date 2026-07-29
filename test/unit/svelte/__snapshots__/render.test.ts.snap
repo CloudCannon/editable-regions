@@ -1,0 +1,7 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`default props apply when the renderer is called without them 1`] = `"<div><p>count: 0</p></div>"`;
+
+exports[`props passed to the renderer reach the Svelte component and match the snapshot 1`] = `"<div><p>count: 7</p></div>"`;
+
+exports[`the rendered DOM matches the snapshot for a static component 1`] = `"<div><p>hello from svelte</p></div>"`;

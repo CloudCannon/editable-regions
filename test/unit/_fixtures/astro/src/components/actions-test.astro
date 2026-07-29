@@ -1,0 +1,20 @@
+---
+import { ActionError, isActionError } from "astro:actions";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "Actions Test" } = Astro.props;
+
+const testError = new ActionError({ code: "BAD_REQUEST", message: "Test error" });
+const isError = isActionError(testError);
+const isNotError = isActionError({ foo: "bar" });
+---
+
+<div class="actions-test">
+  <h3>{title}</h3>
+  <p class="is-error">{String(isError)}</p>
+  <p class="is-not-error">{String(isNotError)}</p>
+  <p class="error-code">{testError.code}</p>
+</div>

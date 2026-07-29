@@ -1,0 +1,11 @@
+<section>
+	<h2>renderTemplate</h2>
+	{% renderTemplate "liquid", templateData %}
+		<span data-render-template>hello {{ who }}</span>
+	{% endrenderTemplate %}
+</section>
+
+<section>
+	<h2>renderContent</h2>
+	{{ renderContentBody | renderContent: "liquid" }}
+</section>

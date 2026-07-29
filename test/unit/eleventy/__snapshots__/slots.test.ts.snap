@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a component with includeWith renders its shell gracefully when no props are given 1`] = `
+"<div><div class="slot-parent">
+	
+</div>
+</div>"
+`;
+
+exports[`includeWith spreads a props object into the included partial's scope 1`] = `
+"<div><div class="slot-parent">
+	<div class="slot-shell">
+	slotted from parent
+</div>
+
+</div>
+</div>"
+`;

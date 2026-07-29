@@ -7,7 +7,8 @@ import {
 	EditableSource,
 	EditableText,
 } from "../nodes";
-import { hasEditable, isEditableWebcomponent } from "./checks";
+import { hasEditable } from "../nodes/editable.js";
+import { isEditableWebcomponent } from "./checks";
 
 const baseEditableMap: Record<string, typeof Editable | undefined> = {
 	array: EditableArray,

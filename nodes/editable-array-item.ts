@@ -1,7 +1,6 @@
 import "../components/ui/editable-array-item-controls.js";
 import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
 import {
-	hasEditableArrayItem,
 	isEditableArray,
 	isEditableArrayItem,
 	isEditableElement,
@@ -9,6 +8,12 @@ import {
 import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.mjs";
 import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
+
+export const hasEditableArrayItem = <T extends object>(
+	el: T,
+): el is T & { editable: EditableArrayItem } => {
+	return "editable" in el && el.editable instanceof EditableArrayItem;
+};
 
 export default class EditableArrayItem extends EditableComponent {
 	parent: EditableArray | null = null;
