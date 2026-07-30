@@ -49,10 +49,9 @@ beforeEach(() => {
 	resetCollectionsCache();
 });
 
-// Each key on the resolved object is a lazy getter returning a `Promise` of
-// its items — that laziness is the point, so these await the key. Templates
-// never do: LiquidJS awaits during expression evaluation. See
-// `collections-demo` below for the same behaviour through real Liquid.
+// Each key is a lazy getter returning a `Promise` of its items, so these
+// await it. Templates never do — LiquidJS awaits during expression
+// evaluation, which the `collections-demo` renders below cover.
 
 test("buildCollectionsData returns collection items with the correct shape", async () => {
 	const posts = [
@@ -169,10 +168,9 @@ test("resetCollectionsCache clears the cached collections", async () => {
 
 // --- Laziness ---
 //
-// The bug this guards: `buildCollectionsData` used to materialise every file
-// in every collection on the first render, one `file.data.get()` HTTP GET
-// each. On a large site that saturates the browser's connection pool and the
-// overflow fails with `ERR_INSUFFICIENT_RESOURCES`, starving the editor.
+// The bug this guards: every file in every collection used to be fetched on
+// the first render, one HTTP GET each, exhausting the browser's connection
+// pool and failing the overflow with `ERR_INSUFFICIENT_RESOURCES`.
 
 /** A collection whose `items()` and per-file `data.get()` calls are counted. */
 function makeCountedCollection(key: string, count: number) {
@@ -288,19 +286,16 @@ test("file fetches are capped so they can't exhaust the connection pool", async 
 
 // --- Through real Liquid ---
 //
-// The contract that actually matters. Templates have no `await`: LiquidJS
-// awaits promise-valued properties during expression evaluation, so the lazy
-// getters are invisible in a template. These render `collections-demo` for
-// real, which is what would catch a regression the white-box tests above
-// can't see.
+// The contract that actually matters, and the one the white-box tests above
+// can't see: templates have no `await`, so the lazy getters must be invisible
+// in a template.
 
 /**
  * Renders `collections-demo` against a two-post `posts` collection.
  *
- * Note this drives the *bundled* copy of the runtime via `window.cc_components`,
- * not the modules imported at the top of this file — so mock data (which flows
- * through `window.CloudCannonAPI`) reaches it, but `registerPageMap` would not.
- * URLs here come from a literal front-matter `permalink` for that reason.
+ * This drives the *bundled* runtime, not the modules imported above — mock
+ * data reaches it via `window.CloudCannonAPI`, but `registerPageMap` would
+ * not, hence the literal front-matter `permalink`.
  */
 async function renderCollectionsDemo() {
 	setMockCollectionsList([
@@ -352,11 +347,10 @@ test("an unknown collection renders as empty rather than erroring", async () => 
 	expect(el?.querySelector("[data-missing-size]")?.textContent).toBe("0");
 });
 
-// Serialising the *whole* `collections` object is the one documented gap —
-// `JSON.stringify` can't await the getters. See the limitations table in
-// `integrations/liquid/README.md`. Deliberately not asserted here: it's a
-// known wart, and a regression that resurrected it would be an eager
-// collections rebuild, which the laziness tests above catch by name.
+// Serialising the *whole* object is the one documented gap — `JSON.stringify`
+// can't await the getters. See the README limitations table. Not asserted
+// here: resurrecting it would mean going eager again, which the laziness
+// tests above catch by name.
 test("a single collection serialises with the json filter", async () => {
 	const el = await renderCollectionsDemo();
 

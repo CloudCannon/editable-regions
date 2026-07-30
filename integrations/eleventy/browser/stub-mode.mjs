@@ -1,6 +1,6 @@
 /**
- * Strictness switch for the stubs `createBrowserStubPlugin` generates for
- * Node-only modules. The two phases want opposite behaviour:
+ * Strictness switch for the stubs `createBrowserStubPlugin` generates. The two
+ * phases want opposite behaviour:
  *
  * - **Config replay** — skip and warn. An argument-side call like
  *   `addPlugin(pluginBookshop({…}))` runs before `addPlugin` is reached, so a
@@ -9,7 +9,7 @@
  *   `pluginOptions.liquid.<kind>` override, named by `enhanceLiquidError`.
  *
  * `collect-config.mjs` flips it once the mirror finishes; `deferRendersUntil`
- * already holds renders until then, so the phases can't overlap.
+ * holds renders until then, so the phases can't overlap.
  */
 
 import { warnOnce } from "../../liquid/logger.mjs";

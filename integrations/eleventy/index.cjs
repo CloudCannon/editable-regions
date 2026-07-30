@@ -1,6 +1,6 @@
 // Node can `require()` an ES module from v20.19 / v22.12 onward, so this stays
 // a re-export. Older runtimes throw a bare ERR_REQUIRE_ESM naming neither this
-// package nor a way out, so translate it.
+// package nor a way out — translate it.
 
 /** @type {any} */
 let editableRegionsPlugin;

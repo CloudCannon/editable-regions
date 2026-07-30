@@ -1,8 +1,7 @@
 /**
  * A stand-in that survives whatever a config does to it — property access,
- * calls, `new` all return it again. Used for config methods we don't record
- * (`collect-config.mjs`) and for stubbed Node modules called during the replay
- * (`stub-mode.mjs`).
+ * calls and `new` all return it again. Used for unrecorded config methods
+ * (`collect-config.mjs`) and stubbed Node modules (`stub-mode.mjs`).
  *
  * @returns {any}
  */
@@ -14,7 +13,7 @@ export function createInertValue() {
 		get(_target, prop) {
 			// Must not look thenable: `collect-config.mjs` treats a plugin result
 			// with a callable `.then` as a promise, and this one would never
-			// settle, hanging the render barrier for the life of the page.
+			// settle — hanging the render barrier for the life of the page.
 			if (prop === "then") return undefined;
 
 			if (typeof prop === "symbol") {

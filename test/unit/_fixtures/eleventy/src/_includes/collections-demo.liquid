@@ -1,7 +1,7 @@
 {%- comment -%}
-	Exercises the `collections` global through real Liquid. Each key is a lazy
-	getter resolving to a Promise; LiquidJS awaits it during expression
-	evaluation, so templates never see one. This component is what pins that.
+	Pins the `collections` contract through real Liquid: each key is a lazy
+	getter resolving to a Promise, which LiquidJS awaits, so templates never
+	see one.
 {%- endcomment -%}
 <div class="collections-demo">
 	<span data-posts-size>{{ collections.posts | size }}</span>

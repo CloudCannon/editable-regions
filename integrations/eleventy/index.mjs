@@ -108,8 +108,9 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 			// The bundle imports the user's real Eleventy config (see
 			// `emitConfigMirror`), dragging in Node/build-time imports — stub them.
 			plugins: [createBrowserStubPlugin(liquidOptions.browserStub)],
-			// Node *globals* (`process.env.X`, `__dirname`) aren't imports, so the
-			// stub plugin can't reach them and esbuild won't define them either.
+			// Node *globals* aren't imports, so the stub plugin can't reach them.
+			// esbuild defines `process.env.NODE_ENV` only; everything else is left
+			// unbound and throws at load.
 			inject: [PROCESS_SHIM_PATH],
 			outfile: options.output ?? `${dirs.output}/register-components.js`,
 		});
@@ -159,13 +160,12 @@ const ALWAYS_STUBBED = ["@cloudcannon/editable-regions/eleventy"];
 /**
  * esbuild plugin resolving Node built-ins and build-time-only packages to a
  * Proxy that survives `import` and property access, so the user's config
- * bundles for the browser. What happens when one is actually *called* depends
- * on the phase — see `browser/stub-mode.mjs`: skipped with a warning while the
- * config is replayed, thrown from render time onwards.
+ * bundles for the browser. What happens when one is *called* depends on the
+ * phase — see `browser/stub-mode.mjs`.
  *
- * `process` is the exception: it resolves to the real shim rather than an
- * inert stub, so an explicit `import … from "node:process"` reads the same
- * values as the bare global that `inject` substitutes.
+ * `process` is the exception: it resolves to the real shim, so an explicit
+ * `import … from "node:process"` reads the same values as the bare global
+ * that `inject` substitutes.
  *
  * @param {string[]} [extraStubs] - Extra specifiers to stub
  *   (`pluginOptions.liquid.browserStub`), e.g. native deps like `sharp`.

@@ -153,9 +153,9 @@ export async function buildPageData() {
 
 /**
  * Ceiling on concurrent `file.data.get()` calls. Collections run to thousands
- * of files, and an unbounded fan-out exhausts the browser's connection pool —
- * the overflow fails with `ERR_INSUFFICIENT_RESOURCES` and starves every other
- * request the editor makes. Sized for HTTP/2, not HTTP/1.1's six connections.
+ * of files, and an unbounded fan-out exhausts the browser's connection pool:
+ * the overflow fails with `ERR_INSUFFICIENT_RESOURCES`, starving the editor.
+ * Sized for HTTP/2, not HTTP/1.1's six connections.
  */
 const MATERIALISE_CONCURRENCY = 24;
 
@@ -201,9 +201,9 @@ let collectionsSubscriptions = [];
 
 /**
  * Enumerates the site's collections — one API call, cached — and subscribes to
- * `change`/`delete` on each so an edit drops the caches. Deliberately never
- * calls `collection.items()`: knowing the *names* is what lets
- * `buildCollectionsData` expose enumerable keys without fetching behind them.
+ * `change`/`delete` on each so an edit drops the caches. Never calls
+ * `collection.items()`: knowing the *names* is what lets the getters be
+ * enumerable without fetching behind them.
  *
  * @returns {Promise<Map<string, any>>}
  */
@@ -268,12 +268,12 @@ function loadCollectionItems(key) {
 /**
  * Builds (or returns cached) the `collections` object. Every key is a lazy
  * getter returning a `Promise` of its items, which LiquidJS awaits during
- * normal expression evaluation — so a component that never mentions
- * `collections` issues no per-file requests at all.
+ * expression evaluation — so a component that never mentions `collections`
+ * issues no per-file requests.
  *
- * Getters rather than a Proxy: LiquidJS probes `next` and `toLiquid` on every
- * object it resolves, and a blanket-getter Proxy answers those with a Promise,
- * which breaks the lookup entirely.
+ * Getters not a Proxy: LiquidJS probes `next` and `toLiquid` on every object
+ * it resolves, and a blanket-getter Proxy answers those with a Promise, which
+ * breaks the lookup entirely.
  *
  * @returns {Promise<Record<string, any>>}
  */

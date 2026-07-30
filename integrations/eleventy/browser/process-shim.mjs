@@ -9,6 +9,10 @@
  * `"development"` for the same reason `eleventy.env.runMode` is `"serve"`: a
  * config gated on `NODE_ENV === "production"` shouldn't drag build-only
  * plugins into the mirror. Real values belong in `pluginOptions.globals`.
+ *
+ * esbuild defines the exact expression `process.env.NODE_ENV` itself, and that
+ * wins over this object — changing the value here only affects indirect reads
+ * like `const e = process.env`.
  */
 export const process = {
 	env: { NODE_ENV: "development" },
