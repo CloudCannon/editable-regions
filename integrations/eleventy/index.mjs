@@ -1,8 +1,21 @@
 import fs from "node:fs";
 import { builtinModules, createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
+
+/** This package's `integrations/eleventy/browser` directory. */
+const BROWSER_DIR = path.join(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"browser",
+);
+
+/** Substituted for unbound `process` / `__dirname` / `__filename`. */
+const PROCESS_SHIM_PATH = path.join(BROWSER_DIR, "process-shim.mjs");
+
+/** Backs the generated module stubs; see `createBrowserStubPlugin`. */
+const STUB_MODE_PATH = path.join(BROWSER_DIR, "stub-mode.mjs");
 
 /**
  * @typedef {import("../../types/eleventy").LiquidOptions} LiquidOptions
@@ -95,6 +108,9 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 			// The bundle imports the user's real Eleventy config (see
 			// `emitConfigMirror`), dragging in Node/build-time imports — stub them.
 			plugins: [createBrowserStubPlugin(liquidOptions.browserStub)],
+			// Node *globals* (`process.env.X`, `__dirname`) aren't imports, so the
+			// stub plugin can't reach them and esbuild won't define them either.
+			inject: [PROCESS_SHIM_PATH],
 			outfile: options.output ?? `${dirs.output}/register-components.js`,
 		});
 	});
@@ -142,9 +158,14 @@ const ALWAYS_STUBBED = ["@cloudcannon/editable-regions/eleventy"];
 
 /**
  * esbuild plugin resolving Node built-ins and build-time-only packages to a
- * Proxy that survives `import` and property access but throws when called or
- * constructed — so the user's config bundles, and only a helper that actually
- * invokes a Node API at render time fails.
+ * Proxy that survives `import` and property access, so the user's config
+ * bundles for the browser. What happens when one is actually *called* depends
+ * on the phase — see `browser/stub-mode.mjs`: skipped with a warning while the
+ * config is replayed, thrown from render time onwards.
+ *
+ * `process` is the exception: it resolves to the real shim rather than an
+ * inert stub, so an explicit `import … from "node:process"` reads the same
+ * values as the bare global that `inject` substitutes.
  *
  * @param {string[]} [extraStubs] - Extra specifiers to stub
  *   (`pluginOptions.liquid.browserStub`), e.g. native deps like `sharp`.
@@ -170,25 +191,39 @@ function createBrowserStubPlugin(extraStubs = []) {
 	return {
 		name: "editable-regions-browser-stub",
 		setup(build) {
-			build.onResolve({ filter: /.*/ }, (args) =>
-				shouldStub(args.path)
+			build.onResolve({ filter: /.*/ }, (args) => {
+				if (args.path === "process" || args.path === "node:process") {
+					return { path: args.path, namespace: "er-process" };
+				}
+				return shouldStub(args.path)
 					? { path: args.path, namespace: "er-stub" }
-					: null,
-			);
-			build.onLoad({ filter: /.*/, namespace: "er-stub" }, () => ({
+					: null;
+			});
+			// Re-exported as CommonJS rather than resolving straight to the shim:
+			// against an ES module, a named import esbuild can't match
+			// (`import { hrtime } from "node:process"`) is a hard build error,
+			// where CJS interop resolves it to `undefined` at runtime.
+			build.onLoad({ filter: /.*/, namespace: "er-process" }, () => ({
+				contents: `module.exports = require(${JSON.stringify(PROCESS_SHIM_PATH)}).process;`,
+				loader: "js",
+				resolveDir: BROWSER_DIR,
+			}));
+			build.onLoad({ filter: /.*/, namespace: "er-stub" }, (args) => ({
+				// CommonJS for the same reason as `er-process` above: a stub's
+				// export names aren't knowable, so named imports need CJS interop.
 				contents: `
+					const { onStubInvoked } = require(${JSON.stringify(STUB_MODE_PATH)});
+					const specifier = ${JSON.stringify(args.path)};
 					const handler = {
 						get: () => new Proxy(function () {}, handler),
-						apply: () => {
-							throw new Error("editable-regions: a Node/build-time API was called in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
-						},
-						construct: () => {
-							throw new Error("editable-regions: a Node/build-time API was constructed in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
-						},
+						apply: () => onStubInvoked(specifier, "called"),
+						construct: () => onStubInvoked(specifier, "constructed"),
 					};
 					module.exports = new Proxy(function () {}, handler);
 				`,
 				loader: "js",
+				// So the `require` above resolves out of the stub's namespace.
+				resolveDir: BROWSER_DIR,
 			}));
 		},
 	};

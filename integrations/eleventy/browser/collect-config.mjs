@@ -19,10 +19,12 @@ import {
 	registerShortcode,
 } from "../../liquid/index.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
+import { createInertValue } from "./inert.mjs";
 import {
 	builtinFilterNames,
 	builtinShortcodeNames,
 } from "./liquid-builtins.mjs";
+import { setStubsStrict } from "./stub-mode.mjs";
 
 /** @type {Record<HelperKind, (name: string, fn: any) => void>} */
 const KIND_REGISTRARS = {
@@ -94,7 +96,9 @@ function createEmptyLayer() {
  * @returns {Promise<void>} Resolves once every mirrored helper is registered.
  */
 export function collectAndRegisterEleventyHelpers(config, options = {}) {
-	const mirrored = mirrorConfig(config, options);
+	// `finally` so a mirror that failed still leaves render-time stub calls
+	// throwing; see `stub-mode.mjs`.
+	const mirrored = mirrorConfig(config, options).finally(setStubsStrict);
 	deferRendersUntil(mirrored);
 	return mirrored;
 }
@@ -151,12 +155,16 @@ async function mirrorConfig(config, options) {
 		};
 	}
 
-	// Unrecorded methods are no-ops so running the real config (which calls
-	// `addPassthroughCopy`, `on`, sets `dir`, ...) doesn't throw.
+	// Unrecorded members are inert so the real config (`addPassthroughCopy`,
+	// `on`, `ignores.add(…)`, setting `dir`, ...) doesn't throw. Chainable, so
+	// reaching through a property before calling still works.
+	const unrecorded = createInertValue();
 	const configRecorder = new Proxy(recorder, {
 		get(target, prop, receiver) {
 			if (prop in target) return Reflect.get(target, prop, receiver);
-			return () => {};
+			// Thenable-looking recorder would hang `pendingPlugins`; see `inert.mjs`.
+			if (prop === "then" || typeof prop === "symbol") return undefined;
+			return unrecorded;
 		},
 	});
 

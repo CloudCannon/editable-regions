@@ -8,6 +8,9 @@
 	],
 	"license": "MIT",
 	"author": "CloudCannon <support@cloudcannon.com>",
+	"engines": {
+		"node": ">=20.19.0"
+	},
 	"homepage": "https://github.com/CloudCannon/editable-regions#readme",
 	"repository": {
 		"type": "git",

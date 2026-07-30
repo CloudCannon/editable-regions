@@ -17,10 +17,17 @@ export interface LiquidOptions {
 	configPath?: string;
 	/**
 	 * Extra bare module specifiers to stub out of the browser bundle, on top of
-	 * the 11ty toolchain and Node built-ins (always stubbed). Use this when the
-	 * config imports a native/Node-only package (e.g. `sharp`) that no
-	 * browser-bound helper actually calls at render time but that would
-	 * otherwise break bundling.
+	 * the 11ty toolchain and Node built-ins (always stubbed). Two uses:
+	 *
+	 * - a native/Node-only package (e.g. `sharp`) that would otherwise break
+	 *   bundling;
+	 * - a Node-only package the config *calls* at config time, such as a
+	 *   plugin factory in `addPlugin(pluginFoo({ … }))`. The argument is
+	 *   evaluated before `addPlugin` is reached, so stubbing the module is the
+	 *   only way to stop it aborting the auto-mirror replay.
+	 *
+	 * A stubbed module called during the replay is skipped with a warning; the
+	 * same call from a rendered helper still throws.
 	 */
 	browserStub?: string[];
 	/**

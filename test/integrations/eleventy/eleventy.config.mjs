@@ -1,15 +1,32 @@
 import { EleventyRenderPlugin } from "@11ty/eleventy";
 import editableRegions from "@cloudcannon/editable-regions/eleventy";
 import fs from "node:fs";
+import fakeNodePlugin from "./fake-node-plugin.cjs";
 import echoTagFactory from "./overrides/echo-tag.mjs";
+
+// Module scope is the hard case: runs as the bundle loads, so without the
+// injected process shim it's a `ReferenceError` before anything renders.
+const buildEnv = process.env.NODE_ENV ?? "unknown";
 
 // Module-level closure. The helpers below close over it; because the plugin
 // bundles the real config, the closure survives into the browser and those
 // helpers auto-mirror as-is — no handwritten override needed. This is the
 // fixture's closure-survival test case.
-const buildInfo = { stamp: `fixture@${new Date().getTime()}` };
+const buildInfo = { stamp: `fixture@${new Date().getTime()}`, env: buildEnv };
 
 export default function (eleventyConfig) {
+	// Chained through a property — needs a chainable recorder stand-in, or
+	// `.add` is undefined and the replay dies before mirroring anything.
+	eleventyConfig.ignores.add("src/drafts/**");
+
+	// Argument-side Node-only call: `fakeNodePlugin({...})` runs before
+	// `addPlugin`, so proxying `eleventyConfig` can't intercept it. Its
+	// `fs.readdirSync` hits a browser stub that must skip rather than throw.
+	eleventyConfig.addPlugin(fakeNodePlugin({ dir: "src" }));
+
+	// Registered after it, purely to prove the replay survived.
+	eleventyConfig.addFilter("mirrorSurvivedNodePlugin", (s) => `${s} ✓`);
+
 	// 11ty 3.x ships RenderPlugin but doesn't auto-load it. Adding here so
 	// `renderTemplate`/`renderFile`/`renderContent` render server-side too.
 	eleventyConfig.addPlugin(EleventyRenderPlugin);

@@ -60,6 +60,13 @@ helpers. After `npm run build`, `_site/register-components.js` should contain:
   `registerPkg` (package.json mirrored verbatim), `registerPageMap` (a
   resolved `url`)
 - a `.liquid` template inlined into `window.cc_liquid_files`
+- the injected `process` shim (`nextTick`, `NODE_ENV: "development"`). The
+  config reads `process.env` at *module* scope, where there is no import to
+  stub — without the shim the bundle dies with `ReferenceError: process is not
+  defined` before anything renders
+- the phase switch for stubbed modules (`onStubInvoked`, `setStubsStrict`) —
+  one code path for "skipped during the config replay" and "throws from a
+  rendered helper"
 
 What it deliberately does **not** assert: individual mirrored helper names or
 bodies (`shout`, `year`, `echo`, the async helpers, …). A body being in the
@@ -67,6 +74,20 @@ bundle never proved it *works* — only that esbuild kept it. That those helpers
 actually register and render is **runtime** behavior, checked by opening the
 fixture in the Visual Editor and watching the demo components re-render (see
 the table above). Keep verify-bundle structural; don't re-add per-helper greps.
+
+### Config-replay hazards the config deliberately contains
+
+The auto-mirror runs the whole config in the browser, so the config doubles as
+a regression test for the ways that used to fail. Each of these took the
+*entire* replay down before it was fixed, silently dropping every helper below
+it:
+
+| In the config | Why it's there |
+| --- | --- |
+| `process.env.NODE_ENV` at module scope | No import to stub, so it needs the injected `process` shim. Folded to `"development"` at build time. |
+| `eleventyConfig.ignores.add(…)` | Reaches through a property before calling. The recorder's stand-in for unrecorded members has to be chainable or `.add` is `undefined`. |
+| `addPlugin(fakeNodePlugin({ dir: "src" }))` | Argument-side Node-only call — `fakeNodePlugin({…})` runs *before* `addPlugin`, so proxying `eleventyConfig` can't intercept it. Its `fs.readdirSync` hits a stub, which must skip-and-warn rather than throw. |
+| `addFilter("mirrorSurvivedNodePlugin", …)` | Registered immediately after that plugin, purely so its presence proves the replay carried on. |
 
 Helpers registered by plugins the user **explicitly** `addPlugin`s in their
 config are mirrored too — the replay calls those plugin functions against
