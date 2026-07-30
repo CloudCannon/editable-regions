@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the slotted Svelte component matches the snapshot 1`] = `"<body><div class="svelte-slotted"><h2>Slotted Svelte</h2> <p class="slotted">Slotted from Astro</p><!----></div></body>"`;

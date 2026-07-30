@@ -1,11 +1,10 @@
 import {
 	areEqualEditables,
-	hasEditable,
-	hasEditableText,
 	isEditableElement,
 	isEditableText,
 } from "../helpers/checks.js";
-import Editable from "./editable.js";
+import Editable, { hasEditable } from "./editable.js";
+import { hasEditableText } from "./editable-text.js";
 import "../components/ui/editable-region-error-card.js";
 import "../components/ui/editable-component-controls.js";
 import type EditableComponentControls from "../components/ui/editable-component-controls.js";

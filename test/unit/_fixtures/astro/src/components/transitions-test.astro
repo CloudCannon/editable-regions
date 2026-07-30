@@ -1,0 +1,16 @@
+---
+import { fade, slide } from "astro:transitions";
+
+interface Props {
+  animationType?: "fade" | "slide";
+  duration?: string;
+}
+
+const { animationType = "fade", duration = "0.5s" } = Astro.props;
+
+const animation = animationType === "slide" ? slide({ duration }) : fade({ duration });
+---
+
+<div class="transitions-test" transition:animate={animation}>
+  <p class="animation-type">{animationType}</p>
+</div>

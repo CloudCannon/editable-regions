@@ -3,11 +3,12 @@ import { defineConfig, envField } from "astro/config";
 
 import react from "@astrojs/react";
 import svelte from "@astrojs/svelte";
+import vue from "@astrojs/vue";
 
 // https://astro.build/config
 export default defineConfig({
   site: "https://example.com",
-  integrations: [editableRegions(), react(), svelte()],
+  integrations: [editableRegions(), react(), svelte(), vue()],
   i18n: {
     defaultLocale: "en",
     locales: ["en", "es", "fr"],

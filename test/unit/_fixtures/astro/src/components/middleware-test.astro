@@ -1,0 +1,11 @@
+---
+import { defineMiddleware, sequence } from "astro:middleware";
+
+const testMiddleware = defineMiddleware(async (_ctx, next) => next());
+const chained = sequence(testMiddleware);
+---
+
+<div class="middleware-test">
+  <p class="middleware-type">{typeof testMiddleware}</p>
+  <p class="sequence-type">{typeof chained}</p>
+</div>

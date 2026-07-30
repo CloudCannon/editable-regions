@@ -1,3 +1,4 @@
+import { createRawSnippet } from "svelte";
 import { addFrameworkRenderer, queueForClientSideRender } from "./index.mjs";
 
 /** @type{((component: any, args: { target: HTMLElement, props: unknown }) => void) | undefined} */
@@ -39,27 +40,83 @@ addFrameworkRenderer({
 			return false;
 		},
 		/**
+		 * Renders to static markup, falling back to a client-side render queue.
 		 * @param {any} Component
-		 * @param {unknown} props
-		 * @returns {Promise<{html: string}>}
+		 * @param {any} props
+		 * @param {Record<string, string>} slots
+		 * @param {any} metadata
+		 * @returns {Promise<{ html: string }>}
 		 */
-		renderToStaticMarkup: async (Component, props) => {
-			const id = queueForClientSideRender((node) => {
-				if (mount) {
-					mount(Component, {
-						target: /** @type{any}*/ (node),
-						props,
-					});
+		renderToStaticMarkup: async (Component, props, slots, metadata) => {
+			/** @type{Record<string, any>} */
+			const renderProps = {};
+			/** @type{Record<string, any> | undefined} */
+			let $$slots;
+			/** @type{import("svelte").Snippet | undefined} */
+			let children;
+			for (const [key, value] of Object.entries(slots)) {
+				$$slots ??= {};
+				if (key === "default") {
+					$$slots.default = true;
+					children = createRawSnippet(() => ({
+						render: () => value,
+					}));
 				} else {
-					new Component({ target: node, props });
+					$$slots[key] = createRawSnippet(() => ({
+						render: () => value,
+					}));
 				}
+				const slotName = key === "default" ? "children" : key;
+				renderProps[slotName] = createRawSnippet(() => ({
+					render: () => value,
+				}));
+			}
 
-				flushSync();
-			});
-
-			return {
-				html: `<div data-editable-region-csr-id=${id}></div>`,
+			const newProps = {
+				...props,
+				children,
+				$$slots,
+				...renderProps,
 			};
+
+			if (metadata?.hydrate) {
+				const id = queueForClientSideRender((node) => {
+					if (mount) {
+						mount(Component, {
+							target: /** @type{any}*/ (node),
+							props: newProps,
+						});
+					} else {
+						new Component({
+							target: node,
+							props: newProps,
+						});
+					}
+
+					flushSync();
+				});
+
+				return {
+					html: `<div data-editable-region-csr-id=${id}></div>`,
+				};
+			}
+
+			const doc = document.implementation.createHTMLDocument();
+			if (mount) {
+				mount(Component, {
+					target: /** @type{any}*/ (doc.body),
+					props: newProps,
+				});
+			} else {
+				new Component({
+					target: doc.body,
+					props: newProps,
+				});
+			}
+
+			flushSync();
+
+			return { html: doc.body.innerHTML };
 		},
 	},
 });

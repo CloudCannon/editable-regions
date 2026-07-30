@@ -1,0 +1,13 @@
+---
+interface Props {
+  title: string;
+  count?: number;
+}
+
+const { title, count = 0 } = Astro.props;
+---
+
+<div class="with-props">
+  <h3>{title}</h3>
+  <span class="count">{count}</span>
+</div>

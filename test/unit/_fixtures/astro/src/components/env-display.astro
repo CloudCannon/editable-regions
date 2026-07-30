@@ -1,0 +1,20 @@
+---
+import { PUBLIC_SITE_NAME, PUBLIC_MAX_ITEMS } from "astro:env/client";
+import { getSecret } from "astro:env/server";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "Env Display" } = Astro.props;
+
+// getSecret is shimmed in live editing — logs a warning, returns undefined.
+const secretValue = getSecret("SECRET_API_KEY");
+---
+
+<div class="env-display">
+  <h3>{title}</h3>
+  <p class="site-name">PUBLIC_SITE_NAME: {PUBLIC_SITE_NAME}</p>
+  <p class="max-items">PUBLIC_MAX_ITEMS: {String(PUBLIC_MAX_ITEMS)}</p>
+  <p class="secret-value">secretValue: {String(secretValue)}</p>
+</div>
