@@ -7,6 +7,16 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## Unreleased
+* Fixed an issue where Liquid components could not include partials with a non-`.liquid` extension, such as `.html`, in the visual editor
+* Fixed an issue where Eleventy sites with large collections were slow to load in the visual editor. Collections are now only fetched when a component uses them
+  * `{{ collections | json }}` now renders an empty object per collection — serialise a single collection instead
+* Fixed an issue where the Eleventy live-editing bundle could fail with `ReferenceError: process is not defined`
+* Fixed an issue where filters and shortcodes from an `async` Eleventy config or plugin were unavailable in the visual editor
+* Fixed an issue where chained config calls, such as `eleventyConfig.ignores.add(...)`, made an Eleventy config's filters and shortcodes unavailable in the visual editor
+* Fixed an issue where a Node-only plugin passed to `addPlugin` made later filters and shortcodes unavailable in the visual editor
+* Added a minimum Node version of 20.19
+
 ## 0.0.19
 * Added full support for Svelte components and Svelte in Astro components
 * Added full support for Vue components and Vue in Astro components
