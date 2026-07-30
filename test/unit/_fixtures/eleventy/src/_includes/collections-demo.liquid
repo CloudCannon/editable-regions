@@ -1,0 +1,23 @@
+{%- comment -%}
+	Exercises the `collections` global through real Liquid. Each key is a lazy
+	getter resolving to a Promise; LiquidJS awaits it during expression
+	evaluation, so templates never see one. This component is what pins that.
+{%- endcomment -%}
+<div class="collections-demo">
+	<span data-posts-size>{{ collections.posts | size }}</span>
+	<span data-first-title>{{ collections.posts[0].data.title }}</span>
+	<span data-first-url>{{ collections.posts[0].url }}</span>
+	<ul data-post-list>
+		{%- for post in collections.posts -%}
+			<li data-post-item>{{ post.data.title }}</li>
+		{%- endfor -%}
+	</ul>
+	<span data-dynamic-key>
+		{%- assign key = "posts" -%}
+		{{- collections[key][0].data.title -}}
+	</span>
+	<span data-filtered-size>{{ collections.posts | where: "data.title", "Second" | size }}</span>
+	<span data-missing-size>{{ collections.nope | size }}</span>
+	<span data-truthy>{% if collections.posts %}yes{% else %}no{% endif %}</span>
+	<span data-single-json>{{ collections.pages | json }}</span>
+</div>
