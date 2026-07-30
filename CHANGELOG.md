@@ -9,6 +9,7 @@
 
 ## Unreleased
 * Fixed an issue where Liquid components could not include partials with a non-`.liquid` extension, such as `.html`, in the visual editor
+* Stopped warning that this plugin's own Eleventy module was skipped during config replay — it always is, by design
 * Fixed an issue where Eleventy sites with large collections were slow to load in the visual editor. Collections are now only fetched when a component uses them
   * `{{ collections | json }}` now renders an empty object per collection — serialise a single collection instead
 * Fixed an issue where the Eleventy live-editing bundle could fail with `ReferenceError: process is not defined`

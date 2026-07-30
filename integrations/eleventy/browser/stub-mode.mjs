@@ -12,8 +12,15 @@
  * holds renders until then, so the phases can't overlap.
  */
 
-import { warnOnce } from "../../liquid/logger.mjs";
+import { log, warnOnce } from "../../liquid/logger.mjs";
 import { createInertValue } from "./inert.mjs";
+
+/**
+ * This plugin's own Eleventy entry — the one entry in `ALWAYS_STUBBED`. Every
+ * config calls it via `addPlugin`, and the browser bundle registers its helpers
+ * itself, so skipping it is expected and there's nothing to act on.
+ */
+const SELF_SPECIFIER = "@cloudcannon/editable-regions/eleventy";
 
 let strict = false;
 
@@ -36,12 +43,19 @@ export function onStubInvoked(specifier, verb) {
 		);
 	}
 
-	warnOnce(
-		`eleventy-stub:${specifier}`,
-		`[editable-regions] "${specifier}" was ${verb} while replaying your ` +
-			"Eleventy config for live editing. It's a Node/build-time module, so " +
-			"the call was skipped and the rest of the config still mirrored. If a " +
-			"filter or shortcode is missing from the editor, this is the reason.",
-	);
+	if (specifier === SELF_SPECIFIER) {
+		log(
+			`[editable-regions] "${specifier}" was ${verb} and skipped, as expected.`,
+		);
+	} else {
+		warnOnce(
+			`eleventy-stub:${specifier}`,
+			`[editable-regions] "${specifier}" was ${verb} while replaying your ` +
+				"Eleventy config for live editing. It's a Node/build-time module, so " +
+				"the call was skipped and the rest of the config still mirrored. If a " +
+				"filter or shortcode is missing from the editor, this is the reason.",
+		);
+	}
+
 	return createInertValue();
 }
