@@ -41,9 +41,10 @@ const expectations = [
   { name: "registerEleventyBuiltins call", match: "registerEleventyBuiltins(" },
 
   // Config-replay auto-mirror: the collector is invoked with the real config,
-  // and its promise gates rendering (registration itself stays synchronous).
+  // awaited first in the boot sequence so nothing registers ahead of it.
   { name: "collector invoked with the config", match: /collectAndRegisterEleventyHelpers\(\s*\w+/ },
-  { name: "renders gated on the replay", match: /eleventyReady\s*=\s*collectAndRegisterEleventyHelpers[\s\S]*?initComponentProxy\(eleventyReady\)/ },
+  { name: "boot awaits the replay, then publishes", match: /async function initLiveEditing\(\)\s*\{\s*await collectAndRegisterEleventyHelpers[\s\S]*?initComponentProxy\(\)/ },
+  { name: "boot sequence invoked", match: /^\s*initLiveEditing\(\);/m },
 
   // The real config was bundled, not serialised: `buildInfo` is a module-scope
   // const the helpers close over. It's in the bundle only because the config

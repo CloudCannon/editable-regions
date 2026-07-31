@@ -1,6 +1,10 @@
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+import { componentsReady } from "../_helpers/live-editing";
 
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 test("includeWith spreads a props object into the included partial's scope", async () => {
 	// `slot-parent` calls {% includeWith "slot-shell", slotProps %}.

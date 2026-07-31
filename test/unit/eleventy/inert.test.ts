@@ -24,7 +24,7 @@ test("`then` is undefined so the stand-in can never look thenable", async () => 
 
 	// The highest-consequence guard. `collect-config.mjs` treats a plugin
 	// result with a callable `.then` as a promise, so a thenable-looking
-	// stand-in hangs the mirror — and every render gated on it — forever.
+	// stand-in hangs the mirror, and no component is ever published.
 	expect(inert.then).toBeUndefined();
 
 	const outcome = await Promise.race([

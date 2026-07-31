@@ -1,6 +1,10 @@
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+import { componentsReady } from "../_helpers/live-editing";
 
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 test("the eleventy global is registered with version, generator, and env", async () => {
 	const el = await window.cc_components?.["globals-demo"]({});

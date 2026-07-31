@@ -152,11 +152,9 @@ export async function buildPageData() {
 }
 
 /**
- * Ceiling on concurrent `file.data.get()` calls. Collections run to thousands
- * of files, and one call per file at once fails with
- * `ERR_INSUFFICIENT_RESOURCES` — a net-stack error, so a `data.get()` costs a
- * request somewhere behind the editor API despite being a message to the
- * parent frame.
+ * Ceiling on concurrent `file.data.get()` calls. One call per file over a
+ * collection of thousands fails with `ERR_INSUFFICIENT_RESOURCES` — a net-stack
+ * error, so each resolves to a request somewhere behind the editor API.
  */
 const MATERIALISE_CONCURRENCY = 24;
 

@@ -86,7 +86,7 @@ function createEmptyLayer() {
  * The mirror is async because configs commonly are — `await
  * import("@11ty/eleventy")` is how a CommonJS config reaches the ESM-only
  * exports, and such a config registers nothing until that settles. The bundle
- * hands the returned promise to `initComponentProxy`, which holds renders on it.
+ * awaits the returned promise before registering anything else.
  *
  * @param {unknown} config - The config's default export (a function), or a
  *   module namespace whose `.default` is that function (ESM/CJS interop).
@@ -177,9 +177,8 @@ async function mirrorConfig(config, options) {
 		try {
 			const result = pluginFn(configRecorder, opts);
 			if (typeof result?.then === "function") {
-				// `Promise.resolve` normalizes: a native promise comes back
-				// unchanged, a bare thenable gains the `.catch` below. An async stub
-				// rejects rather than throws; swallow either way.
+				// `Promise.resolve` normalizes: a native promise is returned as-is,
+				// a bare thenable gains `.catch`. Async stubs reject; swallow both.
 				pendingPlugins.push(Promise.resolve(result).catch(() => {}));
 			}
 		} catch {

@@ -19,9 +19,6 @@ export { registerPageMap } from "./page-map.mjs";
 /** @type {import("liquidjs").Liquid | null} */
 let sharedLiquidEngine = null;
 
-/** Component renders wait on this; set by `initComponentProxy`. @type {Promise<unknown>} */
-let renderReady = Promise.resolve();
-
 /**
  * Creates the shared Liquid engine with the built-in `includeWith` tag. The
  * host wires up its filters/shortcodes/ports afterwards (e.g.
@@ -76,27 +73,20 @@ export function registerLiquidComponent(key, contents) {
 /**
  * Wraps `window.cc_components` in a Proxy that resolves any component name on
  * demand via `{% include %}` — the primary resolution path. Names registered
- * via `registerLiquidComponent` take precedence. Call after
- * `createSharedLiquidEngine()`.
+ * via `registerLiquidComponent` take precedence.
  *
- * The editor reports an empty `window.cc_components` as "no registered
- * components", so registration is synchronous; a host that registers helpers
- * asynchronously (the Eleventy integration replays an `async` config) passes
- * that promise as `ready` to hold *rendering* instead. Rejections are ignored:
- * a failed registration pass reports its own errors, and a rejected barrier
- * would throw on every later render.
+ * Call after `createSharedLiquidEngine()` and last of the `register*` calls:
+ * publishing `cc_components` is what tells the editor every helper is in
+ * place, and an empty one reads as a missing registration script.
  *
- * @param {Promise<unknown>} [ready] - Registration pass to hold renders for
  * @returns {void}
  */
-export function initComponentProxy(ready) {
+export function initComponentProxy() {
 	if (!sharedLiquidEngine) {
 		throw new Error(
 			"sharedLiquidEngine not defined when initializing component proxy",
 		);
 	}
-
-	if (ready) renderReady = Promise.resolve(ready).catch(() => {});
 
 	const target = window.cc_components || {};
 
@@ -238,10 +228,6 @@ export function registerCustomTag(name, factory) {
  */
 function createComponentRenderer(name, templateSource) {
 	return async (props) => {
-		// Read at render time, so components pinned before `initComponentProxy`
-		// are held too.
-		await renderReady;
-
 		if (!sharedLiquidEngine) {
 			throw new Error(
 				`sharedLiquidEngine not defined when rendering component ${name}`,

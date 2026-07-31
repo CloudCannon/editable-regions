@@ -1,11 +1,11 @@
 import { beforeAll, beforeEach, expect, test } from "vitest";
-
 import {
 	buildCollectionsData,
 	buildPageData,
 	resetCollectionsCache,
 } from "../../../integrations/liquid/globals.mjs";
 import { registerPageMap } from "../../../integrations/liquid/page-map.mjs";
+import { componentsReady } from "../_helpers/live-editing";
 import {
 	type MockCollection,
 	type MockFile,
@@ -16,6 +16,8 @@ import {
 
 // Import the built bundle to wire the shared Liquid engine + builtins.
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 function makeMockFile(
 	path: string,

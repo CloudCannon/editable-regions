@@ -1,7 +1,7 @@
 /**
  * A plugin can return a thenable that isn't a native promise — `.then` without
- * `.catch` — so the mirror normalizes with `Promise.resolve` before waiting on
- * one. No fixture bundle: the mirror is called directly.
+ * `.catch` — so the mirror normalizes with `Promise.resolve` before waiting
+ * on one.
  */
 
 import { expect, test } from "vitest";

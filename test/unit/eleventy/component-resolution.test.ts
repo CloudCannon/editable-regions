@@ -1,10 +1,14 @@
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+import { componentsReady } from "../_helpers/live-editing";
 
 // Built bundle — run `npm run test:build-eleventy-plugin-config` first.
 // config-component-dirs.mjs sets componentDirs: ["src/_includes", "src/partials"],
 // so LiquidJS root is ["src/_includes", "src/partials"]. The proxy generates
 // {% include "name" %} which LiquidJS resolves by trying each root in order.
 import "../_fixtures/eleventy-plugin-config/_site/component-dirs/register-components.js";
+
+beforeAll(componentsReady);
 
 // --- Component resolution with custom componentDirs ---
 

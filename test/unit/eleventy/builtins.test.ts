@@ -1,5 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
-
+import { beforeAll, beforeEach, expect, test, vi } from "vitest";
 import {
 	dateToRfc822,
 	dateToRfc3339,
@@ -13,9 +12,12 @@ import {
 	urlFilter,
 } from "../../../integrations/eleventy/browser/liquid-builtins.mjs";
 import { registerPageMap } from "../../../integrations/liquid/page-map.mjs";
+import { componentsReady } from "../_helpers/live-editing";
 import { type MockFile, resetMock, setMockFiles } from "../_mocks/cloudcannon";
 
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 beforeEach(() => {
 	resetMock();

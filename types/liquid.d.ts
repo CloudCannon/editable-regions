@@ -8,7 +8,7 @@ declare module "@cloudcannon/editable-regions/liquid" {
 
 	export function createSharedLiquidEngine(options?: LiquidOptions): Liquid;
 	export function registerLiquidComponent(key: string, contents: string): void;
-	export function initComponentProxy(ready?: Promise<unknown>): void;
+	export function initComponentProxy(): void;
 
 	export function createIncludeWithTag(liquidEngine: Liquid): {
 		parse(tagToken: any): void;

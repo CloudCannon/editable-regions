@@ -261,12 +261,12 @@ function resolveEleventyConfigPath(liquidOptions) {
  * skip; those are registered separately by `emitImportRegistrations` so the
  * override wins.
  *
- * The replay is async, so its promise is bound to `eleventyReady` and passed to
- * `initComponentProxy`, which holds renders on it.
+ * Split because the replay is awaited inside `initLiveEditing`, while an
+ * `import` can only live at module scope.
  *
  * @param {string} configPath - Absolute path to the Eleventy config
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string} JS source
+ * @returns {{imports: string, body: string}} JS source
  */
 function emitConfigMirror(configPath, liquidOptions) {
 	const skip = {
@@ -276,10 +276,10 @@ function emitConfigMirror(configPath, liquidOptions) {
 		tags: Object.keys(liquidOptions?.tags ?? {}),
 	};
 
-	return (
-		`\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n` +
-		`const eleventyReady = collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`
-	);
+	return {
+		imports: `\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n`,
+		body: `await collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`,
+	};
 }
 
 /**
@@ -377,9 +377,13 @@ async function generateLiveEditingSource(
 		// Auto-mirror the user's config helpers by importing and replaying the
 		// real config in the browser. See `emitConfigMirror`.
 		const configPath = resolveEleventyConfigPath(liquidOptions);
-		if (configPath) {
-			source += emitConfigMirror(configPath, liquidOptions);
-		} else {
+		const configMirror = configPath
+			? emitConfigMirror(configPath, liquidOptions)
+			: { imports: "", body: "" };
+
+		source += configMirror.imports;
+
+		if (!configPath) {
 			console.warn(
 				"[editable-regions] Could not locate an Eleventy config file to " +
 					"auto-mirror helpers from. Set `pluginOptions.liquid.configPath` " +
@@ -391,11 +395,18 @@ async function generateLiveEditingSource(
 
 		// Register browser-side overrides and pinned components. Override names
 		// are excluded from the mirror, so each is its name's sole registration.
-		source += emitImportRegistrations(liquidOptions);
+		const registrations = emitImportRegistrations(liquidOptions);
+		source += registrations.imports;
 
-		// Components resolve immediately; the replay only holds back rendering.
+		// One awaited sequence, so nothing registers ahead of the async replay and
+		// `window.cc_components` is published only once it's complete.
 		source += `
-      initComponentProxy(${configPath ? "eleventyReady" : ""});
+      async function initLiveEditing() {
+        ${configMirror.body}${registrations.body}
+        initComponentProxy();
+      }
+
+      initLiveEditing();
     `;
 	}
 	return source;
@@ -595,14 +606,15 @@ const IMPORT_REGISTER_FNS = {
  * Emits an `import` + register-call pair for every `{ name: modulePath }` entry
  * across the `IMPORT_REGISTER_FNS` maps, e.g.:
  *
- *   import filters_0 from "./path/to/file";
- *   registerFilter("name", filters_0);
+ *   import filters_0 from "./path/to/file";   // module scope
+ *   registerFilter("name", filters_0);        // inside `initLiveEditing`
  *
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string} JS source
+ * @returns {{imports: string, body: string}} JS source
  */
 function emitImportRegistrations(liquidOptions) {
-	let out = "";
+	let imports = "";
+	let body = "";
 
 	for (const optionKey of /** @type {Array<keyof typeof IMPORT_REGISTER_FNS>} */ (
 		Object.keys(IMPORT_REGISTER_FNS)
@@ -613,9 +625,10 @@ function emitImportRegistrations(liquidOptions) {
 			liquidOptions?.[optionKey] ?? {},
 		).entries()) {
 			const id = `${optionKey}_${i}`;
-			out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
+			imports += `\nimport ${id} from "./${file}";\n`;
+			body += `${registerFn}(${JSON.stringify(name)}, ${id});\n`;
 		}
 	}
 
-	return out;
+	return { imports, body };
 }

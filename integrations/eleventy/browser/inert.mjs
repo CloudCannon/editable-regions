@@ -13,7 +13,7 @@ export function createInertValue() {
 		get(_target, prop) {
 			// Must not look thenable: `collect-config.mjs` treats a plugin result
 			// with a callable `.then` as a promise, and this one would never
-			// settle — hanging the mirror, and every render, for the page's life.
+			// settle — hanging the mirror, so no component is ever published.
 			if (prop === "then") return undefined;
 
 			if (typeof prop === "symbol") {
