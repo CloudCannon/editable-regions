@@ -42,7 +42,9 @@ distinct piece of the plugin's *emit contract*, not the individual mirrored
 helpers. After `npm run build`, `_site/register-components.js` should contain:
 
 - `createSharedLiquidEngine({...})` + `registerEleventyBuiltins(liquidEngine)`
-- `collectAndRegisterEleventyHelpers(config, ...)` — the config-replay call
+- `collectAndRegisterEleventyHelpers(config, ...)` — the config-replay call —
+  bound to `eleventyReady` and passed to `initComponentProxy`, so renders wait
+  on the replay while registration stays synchronous
 - proof the real config was **bundled, not serialised**: the module-scope
   `buildInfo` const the helpers close over is present (it would vanish under
   `fn.toString()`)

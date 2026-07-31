@@ -40,8 +40,10 @@ const expectations = [
   { name: "createSharedLiquidEngine call", match: "createSharedLiquidEngine(" },
   { name: "registerEleventyBuiltins call", match: "registerEleventyBuiltins(" },
 
-  // Config-replay auto-mirror: the collector is invoked with the real config.
+  // Config-replay auto-mirror: the collector is invoked with the real config,
+  // and its promise gates rendering (registration itself stays synchronous).
   { name: "collector invoked with the config", match: /collectAndRegisterEleventyHelpers\(\s*\w+/ },
+  { name: "renders gated on the replay", match: /eleventyReady\s*=\s*collectAndRegisterEleventyHelpers[\s\S]*?initComponentProxy\(eleventyReady\)/ },
 
   // The real config was bundled, not serialised: `buildInfo` is a module-scope
   // const the helpers close over. It's in the bundle only because the config

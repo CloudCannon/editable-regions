@@ -8,7 +8,7 @@
  * - **Render time** — throw. That's the documented signal to add a
  *   `pluginOptions.liquid.<kind>` override, named by `enhanceLiquidError`.
  *
- * `collect-config.mjs` flips it once the mirror finishes; `deferRendersUntil`
+ * `collect-config.mjs` flips it once the mirror finishes; `initComponentProxy`
  * holds renders until then, so the phases can't overlap.
  */
 

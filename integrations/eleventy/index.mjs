@@ -261,6 +261,9 @@ function resolveEleventyConfigPath(liquidOptions) {
  * skip; those are registered separately by `emitImportRegistrations` so the
  * override wins.
  *
+ * The replay is async, so its promise is bound to `eleventyReady` and passed to
+ * `initComponentProxy`, which holds renders on it.
+ *
  * @param {string} configPath - Absolute path to the Eleventy config
  * @param {LiquidOptions | undefined} liquidOptions
  * @returns {string} JS source
@@ -275,7 +278,7 @@ function emitConfigMirror(configPath, liquidOptions) {
 
 	return (
 		`\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n` +
-		`collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`
+		`const eleventyReady = collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`
 	);
 }
 
@@ -390,8 +393,9 @@ async function generateLiveEditingSource(
 		// are excluded from the mirror, so each is its name's sole registration.
 		source += emitImportRegistrations(liquidOptions);
 
+		// Components resolve immediately; the replay only holds back rendering.
 		source += `
-      initComponentProxy();
+      initComponentProxy(${configPath ? "eleventyReady" : ""});
     `;
 	}
 	return source;

@@ -153,9 +153,10 @@ export async function buildPageData() {
 
 /**
  * Ceiling on concurrent `file.data.get()` calls. Collections run to thousands
- * of files, and an unbounded fan-out exhausts the browser's connection pool:
- * the overflow fails with `ERR_INSUFFICIENT_RESOURCES`, starving the editor.
- * Sized for HTTP/2, not HTTP/1.1's six connections.
+ * of files, and one call per file at once fails with
+ * `ERR_INSUFFICIENT_RESOURCES` — a net-stack error, so a `data.get()` costs a
+ * request somewhere behind the editor API despite being a message to the
+ * parent frame.
  */
 const MATERIALISE_CONCURRENCY = 24;
 
