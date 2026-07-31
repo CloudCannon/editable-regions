@@ -1,6 +1,7 @@
 // Builders for the `page` and `collections` globals on the shared Liquid
-// engine. Both return Promises that LiquidJS awaits at the globals level;
-// property access in templates is then synchronous on the resolved objects.
+// engine. Both return Promises that LiquidJS awaits at the globals level.
+// `page` resolves to a plain object; `collections` resolves to an object whose
+// keys are lazy getters, so a template only pays for the collections it reads.
 
 import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
 import { getPageMap, normalizeInputPath } from "./page-map.mjs";
@@ -150,27 +151,74 @@ export async function buildPageData() {
 	};
 }
 
-/** @type {Promise<Record<string, Array<any>>> | null} */
+/**
+ * Ceiling on concurrent `file.data.get()` calls. One call per file over a
+ * collection of thousands fails with `ERR_INSUFFICIENT_RESOURCES` — a net-stack
+ * error, so each resolves to a request somewhere behind the editor API.
+ */
+const MATERIALISE_CONCURRENCY = 24;
+
+/**
+ * `Promise.all(items.map(fn))` with at most `limit` calls in flight. Results
+ * keep their input order.
+ *
+ * @template T, R
+ * @param {T[]} items
+ * @param {(item: T) => Promise<R>} fn
+ * @param {number} limit
+ * @returns {Promise<R[]>}
+ */
+async function mapWithConcurrency(items, fn, limit) {
+	/** @type {R[]} */
+	const results = new Array(items.length);
+	let cursor = 0;
+
+	const worker = async () => {
+		while (cursor < items.length) {
+			const index = cursor++;
+			results[index] = await fn(items[index]);
+		}
+	};
+
+	await Promise.all(
+		Array.from({ length: Math.min(limit, items.length) }, worker),
+	);
+	return results;
+}
+
+/** One `CloudCannon.collections()` call, keyed by name. @type {Promise<Map<string, any>> | null} */
+let collectionIndexCache = null;
+
+/** Materialised items, per collection name. @type {Map<string, Promise<any[]>>} */
+const collectionItemsCache = new Map();
+
+/** @type {Promise<Record<string, any>> | null} */
 let collectionsCache = null;
 
 /** @type {Array<{ target: any, event: "change" | "delete", handler: () => void }>} */
 let collectionsSubscriptions = [];
 
 /**
- * Builds (or returns cached) the `collections` object, keyed by collection
- * name. Subscribes to `change`/`delete` on each collection and drops the cache
- * when either fires, so edits during a session are picked up on the next render.
+ * Enumerates the site's collections — one API call, cached — and subscribes to
+ * `change`/`delete` on each so an edit drops the caches. Never calls
+ * `collection.items()`: knowing the *names* is what lets the getters be
+ * enumerable without fetching behind them.
  *
- * @returns {Promise<Record<string, Array<any>>>}
+ * @returns {Promise<Map<string, any>>}
  */
-export function buildCollectionsData() {
-	if (!collectionsCache) {
-		collectionsCache = (async () => {
+function loadCollectionIndex() {
+	if (!collectionIndexCache) {
+		collectionIndexCache = (async () => {
 			await apiLoadedPromise;
 			const allCollections = await CloudCannon?.collections?.();
-			if (!allCollections?.length) return {};
+
+			/** @type {Map<string, any>} */
+			const index = new Map();
+			if (!allCollections?.length) return index;
 
 			for (const collection of allCollections) {
+				index.set(collection.collectionKey, collection);
+
 				const handler = () => resetCollectionsCache();
 				collection.addEventListener("change", handler);
 				collection.addEventListener("delete", handler);
@@ -179,31 +227,82 @@ export function buildCollectionsData() {
 					{ target: collection, event: "delete", handler },
 				);
 			}
+			return index;
+		})();
+	}
+	return collectionIndexCache;
+}
 
-			const entries = await Promise.all(
-				allCollections.map(async (collection) => {
-					const key = collection.collectionKey;
-					let files;
-					try {
-						files = await collection.items();
-					} catch {
-						return /** @type {[string, any[]]} */ ([key, []]);
-					}
-					const items = await Promise.all(files.map(materialiseFile));
-					return /** @type {[string, any[]]} */ ([key, items]);
-				}),
+/**
+ * Materialises one collection's files, memoised per name — the only place that
+ * issues per-file requests. An unknown name is `[]`, matching 11ty.
+ *
+ * @param {string} key
+ * @returns {Promise<any[]>}
+ */
+function loadCollectionItems(key) {
+	let items = collectionItemsCache.get(key);
+	if (!items) {
+		items = (async () => {
+			const collection = (await loadCollectionIndex()).get(key);
+			if (!collection) return [];
+
+			let files;
+			try {
+				files = await collection.items();
+			} catch {
+				return [];
+			}
+			return mapWithConcurrency(
+				files,
+				materialiseFile,
+				MATERIALISE_CONCURRENCY,
 			);
-			return Object.fromEntries(entries);
+		})();
+		collectionItemsCache.set(key, items);
+	}
+	return items;
+}
+
+/**
+ * Builds (or returns cached) the `collections` object. Every key is a lazy
+ * getter returning a `Promise` of its items, which LiquidJS awaits during
+ * expression evaluation — so a component that never mentions `collections`
+ * issues no per-file requests.
+ *
+ * Getters not a Proxy: LiquidJS probes `next` and `toLiquid` on every object
+ * it resolves, and a blanket-getter Proxy answers those with a Promise, which
+ * breaks the lookup entirely.
+ *
+ * @returns {Promise<Record<string, any>>}
+ */
+export function buildCollectionsData() {
+	if (!collectionsCache) {
+		collectionsCache = (async () => {
+			const index = await loadCollectionIndex();
+
+			/** @type {Record<string, any>} */
+			const collections = {};
+			for (const key of index.keys()) {
+				Object.defineProperty(collections, key, {
+					enumerable: true,
+					configurable: true,
+					get: () => loadCollectionItems(key),
+				});
+			}
+			return collections;
 		})();
 	}
 	return collectionsCache;
 }
 
-/** Clears the collections cache and tears down its invalidation listeners. */
+/** Clears every collections cache and tears down the invalidation listeners. */
 export function resetCollectionsCache() {
 	for (const { target, event, handler } of collectionsSubscriptions) {
 		target.removeEventListener(event, handler);
 	}
 	collectionsSubscriptions = [];
+	collectionIndexCache = null;
+	collectionItemsCache.clear();
 	collectionsCache = null;
 }

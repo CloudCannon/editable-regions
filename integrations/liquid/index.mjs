@@ -73,8 +73,11 @@ export function registerLiquidComponent(key, contents) {
 /**
  * Wraps `window.cc_components` in a Proxy that resolves any component name on
  * demand via `{% include %}` — the primary resolution path. Names registered
- * via `registerLiquidComponent` take precedence. Call after
- * `createSharedLiquidEngine()`.
+ * via `registerLiquidComponent` take precedence.
+ *
+ * Call after `createSharedLiquidEngine()` and last of the `register*` calls:
+ * publishing `cc_components` is what tells the editor every helper is in
+ * place, and an empty one reads as a missing registration script.
  *
  * @returns {void}
  */

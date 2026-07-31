@@ -1,14 +1,40 @@
 import fs from "node:fs";
+import { cwd } from "node:process";
 import { EleventyRenderPlugin } from "@11ty/eleventy";
 import editableRegions from "@cloudcannon/editable-regions/eleventy";
+import fakeNodePlugin from "./fake-node-plugin.cjs";
 import echoTagFactory from "./overrides/echo-tag.mjs";
 import repeatTagFactory from "./overrides/repeat-tag.mjs";
+
+// --- Browser-mirror hazards ---
+//
+// The auto-mirror re-runs this file in the browser, and each of the next three
+// used to take the whole replay down, silently dropping every helper below it.
+// Asserted by `test/unit/eleventy/config-replay.test.ts`.
+
+// (1) A Node global at module scope, with no import to stub — needs the
+// injected shim or it's a `ReferenceError` at load. `platform` not
+// `env.NODE_ENV`, which esbuild defines itself and so proves nothing. The
+// named `node:process` import covers the module form.
+const buildEnv = `${process.platform}@${typeof cwd()}`;
 
 // Module-level closure. Helpers that close over this object auto-mirror
 // with no override because the real config is bundled.
 const buildInfo = { stamp: `fixture@${Date.now()}` };
 
 export default function (eleventyConfig) {
+	// (2) Chained through a property — needs a chainable recorder stand-in, or
+	// `.add` is undefined and the replay dies before mirroring anything.
+	eleventyConfig.ignores.add("src/ignored/**");
+
+	// (3) Argument-side Node-only call — `fakeNodePlugin({...})` runs before
+	// `addPlugin`, so its stubbed `fs` call must skip rather than throw.
+	eleventyConfig.addPlugin(fakeNodePlugin({ dir: "src" }));
+
+	// Registered after all three, purely so its presence proves the replay
+	// survived them.
+	eleventyConfig.addFilter("replaySurvived", () => `survived:${buildEnv}`);
+
 	eleventyConfig.addPlugin(EleventyRenderPlugin);
 
 	// --- Filters ---

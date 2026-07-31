@@ -40,8 +40,11 @@ const expectations = [
   { name: "createSharedLiquidEngine call", match: "createSharedLiquidEngine(" },
   { name: "registerEleventyBuiltins call", match: "registerEleventyBuiltins(" },
 
-  // Config-replay auto-mirror: the collector is invoked with the real config.
+  // Config-replay auto-mirror: the collector is invoked with the real config,
+  // awaited first in the boot sequence so nothing registers ahead of it.
   { name: "collector invoked with the config", match: /collectAndRegisterEleventyHelpers\(\s*\w+/ },
+  { name: "boot awaits the replay, then publishes", match: /async function initLiveEditing\(\)\s*\{\s*await collectAndRegisterEleventyHelpers[\s\S]*?initComponentProxy\(\)/ },
+  { name: "boot sequence invoked", match: /^\s*initLiveEditing\(\);/m },
 
   // The real config was bundled, not serialised: `buildInfo` is a module-scope
   // const the helpers close over. It's in the bundle only because the config
@@ -50,9 +53,10 @@ const expectations = [
   { name: "config bundled with closures intact", match: "buildInfo" },
 
   // Browser-stub plugin: the config imports `node:fs` and `@11ty/eleventy` at
-  // top level, so both must resolve to the call-throwing stub for the config
-  // to bundle for the browser at all.
-  { name: "node/build-time imports stubbed", match: "Node/build-time API was called" },
+  // top level, so both must resolve to a stub for the config to bundle for the
+  // browser at all. One generated stub module per stubbed specifier.
+  { name: "node builtins stubbed", match: /specifier = "node:fs"/ },
+  { name: "11ty toolchain stubbed", match: /specifier = "@11ty\/eleventy"/ },
 
   // Skip handling. Builtin ports are skipped inside the collector (single
   // source of truth, derived from the implementations); the emitted call only
@@ -90,6 +94,16 @@ const expectations = [
 
   // File walk — a `.liquid` template inlined into the in-memory filesystem.
   { name: "liquid template inlined into cc_liquid_files", match: /window\.cc_liquid_files\["[^"]*\.liquid"\]/ },
+
+  // Process shim — injected, since the config's module-scope `process.env`
+  // read has no import to stub.
+  { name: "process shim injected", match: "nextTick" },
+  { name: "process shim NODE_ENV default", match: /NODE_ENV:\s*"development"/ },
+
+  // Phase-aware stubs: skipped during the config replay, throwing from a
+  // rendered helper. One function for both, plus the switch the mirror flips.
+  { name: "stub calls route through the phase switch", match: "onStubInvoked" },
+  { name: "mirror flips stubs to strict", match: "setStubsStrict" },
 ];
 
 let failures = 0;

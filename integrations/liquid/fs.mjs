@@ -1,6 +1,14 @@
 import { log, warn } from "./logger.mjs";
 
 /**
+ * Matches `path.extname`: last dot of the final segment, leading dot excluded.
+ */
+function hasExtension(/** @type {string} */ filePath) {
+	const basename = filePath.slice(filePath.lastIndexOf("/") + 1);
+	return basename.lastIndexOf(".") > 0;
+}
+
+/**
  * In-memory filesystem for LiquidJS, reading from `window.cc_liquid_files`.
  * @type {any}
  */
@@ -60,7 +68,9 @@ export const inMemoryFs = {
 		/** @type {string} */ ext,
 	) {
 		const extension = ext || ".liquid";
-		const fileWithExt = file.endsWith(extension) ? file : `${file}${extension}`;
+		// Only append when the file has none, as LiquidJS's Node fs does —
+		// otherwise `include "card.html"` becomes `card.html.liquid`.
+		const fileWithExt = hasExtension(file) ? file : `${file}${extension}`;
 		const normalizedRoot = root.replace(/^\.\//, "").replace(/\/*$/, "/");
 		const resolved = `${normalizedRoot}${fileWithExt}`;
 		log("resolve:", { root, file, ext }, "->", resolved);

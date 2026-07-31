@@ -5,7 +5,8 @@
 	"scripts": {
 		"build": "eleventy",
 		"dev": "eleventy --serve",
-		"test": "PUBLIC_SITE_NAME=fixture PUBLIC_API_BASE=https://example.test NODE_ENV=test eleventy && node verify-bundle.mjs"
+		"test": "PUBLIC_SITE_NAME=fixture PUBLIC_API_BASE=https://example.test NODE_ENV=test eleventy && node verify-bundle.mjs && npm run test:cjs-entry",
+		"test:cjs-entry": "node -e \"if (typeof require('@cloudcannon/editable-regions/eleventy') !== 'function') { throw new Error('CJS entry did not export the plugin function'); }\""
 	},
 	"dependencies": {
 		"@11ty/eleventy": "^3.0.0",

@@ -18,10 +18,12 @@ import {
 	registerShortcode,
 } from "../../liquid/index.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
+import { createInertValue } from "./inert.mjs";
 import {
 	builtinFilterNames,
 	builtinShortcodeNames,
 } from "./liquid-builtins.mjs";
+import { setStubsStrict } from "./stub-mode.mjs";
 
 /** @type {Record<HelperKind, (name: string, fn: any) => void>} */
 const KIND_REGISTRARS = {
@@ -58,7 +60,8 @@ const METHOD_TARGETS = {
  * if it's neither (so the caller can skip it).
  *
  * @param {any} plugin
- * @returns {((config: any, opts: any) => void) | null}
+ * @returns {((config: any, opts: any) => any) | null} Async plugins return a
+ *   promise the caller must await.
  */
 function resolvePluginFunction(plugin) {
 	if (typeof plugin === "function") return plugin;
@@ -78,15 +81,34 @@ function createEmptyLayer() {
 }
 
 /**
- * Replays `configFn` against a recording stand-in and registers every
- * collected helper that isn't skipped.
+ * Mirrors the config's helpers into the live-editing engine.
+ *
+ * The mirror is async because configs commonly are — `await
+ * import("@11ty/eleventy")` is how a CommonJS config reaches the ESM-only
+ * exports, and such a config registers nothing until that settles. The bundle
+ * awaits the returned promise before registering anything else.
  *
  * @param {unknown} config - The config's default export (a function), or a
  *   module namespace whose `.default` is that function (ESM/CJS interop).
  * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} [options] - Per-kind
  *   override names to skip; builtin browser-port names are skipped automatically.
+ * @returns {Promise<void>} Resolves once every mirrored helper is registered.
  */
 export function collectAndRegisterEleventyHelpers(config, options = {}) {
+	// `finally` so a mirror that failed still leaves render-time stub calls
+	// throwing; see `stub-mode.mjs`.
+	return mirrorConfig(config, options).finally(setStubsStrict);
+}
+
+/**
+ * Replays `configFn` against a recording stand-in and registers every
+ * collected helper that isn't skipped.
+ *
+ * @param {unknown} config
+ * @param {{ skip?: Partial<Record<HelperKind, string[]>> }} options
+ * @returns {Promise<void>}
+ */
+async function mirrorConfig(config, options) {
 	const configFn =
 		typeof config === "function"
 			? config
@@ -130,14 +152,21 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		};
 	}
 
-	// Unrecorded methods are no-ops so running the real config (which calls
-	// `addPassthroughCopy`, `on`, sets `dir`, ...) doesn't throw.
+	// Unrecorded members are inert so the real config (`addPassthroughCopy`,
+	// `on`, `ignores.add(…)`, setting `dir`, ...) doesn't throw. Chainable, so
+	// reaching through a property before calling still works.
+	const unrecorded = createInertValue();
 	const configRecorder = new Proxy(recorder, {
 		get(target, prop, receiver) {
 			if (prop in target) return Reflect.get(target, prop, receiver);
-			return () => {};
+			// Thenable-looking recorder would hang `pendingPlugins`; see `inert.mjs`.
+			if (prop === "then" || typeof prop === "symbol") return undefined;
+			return unrecorded;
 		},
 	});
+
+	/** Async plugins, drained before the registration pass. @type {Promise<void>[]} */
+	const pendingPlugins = [];
 
 	recorder.addPlugin = (/** @type {any} */ plugin, /** @type {any} */ opts) => {
 		const pluginFn = resolvePluginFunction(plugin);
@@ -146,16 +175,28 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		// A plugin is itself a config function, so replay it against the same
 		// recorder to capture the helpers it registers.
 		try {
-			pluginFn(configRecorder, opts);
+			const result = pluginFn(configRecorder, opts);
+			if (typeof result?.then === "function") {
+				// `Promise.resolve` normalizes: a native promise is returned as-is,
+				// a bare thenable gains `.catch`. Async stubs reject; swallow both.
+				pendingPlugins.push(Promise.resolve(result).catch(() => {}));
+			}
 		} catch {
 			// Node-only plugins are stubbed at bundle time and throw when called.
 			// Helpers registered before the throw are kept; the config continues.
 		}
 	};
 
+	let replayFailed = false;
+
 	try {
-		configFn(configRecorder);
+		await configFn(configRecorder);
+		// A plugin can register further plugins, so drain until nothing new lands.
+		while (pendingPlugins.length > 0) {
+			await Promise.all(pendingPlugins.splice(0));
+		}
 	} catch (err) {
+		replayFailed = true;
 		warnOnce(
 			"eleventy-config-replay",
 			"Replaying the Eleventy config to mirror its helpers threw: " +
@@ -165,12 +206,15 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 		);
 	}
 
+	let mirroredCount = 0;
+
 	for (const kind of /** @type {HelperKind[]} */ (
 		Object.keys(KIND_REGISTRARS)
 	)) {
 		const register = KIND_REGISTRARS[kind];
 		// Liquid layer spread last so it wins on a name collision.
 		const merged = new Map([...layers.universal[kind], ...layers.liquid[kind]]);
+		mirroredCount += merged.size;
 
 		for (const [name, helperFn] of merged) {
 			if (skip[kind].has(name)) continue;
@@ -184,5 +228,22 @@ export function collectAndRegisterEleventyHelpers(config, options = {}) {
 				);
 			}
 		}
+	}
+
+	// An async config mirroring nothing otherwise surfaces as a `strictFilters`
+	// "unknown filter" error inside an unrelated template. A replay that threw
+	// has already warned, and explains the empty result.
+	if (
+		mirroredCount === 0 &&
+		!replayFailed &&
+		configFn.constructor?.name === "AsyncFunction"
+	) {
+		warnOnce(
+			"eleventy-async-config",
+			"Your Eleventy config is async and registered no helpers when replayed " +
+				"for live editing. If it defines filters/shortcodes they won't be " +
+				"available — define a browser override via " +
+				"`pluginOptions.liquid.<kind>` for any that are needed.",
+		);
 	}
 }

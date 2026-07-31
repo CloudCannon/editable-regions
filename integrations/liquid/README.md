@@ -16,6 +16,7 @@ build time; this directory is what that bundle pulls in.
   - [Eleventy global](#eleventy-global)
   - [`pkg` global](#pkg-global)
 - [Filters](#filters)
+  - [What the auto-mirror actually does](#what-the-auto-mirror-actually-does)
   - [Adding a custom filter](#adding-a-custom-filter)
   - [Overriding a built-in](#overriding-a-built-in)
 - [Shortcodes and paired shortcodes](#shortcodes-and-paired-shortcodes)
@@ -47,6 +48,20 @@ not implemented — see "Limitations and fallbacks".
 
 ```sh
 npm install @cloudcannon/editable-regions
+```
+
+Requires **Node 20.19+ or 22.12+**. The plugin is an ES module; those are the
+releases where Node can `require()` one, so a CommonJS config can pull it in
+with a plain `require`. On anything older, use a dynamic import from an async
+config instead:
+
+```js
+module.exports = async function (eleventyConfig) {
+  const { default: editableRegions } = await import(
+    "@cloudcannon/editable-regions/eleventy"
+  );
+  eleventyConfig.addPlugin(editableRegions);
+};
 ```
 
 Wire the plugin into your `eleventy.config.mjs`. The minimal case is one
@@ -127,7 +142,7 @@ works too.
 | `liquid.pairedShortcodes` | Same as `shortcodes`, for paired shortcodes. |
 | `liquid.tags` | Map of tag name → factory module path. Browser-side override. Tags auto-mirror from the config like filters/shortcodes; use this only for a tag that can't run in the browser as written. |
 | `liquid.configPath` | Path to the Eleventy config file to import and replay for the auto-mirror, relative to the project root. Defaults to the first of 11ty's standard names that exists (`.eleventy.js`, `eleventy.config.{js,mjs,cjs}`). Set only if you run Eleventy with a non-default `--config`. |
-| `liquid.browserStub` | Extra bare module specifiers to stub out of the browser bundle, on top of the 11ty toolchain and Node built-ins (always stubbed). Use when the config imports a native/Node-only package (e.g. `sharp`) that no browser-bound helper actually calls. |
+| `liquid.browserStub` | Extra bare module specifiers to stub out of the browser bundle, on top of the 11ty toolchain and Node built-ins (always stubbed). Use for a native/Node-only package (e.g. `sharp`, or a Node-only 11ty plugin) that would otherwise break bundling, or whose config-time calls would abort the auto-mirror. See "What the auto-mirror actually does". |
 
 ## How it fits together
 
@@ -151,7 +166,7 @@ Globals are passed to `new Liquid({ globals })` inside `createSharedLiquidEngine
 
 | Global | Status | Notes |
 | --- | --- | --- |
-| `collections` | Implemented | `Proxy` that lazily resolves `collections.foo` to an array of items via the Visual Editor API. Items shaped roughly like Eleventy's: `{ url, inputPath, data }`. |
+| `collections` | Implemented | Object with one lazy getter per collection name, resolving `collections.foo` to an array of items via the Visual Editor API. Items shaped roughly like Eleventy's: `{ url, inputPath, data }`. Listing the collections is a single API call; a collection's files are fetched only when a template reads that key, with bounded concurrency, and cached until the collection changes. A component that never mentions `collections` issues no per-file requests. |
 | `ENV_CLIENT` | Implemented | Always `true` in this bundle. Templates can branch on it to opt out of build-only logic. |
 | `page` | Partial | `Proxy` backed by `CloudCannon.currentFile()`. See below for which properties are supported. |
 | custom globals | Opt-in | Whatever you pass via `pluginOptions.globals` (e.g. an `env` object), embedded at build time. See "Custom globals" below. |
@@ -260,6 +275,15 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
    at render time will throw when invoked in the browser — the signal to add
    an override.
 
+   `async` configs and `async` plugins are supported: the replay is awaited,
+   and component rendering is held until it finishes. This matters because
+   `await import("@11ty/eleventy")` — the usual way a CommonJS config reaches
+   the ESM-only `RenderPlugin` / `I18nPlugin` exports — makes the whole config
+   async, and none of its helpers exist until that import settles.
+
+   See "What the auto-mirror actually does" below before assuming a helper
+   will survive the trip.
+
 3. **Overrides** (`pluginOptions.liquid.filters`). A map from filter name to
    module path. Two reasons to use this:
    - **A mirrored filter throws at render time** — supply a browser-safe
@@ -268,6 +292,69 @@ name collision: **built-ins**, **auto-mirrored**, then **overrides**.
      names to protect our browser ports, so an
      `eleventyConfig.addFilter("url", …)` won't reach live editing unless you
      also register it here.
+
+### What the auto-mirror actually does
+
+The mirror is **not** a static scan of your config. The bundle imports your
+real config module and *runs it* in the browser, against a stand-in
+`eleventyConfig` that records `addFilter` / `addShortcode` / `addLiquidTag`
+calls and ignores everything else. That's what makes closures and imports
+survive — and it means every line of your config executes in a browser.
+
+Most of what that implies is handled for you:
+
+- **Node built-ins and the 11ty toolchain are stubbed**, so importing them is
+  harmless. A stubbed module that gets *called* during the replay is skipped
+  with a console warning and the rest of the config still mirrors; the same
+  call from inside a rendered helper throws, because there it's a real
+  problem you need to fix.
+- **Node globals are shimmed.** `process.env.X`, `process.cwd()`, `__dirname`
+  and `__filename` resolve to inert values rather than a `ReferenceError`.
+  `process.env.NODE_ENV` reads `"development"`, for the same reason
+  `eleventy.env.runMode` is `"serve"` — the editor isn't a production build,
+  and a config gated on `NODE_ENV === "production"` shouldn't drag build-only
+  plugins into the mirror. Real values belong in `pluginOptions.globals`.
+
+What's left is code that runs at config time and needs something the browser
+genuinely doesn't have. In rough order of what to reach for:
+
+1. **`pluginOptions.liquid.browserStub`** — the usual answer. Add the module
+   specifier and it resolves to a stub, so calls through it are skipped
+   instead of aborting the replay. This is what a Node-only plugin needs,
+   including the argument-side case that nothing else can intercept:
+
+   ```js
+   // `pluginBookshop({...})` is evaluated *before* `addPlugin` is called, so
+   // no amount of proxying `eleventyConfig` can catch it — the module itself
+   // has to be stubbed.
+   eleventyConfig.addPlugin(pluginBookshop({ /* Node-only */ }));
+
+   eleventyConfig.addPlugin(editableRegions, {
+     liquid: { browserStub: ["@bookshop/eleventy-bookshop"] },
+   });
+   ```
+
+2. **A per-helper override** (`pluginOptions.liquid.filters` / `.shortcodes` /
+   `.pairedShortcodes` / `.tags`) — for a helper that mirrors fine but can't
+   *run* in the browser. See "Adding a custom filter".
+
+3. **An early return** — last resort, for config-time code that sits behind no
+   import at all, so there's nothing to stub:
+
+   ```js
+   export default function (eleventyConfig) {
+     eleventyConfig.addFilter("shout", (s) => String(s).toUpperCase());
+
+     // Everything below is build-only; the browser mirror stops here.
+     if (typeof window !== "undefined") return;
+
+     const manifest = buildManifestFromDisk();
+     eleventyConfig.addGlobalData("manifest", manifest);
+   }
+   ```
+
+   Put it as late as you can: helpers registered *above* the return still
+   mirror, and anything below it won't be available in live editing.
 
 ### Adding a custom filter
 
@@ -540,7 +627,9 @@ section catalogues the gaps and the patterns for working around them.
 | `htmlBaseUrl`, `serverlessUrl` filters | Registered as warn-once pass-throughs; return their input unchanged. `htmlBaseUrl` depends on the configured `pathPrefix` (we don't expose it yet); `serverlessUrl` is a build-time concept with no editor equivalent. | Override via `pluginOptions.liquid.filters` if you have a browser-safe equivalent. Otherwise wrap the template path in `{% if ENV_CLIENT %}` and skip it. |
 | `inputPathToUrl` filter when the source file wasn't in the last build | Falls back to warn-once and returns the input path unchanged. The build-time page map is what makes this filter work; for files added since the last build there's no URL to look up. | Re-build to pick up new pages. |
 | `renderTemplate` / `renderFile` / `renderContent` with a non-Liquid engine arg (e.g. `"njk"`, `"md"`) | Warn-once and return the body unchanged. We only ship LiquidJS in the bundle. | Switch the template to Liquid, or guard the call with `{% if ENV_CLIENT %}` so it only runs at build time. |
-| Mirrored filters/shortcodes that touch `this.ctx`, `process`, `require`, `__dirname`, or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
+| Mirrored filters/shortcodes that touch `this.ctx` or a closed-over Node import | Auto-mirror ships them verbatim; they throw at render time in the browser. The thrown error is wrapped by `enhanceLiquidError` with the filter/shortcode name. | Add a `pluginOptions.liquid.filters` (or `.shortcodes` / `.pairedShortcodes`) override pointing at a browser-safe replacement. |
+| Mirrored helpers that read `process.env`, `process.cwd()`, `__dirname` or `__filename` | Don't throw — they read the shim (see "What the auto-mirror actually does"), so they render, but with placeholder values rather than the build's. | If the value matters, pass it through `pluginOptions.globals` and read it as a Liquid global, or override the helper. |
+| `{{ collections \| json }}` — serialising the **whole** collections object | Renders `{"posts":{},"pages":{}}`. Each key is a lazy getter resolving to a Promise, and `JSON.stringify` can't await; every other access pattern is unaffected because LiquidJS *does* await during expression evaluation. Materialising for serialisation would mean fetching every file in every collection on any access, which is what the laziness exists to prevent. | Serialise one collection at a time — `{{ collections.posts \| json }}` works normally. |
 | Helpers from auto-loaded 11ty plugins used **inside a component** (e.g. `getBundle` / `getBundleFileUrl` / `renderTransforms` from `@11ty/eleventy-plugin-bundle`) | 11ty 3.x auto-loads several plugins that register universal helpers; the auto-mirror ships them verbatim and they'll throw if invoked from a template the editor re-renders. Layouts and pages aren't affected — the live runtime only renders components. | If you reference one of these in an editable component, add a browser-safe override via `pluginOptions.liquid.shortcodes` / `.filters`. Most users won't hit this because bundle helpers typically live in layouts. |
 | User overrides of a **built-in** filter name via `eleventyConfig.addFilter` | The auto-mirror skips built-in names, so the override doesn't reach the bundle — live editing keeps using our handwritten port. | Also register the override in `pluginOptions.liquid.filters`. See "Overriding a built-in". |
 | Custom Liquid tags | Not auto-mirrored. Templates referencing an unregistered custom tag will fail with an enhanced "tag X not found" error. | Register every tag you want available via `pluginOptions.liquid.tags`. |

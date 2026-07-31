@@ -1,8 +1,21 @@
 import fs from "node:fs";
 import { builtinModules, createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 import { createIncludeWithTag } from "../liquid/include-with-tag.mjs";
+
+/** This package's `integrations/eleventy/browser` directory. */
+const BROWSER_DIR = path.join(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"browser",
+);
+
+/** Substituted for unbound `process` / `__dirname` / `__filename`. */
+const PROCESS_SHIM_PATH = path.join(BROWSER_DIR, "process-shim.mjs");
+
+/** Backs the generated module stubs; see `createBrowserStubPlugin`. */
+const STUB_MODE_PATH = path.join(BROWSER_DIR, "stub-mode.mjs");
 
 /**
  * @typedef {import("../../types/eleventy").LiquidOptions} LiquidOptions
@@ -95,6 +108,10 @@ export default function editableRegionsPlugin(eleventyConfig, pluginOptions) {
 			// The bundle imports the user's real Eleventy config (see
 			// `emitConfigMirror`), dragging in Node/build-time imports — stub them.
 			plugins: [createBrowserStubPlugin(liquidOptions.browserStub)],
+			// Node *globals* aren't imports, so the stub plugin can't reach them.
+			// esbuild defines `process.env.NODE_ENV` only; everything else is left
+			// unbound and throws at load.
+			inject: [PROCESS_SHIM_PATH],
 			outfile: options.output ?? `${dirs.output}/register-components.js`,
 		});
 	});
@@ -142,9 +159,13 @@ const ALWAYS_STUBBED = ["@cloudcannon/editable-regions/eleventy"];
 
 /**
  * esbuild plugin resolving Node built-ins and build-time-only packages to a
- * Proxy that survives `import` and property access but throws when called or
- * constructed — so the user's config bundles, and only a helper that actually
- * invokes a Node API at render time fails.
+ * Proxy that survives `import` and property access, so the user's config
+ * bundles for the browser. What happens when one is *called* depends on the
+ * phase — see `browser/stub-mode.mjs`.
+ *
+ * `process` is the exception: it resolves to the real shim, so an explicit
+ * `import … from "node:process"` reads the same values as the bare global
+ * that `inject` substitutes.
  *
  * @param {string[]} [extraStubs] - Extra specifiers to stub
  *   (`pluginOptions.liquid.browserStub`), e.g. native deps like `sharp`.
@@ -170,25 +191,39 @@ function createBrowserStubPlugin(extraStubs = []) {
 	return {
 		name: "editable-regions-browser-stub",
 		setup(build) {
-			build.onResolve({ filter: /.*/ }, (args) =>
-				shouldStub(args.path)
+			build.onResolve({ filter: /.*/ }, (args) => {
+				if (args.path === "process" || args.path === "node:process") {
+					return { path: args.path, namespace: "er-process" };
+				}
+				return shouldStub(args.path)
 					? { path: args.path, namespace: "er-stub" }
-					: null,
-			);
-			build.onLoad({ filter: /.*/, namespace: "er-stub" }, () => ({
+					: null;
+			});
+			// Re-exported as CommonJS rather than resolving straight to the shim:
+			// against an ES module, a named import esbuild can't match
+			// (`import { hrtime } from "node:process"`) is a hard build error,
+			// where CJS interop resolves it to `undefined` at runtime.
+			build.onLoad({ filter: /.*/, namespace: "er-process" }, () => ({
+				contents: `module.exports = require(${JSON.stringify(PROCESS_SHIM_PATH)}).process;`,
+				loader: "js",
+				resolveDir: BROWSER_DIR,
+			}));
+			build.onLoad({ filter: /.*/, namespace: "er-stub" }, (args) => ({
+				// CommonJS for the same reason as `er-process` above: a stub's
+				// export names aren't knowable, so named imports need CJS interop.
 				contents: `
+					const { onStubInvoked } = require(${JSON.stringify(STUB_MODE_PATH)});
+					const specifier = ${JSON.stringify(args.path)};
 					const handler = {
 						get: () => new Proxy(function () {}, handler),
-						apply: () => {
-							throw new Error("editable-regions: a Node/build-time API was called in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
-						},
-						construct: () => {
-							throw new Error("editable-regions: a Node/build-time API was constructed in the browser live-editing bundle. Provide a browser-friendly override via pluginOptions.liquid.<kind>.");
-						},
+						apply: () => onStubInvoked(specifier, "called"),
+						construct: () => onStubInvoked(specifier, "constructed"),
 					};
 					module.exports = new Proxy(function () {}, handler);
 				`,
 				loader: "js",
+				// So the `require` above resolves out of the stub's namespace.
+				resolveDir: BROWSER_DIR,
 			}));
 		},
 	};
@@ -226,9 +261,12 @@ function resolveEleventyConfigPath(liquidOptions) {
  * skip; those are registered separately by `emitImportRegistrations` so the
  * override wins.
  *
+ * Split because the replay is awaited inside `initLiveEditing`, while an
+ * `import` can only live at module scope.
+ *
  * @param {string} configPath - Absolute path to the Eleventy config
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string} JS source
+ * @returns {{imports: string, body: string}} JS source
  */
 function emitConfigMirror(configPath, liquidOptions) {
 	const skip = {
@@ -238,10 +276,10 @@ function emitConfigMirror(configPath, liquidOptions) {
 		tags: Object.keys(liquidOptions?.tags ?? {}),
 	};
 
-	return (
-		`\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n` +
-		`collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`
-	);
+	return {
+		imports: `\nimport userEleventyConfig from ${JSON.stringify(configPath)};\n`,
+		body: `await collectAndRegisterEleventyHelpers(userEleventyConfig, ${JSON.stringify({ skip })});\n`,
+	};
 }
 
 /**
@@ -339,9 +377,13 @@ async function generateLiveEditingSource(
 		// Auto-mirror the user's config helpers by importing and replaying the
 		// real config in the browser. See `emitConfigMirror`.
 		const configPath = resolveEleventyConfigPath(liquidOptions);
-		if (configPath) {
-			source += emitConfigMirror(configPath, liquidOptions);
-		} else {
+		const configMirror = configPath
+			? emitConfigMirror(configPath, liquidOptions)
+			: { imports: "", body: "" };
+
+		source += configMirror.imports;
+
+		if (!configPath) {
 			console.warn(
 				"[editable-regions] Could not locate an Eleventy config file to " +
 					"auto-mirror helpers from. Set `pluginOptions.liquid.configPath` " +
@@ -353,10 +395,18 @@ async function generateLiveEditingSource(
 
 		// Register browser-side overrides and pinned components. Override names
 		// are excluded from the mirror, so each is its name's sole registration.
-		source += emitImportRegistrations(liquidOptions);
+		const registrations = emitImportRegistrations(liquidOptions);
+		source += registrations.imports;
 
+		// One awaited sequence, so nothing registers ahead of the async replay and
+		// `window.cc_components` is published only once it's complete.
 		source += `
-      initComponentProxy();
+      async function initLiveEditing() {
+        ${configMirror.body}${registrations.body}
+        initComponentProxy();
+      }
+
+      initLiveEditing();
     `;
 	}
 	return source;
@@ -556,14 +606,15 @@ const IMPORT_REGISTER_FNS = {
  * Emits an `import` + register-call pair for every `{ name: modulePath }` entry
  * across the `IMPORT_REGISTER_FNS` maps, e.g.:
  *
- *   import filters_0 from "./path/to/file";
- *   registerFilter("name", filters_0);
+ *   import filters_0 from "./path/to/file";   // module scope
+ *   registerFilter("name", filters_0);        // inside `initLiveEditing`
  *
  * @param {LiquidOptions | undefined} liquidOptions
- * @returns {string} JS source
+ * @returns {{imports: string, body: string}} JS source
  */
 function emitImportRegistrations(liquidOptions) {
-	let out = "";
+	let imports = "";
+	let body = "";
 
 	for (const optionKey of /** @type {Array<keyof typeof IMPORT_REGISTER_FNS>} */ (
 		Object.keys(IMPORT_REGISTER_FNS)
@@ -574,9 +625,10 @@ function emitImportRegistrations(liquidOptions) {
 			liquidOptions?.[optionKey] ?? {},
 		).entries()) {
 			const id = `${optionKey}_${i}`;
-			out += `\nimport ${id} from "./${file}";\n${registerFn}(${JSON.stringify(name)}, ${id});\n`;
+			imports += `\nimport ${id} from "./${file}";\n`;
+			body += `${registerFn}(${JSON.stringify(name)}, ${id});\n`;
 		}
 	}
 
-	return out;
+	return { imports, body };
 }

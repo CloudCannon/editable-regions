@@ -31,7 +31,6 @@ declare module "@cloudcannon/editable-regions/liquid" {
 		name: string,
 		factory: (liquidEngine: Liquid) => any,
 	): void;
-	export function registerProcessEnv(env: Record<string, string>): void;
 	export function registerEleventyData(data: {
 		version: string;
 		generator: string;

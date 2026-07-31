@@ -1,7 +1,11 @@
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+import { componentsReady } from "../_helpers/live-editing";
 
 // Built bundle — run `npm run test:build-eleventy-fixture` first.
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 test("the built bundle registers components on window.cc_components", () => {
 	expect(window.cc_components).toBeTruthy();

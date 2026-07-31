@@ -8,7 +8,9 @@
 export function enhanceLiquidError(err, componentName) {
 	const message = err instanceof Error ? err.message : String(err);
 
-	const unknownFilter = message.match(/undefined filter[:.]?\s*(\S+)/i);
+	// LiquidJS appends its own position suffix ("undefined filter: foo, line:2,
+	// col:1"), so stop at the comma rather than at whitespace.
+	const unknownFilter = message.match(/undefined filter[:.]?\s*([^\s,]+)/i);
 	if (unknownFilter) {
 		const filterName = unknownFilter[1];
 		return new Error(

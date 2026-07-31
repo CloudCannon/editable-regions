@@ -1,6 +1,10 @@
-import { expect, test } from "vitest";
+import { beforeAll, expect, test } from "vitest";
+
+import { componentsReady } from "../_helpers/live-editing";
 
 import "../_fixtures/eleventy/_site/register-components.js";
+
+beforeAll(componentsReady);
 
 test("the registered renderer returns an HTMLElement (a <div> root)", async () => {
 	const el = await window.cc_components?.static({});
