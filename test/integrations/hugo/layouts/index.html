@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>{{ .Title }}</title>
+		{{ partial "cc/live-editing-head.html" . }}
+	</head>
+	<body>
+		<h1>{{ .Title }}</h1>
+		{{ partial "cc/editable-component.html" (dict
+			"component" "card.html"
+			"prop" "card"
+			"props" .Params.card
+		) }}
+		{{ partial "nav.html" . }}
+	</body>
+</html>

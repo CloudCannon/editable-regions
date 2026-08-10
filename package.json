@@ -39,7 +39,9 @@
     "integrations",
     "nodes",
     "styles",
-    "types"
+    "types",
+	"!integrations/hugo/renderer/hugo_renderer.wasm",
+	"!integrations/hugo/hugo-module/static/cc-editable-regions"
   ],
   "exports": {
     "./*": null,
@@ -87,6 +89,10 @@
       }
     },
     "./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
+    "./hugo/browser": {
+		"types": "./types/hugo.d.ts",
+		"default": "./integrations/hugo/browser/index.mjs"
+	},
     "./internal/components": "./components/index.js",
     "./internal/styles": "./styles/index.js"
   },

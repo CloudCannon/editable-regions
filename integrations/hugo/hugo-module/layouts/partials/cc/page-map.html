@@ -1,0 +1,16 @@
+{{- /*
+  Maps every content-backed page's input path to its resolved URL — the
+  browser can't recompute Hugo permalinks, so they're captured from the
+  build, where they're simply known.
+*/ -}}
+{{- $pages := dict -}}
+{{- range $p := .Site.Pages -}}
+  {{- with $p.File -}}
+    {{- $pages = merge $pages (dict .Path (dict
+      "url" $p.RelPermalink
+      "title" $p.Title
+      "kind" $p.Kind
+    )) -}}
+  {{- end -}}
+{{- end -}}
+{{- return $pages -}}

@@ -1,0 +1,18 @@
+{{- /*
+  Renders a partial wrapped in an editable-component region.
+
+  Usage:
+    {{ partial "cc/editable-component.html" (dict
+      "component" "card.html"     - partial name, relative to layouts/partials
+      "prop" "card"               - source path for the props (data-prop)
+      "props" .Params.card        - the props to render with at build time
+    ) }}
+
+  The `component` name doubles as the browser-side component key: the
+  live-editing runtime resolves it against the same layouts/partials tree,
+  so the initial build-time render and every editor re-render come from the
+  same template.
+*/ -}}
+<div data-editable="component" data-component="{{ .component }}"{{ with .prop }} data-prop="{{ . }}"{{ end }}>
+{{- partial .component .props -}}
+</div>

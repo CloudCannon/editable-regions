@@ -1,0 +1,30 @@
+# Fixture site for the Hugo editable-regions integration.
+#
+# Consumes the Hugo module from this repo via themesDir. A real site would
+# use `hugo mod get` or a theme submodule instead; the config below is
+# otherwise exactly what a consuming site adds.
+baseURL = "/"
+title = "Hugo Editable Regions Fixture"
+themesDir = "../../../integrations/hugo"
+theme = "hugo-module"
+
+# The one line a module can't contribute (Hugo doesn't merge slice values
+# from themes): enable the emitter on the home page.
+[outputs]
+  home = ["HTML", "editable-regions"]
+
+[params]
+  brand = "Fixture Brand"
+
+  [params.editable_regions]
+    verbose = true
+
+[menus]
+  [[menus.main]]
+    name = "Home"
+    url = "/"
+    weight = 1
+  [[menus.main]]
+    name = "Blog"
+    url = "/blog/"
+    weight = 2
