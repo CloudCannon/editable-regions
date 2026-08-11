@@ -40,12 +40,10 @@ test("an unknown component key rejects with an enhanced error", async () => {
 	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
 		/No Hugo partial found for component "missing-include"/,
 	);
-	// The enhanced error names the bundled partials; the list is sorted, so
-	// match the members rather than their exact ordering.
+	// The enhanced error names a shortlist of the bundled partials — sorted,
+	// capped at 15, and truncated with "…" — so match a head member and the
+	// truncation marker rather than any exact member set.
 	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
-		/Bundled partials include: card\.html, .*nested\/deep\.html/i,
-	);
-	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
-		/globals-title\.html/,
+		/Bundled partials include: .*card\.html.*…/,
 	);
 });
