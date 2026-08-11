@@ -1,6 +1,10 @@
 {{- /*
-  Loads the editable-regions bundle. Include in the site's <head>. Safe on
-  production pages: the runtime only fetches the Hugo WASM once the
-  CloudCannon Visual Editor API announces itself.
+  Loads the editable-regions live-editing bundle. Include in the site's
+  <head>. Safe on production pages: the runtime only fetches the Hugo WASM
+  once the CloudCannon Visual Editor API announces itself.
+
+  Emits a single fingerprinted script tag containing both the site snapshot
+  and the runtime. For control over the tag, use cc/resources.html directly.
 */ -}}
-<script src="{{ "register-components.js" | relURL }}" defer></script>
+{{- $bundle := partial "cc/resources.html" . -}}
+<script src="{{ $bundle.RelPermalink }}" integrity="{{ $bundle.Data.Integrity }}" crossorigin="anonymous" defer></script>

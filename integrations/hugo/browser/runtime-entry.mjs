@@ -1,6 +1,7 @@
 // Entry point for the prebuilt IIFE runtime the Hugo module ships
-// (static/cc-editable-regions/runtime.js). The emitted register-components.js
-// sets the `window.cc_hugo*` globals and then loads this script.
+// (assets/cc-editable-regions/runtime.js). In the published bundle it is
+// concatenated after the snapshot prelude, so the `window.cc_hugo*` globals
+// it reads are already set when this runs.
 import { initHugoLiveEditing } from "./index.mjs";
 
 initHugoLiveEditing();

@@ -25,6 +25,7 @@
     "typecheck:watch": "tsc --noEmit --watch",
     "lint-autofix": "biome check --fix",
     "lint": "biome check",
+    "build:hugo": "node integrations/hugo/build-runtime.mjs && bash integrations/hugo/renderer/build.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-snapshots": "vitest run -u",
@@ -41,7 +42,7 @@
     "styles",
     "types",
 	"!integrations/hugo/renderer/hugo_renderer.wasm",
-	"!integrations/hugo/hugo-module/static/cc-editable-regions"
+	"!integrations/hugo/hugo-module/assets/cc-editable-regions"
   ],
   "exports": {
     "./*": null,

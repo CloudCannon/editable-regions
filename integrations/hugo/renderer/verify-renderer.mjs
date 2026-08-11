@@ -19,7 +19,7 @@ await import(path.join(here, "../browser/wasm_exec.js"));
 const rawPath = path.join(here, "hugo_renderer.wasm");
 const gzPath = path.join(
 	here,
-	"../hugo-module/static/cc-editable-regions/hugo_renderer.wasm.gz",
+	"../hugo-module/assets/cc-editable-regions/hugo_renderer.wasm.gz",
 );
 
 let wasmBytes;

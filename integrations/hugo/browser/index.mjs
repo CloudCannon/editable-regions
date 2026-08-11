@@ -1,8 +1,9 @@
-// Browser half of the Hugo integration. The Hugo module's output-format
-// template (`index.editable-regions.js`) emits the site's template snapshot,
-// data files, config, and page map onto `window.cc_hugo*`, then loads this
-// runtime. This module boots the Hugo WASM renderer from that data and
-// registers `window.cc_components` renderers for the shared core.
+// Browser half of the Hugo integration. The Hugo module's snapshot prelude
+// (`cc/snapshot.html`) emits the site's template snapshot, data files,
+// config, and page map onto `window.cc_hugo*`, concatenated ahead of this
+// runtime in the published bundle. This module boots the Hugo WASM renderer
+// from that data and registers `window.cc_components` renderers for the
+// shared core.
 
 import "./wasm_exec.js";
 import { apiLoadedPromise } from "../../../helpers/cloudcannon.mjs";
@@ -100,6 +101,8 @@ async function startEngine() {
 		);
 	}
 
+	// The snapshot always sets meta.wasmUrl (a fingerprinted module asset);
+	// this fallback only applies when booting outside the module's bundle.
 	const wasmUrl =
 		runtimeData.meta.wasmUrl ?? "/cc-editable-regions/hugo_renderer.wasm.gz";
 

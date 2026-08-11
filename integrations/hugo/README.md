@@ -5,19 +5,19 @@ editor re-renders a component partial client-side as the user edits its data,
 without round-tripping through a Hugo build.
 
 Unlike the other integrations, the build-time half is **pure Hugo** — there is
-no Node plugin, CLI, or post-build step. Hugo has no plugin system, so this
-integration is packaged as a Hugo module (or theme) that does its work with
-three first-party mechanisms:
+no Node plugin, CLI, or post-build step, and the site needs **no configuration
+at all**. Hugo has no plugin system, so this integration is packaged as a Hugo
+module (or theme) that does its work with two first-party mechanisms:
 
-1. **A custom output format** (`editable-regions`) whose template runs during
-   the normal `hugo` build and emits `/register-components.js`: a snapshot of
-   the site's partials and data files, a normalized site config, and a page
-   map resolved from `.Site.Pages`.
-2. **Theme-contributed configuration** for the output format and media type
-   (Hugo deep-merges `outputFormats`/`mediaTypes`/`params` from modules).
-3. **Static assets**: a prebuilt browser runtime (`runtime.js`) and the Hugo
-   renderer compiled to WASM (`hugo_renderer.wasm.gz`), copied into the site
-   output like any other theme static file.
+1. **Partials + the asset pipeline**: a single partial in the site's `<head>`
+   builds the live-editing bundle through Hugo Pipes — the snapshot prelude
+   (template sources, data files, normalized site config, and a page map
+   resolved from `.Site.Pages`) concatenated with the prebuilt runtime,
+   fingerprinted, and emitted as one `<script>` tag with SRI.
+2. **Module assets**: the prebuilt browser runtime (`runtime.js`) and the
+   Hugo renderer compiled to WASM (`hugo_renderer.wasm.gz`) ship in the
+   module's `assets/`, so they ride the resource pipeline (fingerprinted,
+   cache-safe URLs) rather than being copied verbatim from `static/`.
 
 In the browser, the runtime boots a real Hugo (via WASM) from the emitted
 snapshot and registers `window.cc_components` renderers. The shared
@@ -27,22 +27,26 @@ the CloudCannon API, DOM diffing, editors, and error cards.
 ## Install and configure
 
 Add the module to the site (any of: `hugo mod get`, a theme submodule, or a
-local `themesDir` entry), then:
+local `themesDir` entry):
 
 ```toml
 # hugo.toml
 theme = "editable-regions"       # or [[module.imports]]
-
-# The one line a module can't contribute — Hugo doesn't merge slice values
-# from themes — enables the emitter on the home page:
-[outputs]
-  home = ["HTML", "editable-regions"]
 ```
 
-Load the bundle in the site's `<head>`:
+That's the whole configuration. Load the bundle in the site's `<head>`:
 
 ```go-html-template
 {{ partial "cc/live-editing-head.html" . }}
+```
+
+That partial emits a single fingerprinted `<script>` tag (SRI + `defer`)
+containing both the site snapshot and the runtime. If you need control over
+the tag — conditional loading, your own pipeline — call the function-style
+partial instead and use the resource however you like:
+
+```go-html-template
+{{ $bundle := partial "cc/resources.html" . }}
 ```
 
 Annotate components where they're rendered:
@@ -68,7 +72,6 @@ write them directly in your templates.
   template_dirs = ["layouts/partials"]  # dirs snapshotted for the renderer
   data_dirs = ["data"]                  # data files available as site.Data
   template_extensions = [".html", ".htm"]
-  runtime_url = ""                      # override the runtime script URL
   wasm_url = ""                         # override the renderer WASM URL
   verbose = false                       # console logging in the editor
 ```
@@ -78,21 +81,24 @@ write them directly in your templates.
 ```
 hugo build
   ├── site pages (normal HTML output, with data-editable annotations)
-  └── register-components.js        <- output format template (this module)
-        window.cc_hugo_files        <- layouts/partials/** snapshot
-        window.cc_hugo_data         <- data/** snapshot
-        window.cc_hugo_config       <- baseURL, title, params, menus
-        window.cc_hugo_pages        <- input path -> URL (from .Site.Pages)
-        └── loads runtime.js        <- prebuilt IIFE (this repo)
-              └── hugo_renderer.wasm.gz   <- real Hugo, in the browser
+  │     └── <head>: {{ partial "cc/live-editing-head.html" . }}
+  │           └── /cc-editable-regions/live-editing.<hash>.js
+  │                 ├── snapshot prelude        <- cc/snapshot.html (this module)
+  │                 │     window.cc_hugo_files  <- layouts/partials/** snapshot
+  │                 │     window.cc_hugo_data   <- data/** snapshot
+  │                 │     window.cc_hugo_config <- baseURL, title, params, menus
+  │                 │     window.cc_hugo_pages  <- input path -> URL (from .Site.Pages)
+  │                 │     window.cc_hugo        <- meta incl. fingerprinted WASM URL
+  │                 └── runtime.js              <- prebuilt IIFE (this repo)
+  └── /cc-editable-regions/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
 ```
 
 The WASM renderer holds a `hugolib` site over an in-memory filesystem. At
 startup it receives the snapshot (config, partials, data); each component
 render rewrites one content file and runs an incremental build — sub-millisecond
 in practice. The runtime only fetches the WASM once the CloudCannon Visual
-Editor API announces itself, so shipping `register-components.js` on
-production pages costs one small script, not a 15MB download.
+Editor API announces itself, so shipping the bundle on
+production pages costs one small script, not a 16MB download.
 
 ## What works in editor renders
 
@@ -124,12 +130,12 @@ production pages costs one small script, not a 15MB download.
 ## Development (this repo)
 
 - `renderer/` — the Go WASM renderer. `./build.sh` compiles it and installs
-  the gzipped binary into `hugo-module/static/`. `node verify-renderer.mjs`
+  the gzipped binary into `hugo-module/assets/`. `node verify-renderer.mjs`
   smoke-tests the render surface in Node.
 - `browser/` — the runtime source. `node integrations/hugo/build-runtime.mjs`
-  bundles it (IIFE) into `hugo-module/static/`.
-- `hugo-module/` — the distributable Hugo module: config, emitter output
-  format, annotation partials, and the built static assets (gitignored;
+  bundles it (IIFE) into `hugo-module/assets/`.
+- `hugo-module/` — the distributable Hugo module: annotation partials, the
+  snapshot/bundle pipeline partials, and the built assets (gitignored;
   built by the two commands above, which `npm run build:hugo` chains).
 - `test/integrations/hugo/` — fixture site consuming the module via
   `themesDir`; `npm run build` inside it builds with Hugo and runs

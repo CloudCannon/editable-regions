@@ -2,14 +2,14 @@
  * Verifies the Hugo integration's emit contract and render loop, in Node.
  *
  * Two halves:
- *  1. STRUCTURAL — the module's output-format template emitted
- *     register-components.js with the template snapshot, data files, site
- *     config, page map, and runtime loader; the module's static assets were
- *     copied into the output.
- *  2. ROUND-TRIP — boot the real renderer WASM from the emitted data (exactly
- *     what the browser runtime does), render the fixture's card component
- *     with the same props as the front matter, and check it against the
- *     build-time HTML inside the editable region.
+ *  1. STRUCTURAL — the module published the single fingerprinted bundle
+ *     (snapshot prelude + runtime, concatenated by cc/resources.html) and
+ *     the fingerprinted renderer WASM, and the home page's <head> carries
+ *     the bundle's script tag.
+ *  2. ROUND-TRIP — boot the real renderer WASM from the emitted snapshot
+ *     (exactly what the browser runtime does), render the fixture's card
+ *     component with the same props as the front matter, and check it
+ *     against the build-time HTML inside the editable region.
  *
  * Run after `hugo`: node verify-bundle.mjs
  */
@@ -22,7 +22,6 @@ import { gunzipSync } from "node:zlib";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(here, "public");
-const bundlePath = path.join(publicDir, "register-components.js");
 
 let failures = 0;
 function check(name, cond, detail = "") {
@@ -36,25 +35,53 @@ function check(name, cond, detail = "") {
 
 // --- 1. Structural checks on the emitted bundle ----------------------------
 
-if (!fs.existsSync(bundlePath)) {
-	console.error(`Bundle not found at ${bundlePath}. Run \`hugo\` first.`);
-	process.exit(1);
-}
-const bundle = fs.readFileSync(bundlePath, "utf8");
+const assetDir = path.join(publicDir, "cc-editable-regions");
+const assets = fs.existsSync(assetDir) ? fs.readdirSync(assetDir) : [];
+const bundleName = assets.find((f) => /^live-editing\..+\.js$/.test(f));
+const wasmName = assets.find((f) => /^hugo_renderer\.wasm\..+\.gz$/.test(f));
 
-// Evaluate the emitted JS with window/document stubs to get the data out.
-const injectedScripts = [];
-const sandbox = {
-	window: {},
-	document: {
-		createElement: () => ({}),
-		head: {
-			appendChild: (el) => injectedScripts.push(el.src),
-		},
-	},
-};
+check(
+	"fingerprinted bundle published",
+	Boolean(bundleName),
+	assets.join(", ") || "(asset dir missing or empty)",
+);
+check(
+	"fingerprinted renderer WASM published",
+	Boolean(wasmName),
+	assets.join(", ") || "(asset dir missing or empty)",
+);
+check(
+	"no stray assets published (runtime and snapshot are bundle inputs only)",
+	assets.length > 0 &&
+		assets.every((f) => f === bundleName || f === wasmName),
+	assets.join(", "),
+);
+check(
+	"legacy register-components.js not emitted",
+	!fs.existsSync(path.join(publicDir, "register-components.js")),
+);
+
+const bundle = bundleName
+	? fs.readFileSync(path.join(assetDir, bundleName), "utf8")
+	: "";
+
+// The snapshot prelude sits ahead of the runtime, split by its sentinel.
+const [snapshot, runtime] = bundle.split("/* cc:snapshot:end */");
+check(
+	"bundle contains the snapshot prelude and runtime, in order",
+	Boolean(snapshot) && typeof runtime === "string" && runtime.length > 0,
+);
+check(
+	"runtime follows the snapshot prelude",
+	Boolean(runtime?.includes("renderHugoPartial")),
+);
+
+// Evaluate the snapshot prelude to get the emitted data out.
+const sandbox = { window: {} };
 vm.createContext(sandbox);
-vm.runInContext(bundle, sandbox);
+if (snapshot) {
+	vm.runInContext(snapshot, sandbox);
+}
 const win = sandbox.window;
 
 check(
@@ -79,23 +106,23 @@ check(
 );
 check("page map resolves the home page", win.cc_hugo_pages?.["_index.md"]?.url === "/");
 check(
-	"meta carries the wasm url",
-	win.cc_hugo?.wasmUrl?.endsWith("hugo_renderer.wasm.gz"),
-);
-check(
-	"runtime loader injected",
-	injectedScripts.some((src) => src?.endsWith("cc-editable-regions/runtime.js")),
+	"meta carries the fingerprinted wasm url",
+	/\/cc-editable-regions\/hugo_renderer\.wasm\..+\.gz$/.test(
+		win.cc_hugo?.wasmUrl ?? "",
+	),
 );
 
+// The head partial references the bundle with SRI and defer.
+const homeHtml = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
 check(
-	"module static assets copied: runtime.js",
-	fs.existsSync(path.join(publicDir, "cc-editable-regions/runtime.js")),
+	"head includes the bundle script tag",
+	Boolean(bundleName) &&
+		homeHtml.includes(`src="/cc-editable-regions/${bundleName}"`) &&
+		homeHtml.includes('integrity="sha256-') &&
+		homeHtml.includes("defer"),
 );
-const wasmPath = path.join(publicDir, "cc-editable-regions/hugo_renderer.wasm.gz");
-check("module static assets copied: hugo_renderer.wasm.gz", fs.existsSync(wasmPath));
 
 // The annotated wrapper in the build-time HTML.
-const homeHtml = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
 check(
 	"build html carries the editable region annotation",
 	homeHtml.includes('data-editable="component"') &&
@@ -110,6 +137,7 @@ if (failures === 0) {
 		path.join(here, "../../../integrations/hugo/browser/wasm_exec.js")
 	);
 	const go = new globalThis.Go();
+	const wasmPath = path.join(assetDir, wasmName);
 	const wasmBytes = gunzipSync(fs.readFileSync(wasmPath));
 	const { instance } = await WebAssembly.instantiate(wasmBytes, go.importObject);
 	go.run(instance);

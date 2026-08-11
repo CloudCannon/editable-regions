@@ -14,7 +14,7 @@ declare module "@cloudcannon/editable-regions/hugo/browser" {
 
 	/**
 	 * Boots Hugo live editing from the `window.cc_hugo*` globals emitted by
-	 * the Hugo module's output-format template. Installs the component proxy
+	 * the Hugo module's snapshot prelude. Installs the component proxy
 	 * immediately; the WASM renderer loads once the CloudCannon Visual Editor
 	 * API appears.
 	 */
@@ -48,7 +48,7 @@ declare module "@cloudcannon/editable-regions/hugo/browser" {
 	export function initComponentProxy(): void;
 }
 
-/** Window globals emitted by the Hugo module's output-format template. */
+/** Window globals emitted by the Hugo module's snapshot prelude. */
 declare global {
 	interface Window {
 		/** Emitter metadata: generator, wasmUrl, verbose. */

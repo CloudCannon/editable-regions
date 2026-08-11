@@ -8,11 +8,6 @@ title = "Hugo Editable Regions Fixture"
 themesDir = "../../../integrations/hugo"
 theme = "hugo-module"
 
-# The one line a module can't contribute (Hugo doesn't merge slice values
-# from themes): enable the emitter on the home page.
-[outputs]
-  home = ["HTML", "editable-regions"]
-
 [params]
   brand = "Fixture Brand"
 

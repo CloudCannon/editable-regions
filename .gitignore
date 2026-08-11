@@ -13,7 +13,7 @@ _site
 
 # Hugo integration build artifacts
 integrations/hugo/renderer/hugo_renderer.wasm
-integrations/hugo/hugo-module/static/cc-editable-regions/hugo_renderer.wasm.gz
-integrations/hugo/hugo-module/static/cc-editable-regions/runtime.js
+integrations/hugo/hugo-module/assets/cc-editable-regions/hugo_renderer.wasm.gz
+integrations/hugo/hugo-module/assets/cc-editable-regions/runtime.js
 test/integrations/hugo/public
 .hugo_build.lock

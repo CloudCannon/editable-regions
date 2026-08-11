@@ -1,5 +1,5 @@
 /**
- * Bundles the browser runtime into the Hugo module's static directory as a
+ * Bundles the browser runtime into the Hugo module's assets directory as a
  * single IIFE, so sites consuming the module need no Node toolchain at all.
  * Run alongside `renderer/build.sh` when cutting a release:
  *
@@ -19,7 +19,7 @@ const result = await esbuild.build({
 	platform: "browser",
 	minify: true,
 	metafile: true,
-	outfile: path.join(here, "hugo-module/static/cc-editable-regions/runtime.js"),
+	outfile: path.join(here, "hugo-module/assets/cc-editable-regions/runtime.js"),
 });
 
 const [outfile] = Object.entries(result.metafile.outputs);
