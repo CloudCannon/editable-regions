@@ -274,19 +274,3 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
 - `browser/index.mjs`'s default `wasmUrl` fallback
   (`/cc-editable-regions/hugo_renderer.wasm.gz`) is from the static-file era
   — re-evaluate once item 1 lands.
-
-## Environment notes
-
-- Hugo 0.164.0 (extended) + Go 1.26.5 were installed to
-  `/tmp/opencode/toolchain` this session (ephemeral — reinstall if gone).
-  The renderer pins hugo v0.164.0, which requires Go >= 1.26; the vendored
-  `wasm_exec.js` must match the Go toolchain (`$(go env GOROOT)/lib/wasm`).
-- Verify loop: `npm run build:hugo` (root; WASM only), then
-  `npm run build` in `test/integrations/hugo` (chains build:hugo, Hugo,
-  verify-bundle.mjs — 21 checks incl. booting the real WASM in Node and
-  asserting editor render == build-time render). `node
-  integrations/hugo/renderer/verify-renderer.mjs` smoke-tests the renderer.
-- The verifier executes the real bundle in a `vm` sandbox with stubbed
-  browser globals (`window` aliased to the sandbox global; `document.addEventListener`,
-  `crypto`, `performance`, `TextEncoder/Decoder`) — extend the stubs if the
-  runtime's startup side effects grow.
