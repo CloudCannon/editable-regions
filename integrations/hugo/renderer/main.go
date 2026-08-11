@@ -58,10 +58,16 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	}
 
 	// The editor runs "rebuilds" rather than fresh builds; Running/Watch
-	// enable Hugo's incremental change-event pipeline.
+	// enable Hugo's incremental change-event pipeline. hugoInfo (the `hugo.*`
+	// template namespace, e.g. `hugo.IsServer`) reads these from the
+	// per-language configs, so propagate the flags beyond the root config.
 	cfg.Base.WorkingDir = ""
 	cfg.Base.Internal.Running = true
 	cfg.Base.Internal.Watch = true
+	for _, languageConfig := range cfg.LanguageConfigMap {
+		languageConfig.Internal.Running = true
+		languageConfig.Internal.Watch = true
+	}
 	builder.Cfg = cfg
 	builder.Fs = hugofs.NewFrom(builder.Afs, cfg.GetFirstLanguageConfig().BaseConfig())
 

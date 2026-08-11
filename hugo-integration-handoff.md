@@ -297,3 +297,19 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
 - **Done (2026-08-12): `browser/index.mjs`'s `wasmUrl` fallback** comment
   refreshed for the build-time `_cloudcannon/` asset (item 1). The fallback
   itself remains as a boot-outside-the-bundle safety net.
+- **Done (2026-08-12): `hugo.IsServer` now true in the editor.** `hugo.*`
+  reads Running/Watch from the **per-language configs**, not the root —
+  the renderer set only `cfg.Base.Internal.Running`, so `hugo.IsServer`
+  was silently `false` (README's guidance to guard editor branches with
+  it didn't work). Fixed in `renderer/loadConfig` by propagating the
+  flags across `cfg.LanguageConfigMap`. Found while verifying the new
+  globals suite.
+- **Done (2026-08-12): globals test suite** (`test/unit/hugo/globals.test.ts`)
+  — dedicated probes over the rendered WASM for the `site.*` and `hugo.*`
+  surfaces, `site.Data`/`hugo.Data` + query helpers, page collections and
+  `site.GetPage` over the stub editor site, language identity, and `site`
+  staying in scope in nested partials. Also: the emitter's `locale` config
+  key is a real Hugo key (`langs.LanguageConfig.Locale`) — verified
+  `site.Language.Locale` resolves through it. Shared WASM boot harness
+  extracted to `test/unit/_helpers/wasm-renderer.ts` (wasm-renderer.test.ts
+  refactored onto it, zero behavior change).

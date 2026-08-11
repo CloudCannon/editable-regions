@@ -128,17 +128,33 @@ production pages costs one small script, not a 16MB download.
 - Any partial rendering from its props: templating, nested partials,
   `partialCached` (as a plain partial), the full Hugo template function
   surface (`markdownify`, `where`, `printf`, `time`, …) — it's real Hugo.
-- `site.Params`, `site.Title`, `site.Menus` — from the emitted config.
-- `site.Data.*` — from the emitted data snapshot.
+- The `site` global (components get props as their context, so use `site.*`,
+  not `.Site.*`): `site.Params` (dotted paths, nested maps, arrays),
+  `site.Title`, `site.Menus`, `site.Language` (`.Lang`, `.Locale` —
+  `site.LanguageCode` is deprecated but still resolves), `site.BaseURL`,
+  `site.Data`, and `site.Param "key"` — from the emitted config/data
+  snapshots. Page collections (`site.Pages`, `site.RegularPages`,
+  `site.Sections`) and `site.GetPage` read the editor site, which holds only
+  the stub home page — safe but empty.
+- The `hugo.*` namespace: `hugo.Version`, `hugo.Generator`,
+  `hugo.Environment` (`"production"` in the editor), and
+  **`hugo.IsServer` is `true` in the editor site** — guard editor-only
+  branches with `{{ if hugo.IsServer }}`. `hugo.Data`/`hugo.Sites` mirror
+  `site.Data`/`.Site` without the deprecated `.Site.Data`/`.Site.Sites`.
+- Data files are queryable with the template helpers: `where`,
+  `index`, `sort`, `default`, `len` across `site.Data.*`.
 - Props are delivered by the shared core from the CloudCannon API
   (`data-prop` source paths), so front-matter edits render live.
 
 ## Limitations and fallbacks
 
 - **Page context**: components render with props as their context, not a
-  `Page`. `.Site`/`.Page` methods beyond the shims above (e.g. `.Site.Pages`,
-  `.GetPage`, `.Resources`) aren't available — keep components props-driven,
-  or guard editor-only branches with `hugo.IsServer`.
+  `Page`, so they reach the site through the `site` global, not `.Site`.
+  Page-scoped methods (`page.Resources`, `.Next`, `.IsHome`, …) aren't
+  available, and the editor site holds no real content — `site.Pages` /
+  `site.RegularPages` / `site.GetPage` come back empty or the stub home
+  page (see open item: content loading). Keep content-props-driven, or
+  guard editor-only branches with `hugo.IsServer`.
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
 - **Shortcodes** aren't processed inside `markdownify`.
