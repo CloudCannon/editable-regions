@@ -15,7 +15,7 @@
   {{- range $entry := readDir $dir -}}
     {{- $path := printf "%s/%s" $dir $entry.Name -}}
     {{- if $entry.IsDir -}}
-      {{- $files = merge $files (partial "cc/walk-dir.html" (dict "dir" $path "exts" $exts)) -}}
+      {{- $files = merge $files (partial "editable-regions/walk-dir.html" (dict "dir" $path "exts" $exts)) -}}
     {{- else -}}
       {{- $ext := path.Ext $entry.Name | lower -}}
       {{- if in $exts $ext -}}

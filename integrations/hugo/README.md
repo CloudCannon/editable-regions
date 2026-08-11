@@ -7,17 +7,18 @@ without round-tripping through a Hugo build.
 Unlike the other integrations, the build-time half is **pure Hugo** — there is
 no Node plugin, CLI, or post-build step, and the site needs **no configuration
 at all**. Hugo has no plugin system, so this integration is packaged as a Hugo
-module (or theme) that does its work with two first-party mechanisms:
+module that does its work with two first-party mechanisms:
 
 1. **Partials + the asset pipeline**: a single partial in the site's `<head>`
-   builds the live-editing bundle through Hugo Pipes — the snapshot prelude
-   (template sources, data files, normalized site config, and a page map
-   resolved from `.Site.Pages`) concatenated with the prebuilt runtime,
-   fingerprinted, and emitted as one `<script>` tag with SRI.
-2. **Module assets**: the prebuilt browser runtime (`runtime.js`) and the
-   Hugo renderer compiled to WASM (`hugo_renderer.wasm.gz`) ship in the
-   module's `assets/`, so they ride the resource pipeline (fingerprinted,
-   cache-safe URLs) rather than being copied verbatim from `static/`.
+   builds the live-editing bundle through Hugo Pipes — the runtime's entry
+   asset is rendered with the site snapshot (template sources, data files,
+   normalized site config, and a page map resolved from `.Site.Pages`) via
+   `resources.ExecuteAsTemplate`, bundled from source by `js.Build` (Hugo's
+   embedded esbuild), fingerprinted, and emitted as one `<script>` tag with
+   SRI.
+2. **Module mounts**: the module is this repository's root; its `hugo.toml`
+   mounts the partials, the renderer WASM (`hugo_renderer.wasm.gz`), and the
+   browser runtime sources into the site's virtual filesystem.
 
 In the browser, the runtime boots a real Hugo (via WASM) from the emitted
 snapshot and registers `window.cc_components` renderers. The shared
@@ -26,18 +27,19 @@ the CloudCannon API, DOM diffing, editors, and error cards.
 
 ## Install and configure
 
-Add the module to the site (any of: `hugo mod get`, a theme submodule, or a
-local `themesDir` entry):
+Import the module (requires the Go toolchain, as with any Hugo module):
 
 ```toml
 # hugo.toml
-theme = "editable-regions"       # or [[module.imports]]
+[module]
+  [[module.imports]]
+    path = "github.com/cloudcannon/editables"
 ```
 
 That's the whole configuration. Load the bundle in the site's `<head>`:
 
 ```go-html-template
-{{ partial "cc/live-editing-head.html" . }}
+{{ partial "editable-regions" . }}
 ```
 
 That partial emits a single fingerprinted `<script>` tag (SRI + `defer`)
@@ -46,13 +48,13 @@ the tag — conditional loading, your own pipeline — call the function-style
 partial instead and use the resource however you like:
 
 ```go-html-template
-{{ $bundle := partial "cc/resources.html" . }}
+{{ $bundle := partial "editable-regions/resources.html" . }}
 ```
 
 Annotate components where they're rendered:
 
 ```go-html-template
-{{ partial "cc/editable-component.html" (dict
+{{ partial "editable-regions/component.html" (dict
   "component" "card.html"   # partial name, relative to layouts/partials
   "prop" "card"             # source path for the props (data-prop)
   "props" .Params.card      # the props to render with at build time
@@ -81,15 +83,16 @@ write them directly in your templates.
 ```
 hugo build
   ├── site pages (normal HTML output, with data-editable annotations)
-  │     └── <head>: {{ partial "cc/live-editing-head.html" . }}
+  │     └── <head>: {{ partial "editable-regions" . }}
   │           └── /cc-editable-regions/live-editing.<hash>.js
-  │                 ├── snapshot prelude        <- cc/snapshot.html (this module)
-  │                 │     window.cc_hugo_files  <- layouts/partials/** snapshot
-  │                 │     window.cc_hugo_data   <- data/** snapshot
-  │                 │     window.cc_hugo_config <- baseURL, title, params, menus
-  │                 │     window.cc_hugo_pages  <- input path -> URL (from .Site.Pages)
-  │                 │     window.cc_hugo        <- meta incl. fingerprinted WASM URL
-  │                 └── runtime.js              <- prebuilt IIFE (this repo)
+  │                 entry.js (module asset) rendered with the site snapshot,
+  │                 then bundled from source by js.Build:
+  │                   window.cc_hugo_files  <- layouts/partials/** snapshot
+  │                   window.cc_hugo_data   <- data/** snapshot
+  │                   window.cc_hugo_config <- baseURL, title, params, menus
+  │                   window.cc_hugo_pages  <- input path -> URL (from .Site.Pages)
+  │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
+  │                   + the browser runtime (integrations/hugo/browser)
   └── /cc-editable-regions/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
 ```
 
@@ -130,15 +133,23 @@ production pages costs one small script, not a 16MB download.
 ## Development (this repo)
 
 - `renderer/` — the Go WASM renderer. `./build.sh` compiles it and installs
-  the gzipped binary into `hugo-module/assets/`. `node verify-renderer.mjs`
-  smoke-tests the render surface in Node.
-- `browser/` — the runtime source. `node integrations/hugo/build-runtime.mjs`
-  bundles it (IIFE) into `hugo-module/assets/`.
-- `hugo-module/` — the distributable Hugo module: annotation partials, the
-  snapshot/bundle pipeline partials, and the built assets (gitignored;
-  built by the two commands above, which `npm run build:hugo` chains).
-- `test/integrations/hugo/` — fixture site consuming the module via
-  `themesDir`; `npm run build` inside it builds with Hugo and runs
+  the gzipped binary into `hugo-module/assets/` (gitignored; also what
+  `npm run build:hugo` runs). `node verify-renderer.mjs` smoke-tests the
+  render surface in Node.
+- `browser/` — the runtime source, mounted into the site's assets by the
+  repo-root `hugo.toml`. `entry.js` is the bundle entry: a Go template
+  rendered with the site snapshot (excluded from biome), bundled from
+  source by `js.Build` at site build time — there is no release-side JS
+  build.
+- `hugo-module/` — the module's partials (`editable-regions` and the
+  `editable-regions/` namespace) and the renderer WASM asset.
+- `hugo.toml` (repo root) — the module itself: mounts exposing the
+  partials, assets, runtime sources, and shared helpers.
+- `test/integrations/hugo/` — fixture site importing the module via a
+  local `replacements` entry, exactly as a real site would. Note that
+  relative replacement targets resolve against `themesDir`, not the
+  project dir (hence the four `..` levels). `npm run build` inside it
+  builds the WASM, builds the site with Hugo, and runs
   `verify-bundle.mjs`, which checks the emit contract and then boots the
-  real WASM from the emitted data and asserts an editor render matches the
-  build-time HTML.
+  real WASM from the emitted data and asserts an editor render matches
+  the build-time HTML.

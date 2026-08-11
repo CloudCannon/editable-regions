@@ -1,12 +1,16 @@
 # Fixture site for the Hugo editable-regions integration.
 #
-# Consumes the Hugo module from this repo via themesDir. A real site would
-# use `hugo mod get` or a theme submodule instead; the config below is
-# otherwise exactly what a consuming site adds.
+# Consumes the module exactly as a real site would — a module import of the
+# repo root — with a local replacement so development uses the working tree.
 baseURL = "/"
 title = "Hugo Editable Regions Fixture"
-themesDir = "../../../integrations/hugo"
-theme = "hugo-module"
+
+[module]
+  # Note: relative replacement targets resolve against themesDir
+  # (test/integrations/hugo/themes), not the project dir — hence four levels.
+  replacements = "github.com/cloudcannon/editables -> ../../../.."
+  [[module.imports]]
+    path = "github.com/cloudcannon/editables"
 
 [params]
   brand = "Fixture Brand"

@@ -3,9 +3,9 @@
  *
  * Two halves:
  *  1. STRUCTURAL — the module published the single fingerprinted bundle
- *     (snapshot prelude + runtime, concatenated by cc/resources.html) and
- *     the fingerprinted renderer WASM, and the home page's <head> carries
- *     the bundle's script tag.
+ *     (entry asset rendered with the site snapshot via ExecuteAsTemplate,
+ *     bundled by js.Build) and the fingerprinted renderer WASM, and the
+ *     home page's <head> carries the bundle's script tag.
  *  2. ROUND-TRIP — boot the real renderer WASM from the emitted snapshot
  *     (exactly what the browser runtime does), render the fixture's card
  *     component with the same props as the front matter, and check it
@@ -65,24 +65,37 @@ const bundle = bundleName
 	? fs.readFileSync(path.join(assetDir, bundleName), "utf8")
 	: "";
 
-// The snapshot prelude sits ahead of the runtime, split by its sentinel.
-const [snapshot, runtime] = bundle.split("/* cc:snapshot:end */");
-check(
-	"bundle contains the snapshot prelude and runtime, in order",
-	Boolean(snapshot) && typeof runtime === "string" && runtime.length > 0,
-);
-check(
-	"runtime follows the snapshot prelude",
-	Boolean(runtime?.includes("renderHugoPartial")),
-);
-
-// Evaluate the snapshot prelude to get the emitted data out.
-const sandbox = { window: {} };
+// Execute the whole bundle in a stubbed sandbox: the inlined snapshot
+// assigns window.cc_hugo*, then initHugoLiveEditing() runs. Without the
+// CloudCannon API the runtime goes idle (no WASM fetch), so a handful of
+// browser globals is all it needs. Aliasing window to the sandbox global
+// means the cc_hugo* assignments land directly on it.
+const webcrypto = (await import("node:crypto")).webcrypto;
+const sandbox = {
+	console,
+	crypto: webcrypto,
+	performance,
+	TextEncoder,
+	TextDecoder,
+	setTimeout,
+	clearTimeout,
+	document: { addEventListener: () => {} },
+};
+sandbox.window = sandbox;
 vm.createContext(sandbox);
-if (snapshot) {
-	vm.runInContext(snapshot, sandbox);
+if (bundle) {
+	vm.runInContext(bundle, sandbox);
 }
 const win = sandbox.window;
+
+check(
+	"bundle assigns the snapshot globals",
+	typeof win.cc_hugo === "object" && typeof win.cc_hugo_files === "object",
+);
+check(
+	"bundle registers the component proxy",
+	win.cc_components !== undefined,
+);
 
 check(
 	"template snapshot contains the card partial",

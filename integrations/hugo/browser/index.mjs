@@ -7,14 +7,8 @@
 
 import "./wasm_exec.js";
 import { apiLoadedPromise } from "../../../helpers/cloudcannon.mjs";
-import {
-	group,
-	groupEnd,
-	log,
-	setVerbose,
-	warn,
-} from "../../liquid/logger.mjs";
 import { enhanceHugoError, missingComponentError } from "./errors.mjs";
+import { group, groupEnd, log, setVerbose, warn } from "./logger.mjs";
 
 /** Kinds the editor site never renders; disabling them trims every rebuild. */
 const DISABLED_KINDS = [

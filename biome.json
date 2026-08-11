@@ -23,6 +23,7 @@
 			"!**/*.d.mts",
 			"!integrations/hugo/renderer",
 			"!integrations/hugo/browser/wasm_exec.js",
+			"!integrations/hugo/browser/entry.js",
 			"!integrations/hugo/hugo-module"
 		]
 	},

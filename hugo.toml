@@ -1,0 +1,20 @@
+# This repository doubles as the editable-regions Hugo module; consuming
+# sites import the repo root (hugo mod get github.com/cloudcannon/editables).
+#
+# The mounts below are the module's public surface: only these directories
+# enter the build's virtual filesystem. The browser runtime and shared
+# helpers are mounted at their repo-relative paths so the import specifiers
+# inside them resolve identically in the mounted assets filesystem.
+[module]
+  [[module.mounts]]
+    source = "integrations/hugo/hugo-module/layouts"
+    target = "layouts"
+  [[module.mounts]]
+    source = "integrations/hugo/hugo-module/assets"
+    target = "assets"
+  [[module.mounts]]
+    source = "integrations/hugo/browser"
+    target = "assets/integrations/hugo/browser"
+  [[module.mounts]]
+    source = "helpers"
+    target = "assets/helpers"

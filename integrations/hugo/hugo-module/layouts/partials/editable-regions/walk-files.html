@@ -7,6 +7,6 @@
 {{- $exts := .exts -}}
 {{- $files := dict -}}
 {{- range $dir := .dirs -}}
-  {{- $files = merge $files (partial "cc/walk-dir.html" (dict "dir" $dir "exts" $exts)) -}}
+  {{- $files = merge $files (partial "editable-regions/walk-dir.html" (dict "dir" $dir "exts" $exts)) -}}
 {{- end -}}
 {{- return $files -}}
