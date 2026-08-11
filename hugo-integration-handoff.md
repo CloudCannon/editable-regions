@@ -172,12 +172,48 @@ Settled design:
   is published.
 - **Trigger is an open question**: the FS layer cannot detect "this
   partial uses collections" (absent `content/` → no reads → no signal).
-  Candidates: background warm after first render (edited file jumps the
+  First pass: background warm after first render (edited file jumps the
   queue), or explicit/config-driven. Decide at implementation time.
-- **Open idea, not adopted**: a fault-and-settle afero wrapper (log reads
-  of absent paths → JS fetches → rebuild). A generic answer for
-  `assets/`, `i18n/`, `static/`, which the snapshot doesn't cover.
-  Deferred until the loading work shows whether it's needed.
+- **Dependency-walk detection — researched, source-verified, but NOT
+  first pass** (session 2). The precise long-term answer to the trigger
+  question: Hugo's own dependency tracker records, per rendered page,
+  exactly which pages it touched — reachable entirely through public
+  API. Evidence chain (v0.164.0 source):
+  - `tpl/tplimpl/template_funcs.go:140` (`trackDependencies`): every
+    template method/func execution walks the receiver's identities into
+    the current scope's dependency manager — `.Title` on a page records
+    that page; partials chain their managers into the caller's
+    (`tpl/partials/partials.go:260`), so deps flow up into the
+    dispatcher page.
+  - `hugolib/page.go:150`: `pageState` publicly satisfies
+    `identity.DependencyManagerProvider`.
+  - `identity.WalkIdentitiesDeep(page, cb)` (public) recursively walks
+    the manager graph; page identities are their paths
+    (`pageState.IdentifierBase()` = `Path()`, `page__meta.go:56`), which
+    map directly onto the API content listing.
+  - Recording is gated on `t.watching` (`template_funcs.go:117`), driven
+    by the same Watch/Running flags the render hook already forces —
+    tracking is already on in our builds.
+  The loop: boot with blank skeleton files built from the (cheap) API
+  listing → render → walk the dispatcher page's deps → fetch exactly the
+  touched files → rebuild → re-walk to fixpoint (1–2 iterations). Empty
+  dep set = component ignores content = zero content fetches. No
+  sentinel values: skeletons carry structure only; the sensor is access,
+  not output. Handle `identity.GenghisKhan` ("depends on everything") as
+  a broad-fetch fallback.
+  **Known hole**: value predicates evaluated inside Go (`where` on
+  `.Params.*`, `if` on blank titles) record nothing and filter wrong
+  against blank skeletons. Not fixable locally by any scheme; the real
+  fix is a CloudCannon front-matter/batch API (real front matter in
+  skeletons, only bodies lazy). Structural predicates (`Section`) and
+  output-position value access are fine.
+  First verification spike when resumed: render the test-site dispatcher
+  and print the walked identity set (~20 lines in `renderer/main.go`).
+- **Open idea, superseded**: a fault-and-settle afero wrapper (log reads
+  of absent paths → JS fetches → rebuild). The probe showed walked trees
+  give no useful FS-level signal, and the dependency walk above is the
+  better sensor. Would only remain relevant for `assets/`/`i18n/`/
+  `static/` laziness, which the snapshot mostly covers.
 
 ### 3. Render hook — descoped (was "idea 3")
 
