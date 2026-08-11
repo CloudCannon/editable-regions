@@ -27,28 +27,27 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # The Hugo WASM unit test (test/unit/hugo/wasm-renderer.test.ts) boots
-      # the real renderer, so build it with Go before running the suite. Go
-      # is pinned to the version the renderer targets.
+      # The Hugo unit tests boot the real renderer WASM (built with Go) and
+      # the fixture site (built with Hugo), so set up both tools before the
+      # suite runs. Go and Hugo are pinned to the versions the renderer
+      # targets.
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version-file: integrations/hugo/renderer/go.mod
           cache-dependency-path: integrations/hugo/renderer/go.sum
 
-      - name: Build the renderer WASM
-        run: npm run build:hugo
-
-      - name: Unit tests
-        run: npm run test:build-fixtures && npm test
-
-      # The Hugo integration fixture builds the site with Hugo. Pin to the
-      # version the renderer targets.
       - name: Set up Hugo
         uses: peaceiris/actions-hugo@v3
         with:
           hugo-version: "0.164.0"
           extended: true
+
+      - name: Build the renderer WASM
+        run: npm run build:hugo
+
+      - name: Unit tests
+        run: npm run test:build-fixtures && npm test
 
       - name: Integration tests
         run: bash run-integration-tests.sh

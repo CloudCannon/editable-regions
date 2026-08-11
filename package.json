@@ -29,10 +29,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-snapshots": "vitest run -u",
-    "test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config",
+    "test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture",
     "test:build-astro-fixture": "npm --prefix test/unit/_fixtures/astro install --silent && npm --prefix test/unit/_fixtures/astro run build",
     "test:build-eleventy-fixture": "npm --prefix test/unit/_fixtures/eleventy install --silent && npm --prefix test/unit/_fixtures/eleventy run build",
-    "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build"
+    "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build",
+    "test:build-hugo-fixture": "npm --prefix test/unit/_fixtures/hugo install --silent && npm --prefix test/unit/_fixtures/hugo run build"
   },
   "files": [
     "components",

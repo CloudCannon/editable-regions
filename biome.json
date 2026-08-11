@@ -17,6 +17,7 @@
 			"test/**",
 			"types/**",
 			"!test/integrations",
+			"!test/unit/_fixtures/hugo",
 			"!**/*.astro",
 			"!**/*.svelte",
 			"!**/*.vue",

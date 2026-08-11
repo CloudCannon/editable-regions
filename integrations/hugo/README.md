@@ -147,10 +147,18 @@ production pages costs one small script, not a 16MB download.
   `editable-regions/` namespace) and the renderer WASM asset.
 - `hugo.toml` (repo root) — the module itself: mounts exposing the
   partials, assets, runtime sources, and shared helpers.
-- `test/unit/hugo/wasm-renderer.test.ts` — boots the built WASM renderer
-  in vitest and exercises its full surface (props, nested partials, data,
-  error recovery, live template updates). Requires the renderer to be
-  built first (`npm run build:hugo`).
+- `test/unit/_fixtures/hugo/` — fixture site for the unit tests, built by
+  `npm run test:build-hugo-fixture` (part of `test:build-fixtures`). It
+  imports the module via a local `replacements` entry; note that relative
+  replacement targets resolve against `themesDir`, not the project dir
+  (hence five `..` levels from `test/unit/_fixtures/hugo`).
+- `test/unit/hugo/` — the unit tests. `wasm-renderer.test.ts` boots the
+  built WASM renderer directly (props, nested partials, data, error
+  recovery, live template updates); `register`/`render`/`slots.test.ts`
+  boot the fixture's real emitted bundle under vitest — a stubbed `fetch`
+  serves the fingerprinted WASM — and drive components through the
+  `window.cc_components` proxy (see `_helpers/hugo-bundle.ts`). Requires
+  the renderer and fixture to be built first (`npm run build:hugo`).
 - `test/integrations/hugo/` — fixture site importing the module via a
   local `replacements` entry, exactly as a real site would. Note that
   relative replacement targets resolve against `themesDir`, not the

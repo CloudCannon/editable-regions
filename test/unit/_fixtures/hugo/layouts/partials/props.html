@@ -1,0 +1,2 @@
+{{- /* Props-driven component. `count` and `tags` demonstrate the defaults the renderer applies when the editor has no value for them. */ -}}
+<div class="with-props"><h3>{{ .title }}</h3><span class="count">{{ .count | default 0 }}</span>{{ range .tags }}<em class="tag">{{ . }}</em>{{ end }}</div>

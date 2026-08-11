@@ -1,0 +1,19 @@
+# Unit-test fixture for the Hugo editable-regions integration.
+#
+# Imports the module exactly as a real site would — a module import of the
+# repo root — with a local replacement so the tests use the working tree.
+baseURL = "/"
+title = "Hugo Unit Fixture"
+
+[module]
+  # Relative replacement targets resolve against themesDir
+  # (test/unit/_fixtures/hugo/themes), not the project dir — hence five levels.
+  replacements = "github.com/cloudcannon/editables -> ../../../../.."
+  [[module.imports]]
+    path = "github.com/cloudcannon/editables"
+
+[params]
+  brand = "Fixture Brand"
+
+  [params.editable_regions]
+    verbose = false
