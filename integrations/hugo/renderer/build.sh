@@ -14,7 +14,9 @@ printf "Built Hugo renderer WASM: "
 ls -lh "$OUTPUT" | awk '{print $5}'
 
 mkdir -p "$ASSETS_DIR"
-gzip --keep --force "$OUTPUT"
+# -n: no embedded timestamp, so identical builds produce identical bytes and
+# the fingerprinted URL only changes when the renderer actually changes.
+gzip --keep --force -n "$OUTPUT"
 mv "$OUTPUT.gz" "$ASSETS_DIR/hugo_renderer.wasm.gz"
 printf "Compressed renderer installed at $ASSETS_DIR/hugo_renderer.wasm.gz: "
 ls -lh "$ASSETS_DIR/hugo_renderer.wasm.gz" | awk '{print $5}'
