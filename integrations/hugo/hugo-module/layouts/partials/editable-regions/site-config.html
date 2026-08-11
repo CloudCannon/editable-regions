@@ -14,7 +14,7 @@
 {{- return (dict
   "baseURL" ("/" | absURL)
   "title" site.Title
-  "languageCode" (site.LanguageCode | default "")
+  "locale" (site.LanguageCode | default "")
   "params" site.Params
   "menus" $menus
 ) -}}

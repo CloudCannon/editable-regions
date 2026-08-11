@@ -57,7 +57,7 @@ lazily once the CloudCannon API appears; each component render rewrites
 6. `gzip -n` in `renderer/build.sh` — deterministic WASM bytes so
    fingerprint URLs only churn on real changes.
 7. CI: `test.yml` now sets up Go (`go-version-file` from
-   `renderer/go.mod`) and Hugo 0.147.6 extended — the fixture previously
+   `renderer/go.mod`) and Hugo 0.164.0 extended — the fixture previously
    could not run in CI at all.
 
 ## Hugo gotchas encountered (worth knowing)
@@ -77,8 +77,10 @@ lazily once the CloudCannon API appears; each component render rewrites
 - `js.Build` import resolution: bare imports resolve against the unified
   assets FS, then fall back to the *project's* `node_modules`. Auto-extension
   list is `{js,ts,tsx,jsx}` — use explicit `.mjs` extensions.
-- Fingerprinted assets accumulate in `public/` across rebuilds unless the
-  destination is cleaned (fixture uses `hugo --cleanDestinationDir`).
+- Fingerprinted assets accumulate in `public/` across rebuilds:
+  `--cleanDestinationDir` only reconciles files that come from `static/`
+  and leaves pipeline-generated resources behind — the fixture does a real
+  `rm -rf public resources` instead.
 - `resources.Concat` inserts `\n;\n` barriers between JS files (moot now —
   concat is gone — but good to know).
 
@@ -118,10 +120,10 @@ the only per-render variable. Proposed hook: **build once at init, then
 execute the already-compiled partial template directly with props as the
 context** — kills the fsnotify theater and the coercion problem in one move,
 and render latency drops to pure template execution. Risk: executing a named
-template sits below `hugolib`'s public API (`tplimpl` territory) — spike it
-against the pinned v0.147.6 in the module cache
-(`~/go/pkg/mod/github.com/gohugoio/hugo@v0.147.6`; look for a
-`Site.Tmpl()`/template-lookup seam reachable from `hugolib.HugoSites`).
+   template sits below `hugolib`'s public API (`tplimpl` territory) — spike it
+   against the pinned v0.164.0 in the module cache
+   (`~/go/pkg/mod/github.com/gohugoio/hugo@v0.164.0`; look for a
+   `Site.Tmpl()`/template-lookup seam reachable from `hugolib.HugoSites`).
 The Go module cache trick from this session — reading Hugo's source there —
 was repeatedly effective.
 
@@ -170,8 +172,10 @@ permalink/`ref`/`GetPage`-style lookups) or delete the emission.
 
 ## Environment notes
 
-- Hugo 0.147.6 (extended) + Go 1.24.5 were installed to
+- Hugo 0.164.0 (extended) + Go 1.26.5 were installed to
   `/tmp/opencode/toolchain` this session (ephemeral — reinstall if gone).
+  The renderer pins hugo v0.164.0, which requires Go >= 1.26; the vendored
+  `wasm_exec.js` must match the Go toolchain (`$(go env GOROOT)/lib/wasm`).
 - Verify loop: `npm run build:hugo` (root; WASM only), then
   `npm run build` in `test/integrations/hugo` (chains build:hugo, Hugo,
   verify-bundle.mjs — 21 checks incl. booting the real WASM in Node and

@@ -1,9 +1,6 @@
 // @ts-nocheck
 // Vendored from the Go toolchain: $(go env GOROOT)/lib/wasm/wasm_exec.js
 // Keep in sync with the Go version used by renderer/build.sh.
-// Copyright 2018 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
 
 "use strict";
 
