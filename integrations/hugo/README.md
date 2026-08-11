@@ -143,6 +143,11 @@ production pages costs one small script, not a 16MB download.
   `site.Data`/`.Site` without the deprecated `.Site.Data`/`.Site.Sites`.
 - Data files are queryable with the template helpers: `where`,
   `index`, `sort`, `default`, `len` across `site.Data.*`.
+- **Props keep their types**: prop keys keep their exact case (camelCase
+  and nested keys included), numbers render as integers (`printf "%d"`
+  works; large ids don't flip to scientific notation) or floats, and
+  date-looking strings stay strings. The renderer round-trips props
+  through YAML front matter to preserve this.
 - Props are delivered by the shared core from the CloudCannon API
   (`data-prop` source paths), so front-matter edits render live.
 

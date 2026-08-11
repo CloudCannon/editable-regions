@@ -246,11 +246,28 @@ The direct-template-execution seam was rejected: it sits below
 `hugolib`'s public API (`tplimpl` territory) and the maintenance
 coupling isn't worth the latency win.
 
-Still open: the `.Params` coercion question (camelCase keys lowercased,
-dates→strings, numbers→float64) remains UNVERIFIED for our exact path —
-write the test with camelCase keys, dates, and nested maps. If it bites,
-the fix is the JSON-string props param + `transform.Unmarshal` in the
-editor layout (five lines, public API).
+**Params coercion — RESOLVED (2026-08-12)** by a bundle-path probe
+(`coercion-probe.html` + `test/unit/hugo/params-coercion.test.ts`) and a
+renderer fix. Findings:
+
+- **Keys & dates were never broken**: camelCase/nested keys survive front
+  matter exactly (`index` is case-insensitive; dotted access matches the
+  original key), and date-looking strings stay strings.
+- **Numbers were broken**: JSON front matter decodes every number as
+  float64, so whole numbers took float type in the editor — `printf "%d"`
+  errored and large ids (e.g. 9999999999) rendered `9.999999999e+09`.
+- **Fix**: the renderer now writes the stub page's front matter as **YAML
+  (goccy/go-yaml v1.19.2 — the same library Hugo's decoder uses) instead of
+  JSON**, after recursively canonicalizing integral float64 values to int64
+  (`integralizeNumbers`; goccy quotes ambiguous strings like `2024-01-15`,
+  so date-looking strings stay strings). Props now arrive as int64/uint64,
+  float64, bool, and string exactly as a real YAML-front-matter build gives
+  them. Note goccy parses positive ints as uint64 (`printf "%d"` renders
+  them fine either way).
+- The handoff's earlier proposed fix (JSON-string props + `transform.Unmarshal`
+  in the layout) would NOT have helped — `transform.Unmarshal` uses the same
+  float64 JSON decode. Verbose-upstream note: props travel as YAML literals
+  now, so keep `%T`-based type instructions out of component guidance.
 
 ### 4. wasip1 instead of GOOS=js — researched, deferred (was "idea 2")
 

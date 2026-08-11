@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"path/filepath"
 	"strings"
 	"syscall/js"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/goccy/go-yaml"
 	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/config/allconfig"
 	"github.com/gohugoio/hugo/deps"
@@ -182,6 +184,33 @@ func main() {
 	<-c
 }
 
+// JSON numbers decode to float64, but components expect the numeric types a
+// real front matter build gives them — whole numbers as ints (printf "%d"
+// works, large ids don't render in scientific notation), genuine fractions
+// as floats. Recursively converts integral float64s to int64 before the
+// props are written as YAML front matter. Values beyond the int64 range
+// were already imprecise as doubles, so those stay floats.
+func integralizeNumbers(v interface{}) interface{} {
+	switch n := v.(type) {
+	case float64:
+		if n == math.Trunc(n) && n >= math.MinInt64 && n <= math.MaxInt64 {
+			return int64(n)
+		}
+		return n
+	case map[string]interface{}:
+		for k, vv := range n {
+			n[k] = integralizeNumbers(vv)
+		}
+		return n
+	case []interface{}:
+		for i, vv := range n {
+			n[i] = integralizeNumbers(vv)
+		}
+		return n
+	}
+	return v
+}
+
 func errorValue(format string, args ...interface{}) js.Value {
 	return js.ValueOf(map[string]interface{}{
 		"error": fmt.Sprintf(format, args...),
@@ -267,15 +296,21 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	frontMatter, err := json.Marshal(map[string]interface{}{
+	// YAML (not JSON) front matter so props keep their types: JSON front
+	// matter decodes every number as float64, which turns whole numbers into
+	// floats (printf "%d" fails, large ids print in scientific notation).
+	// goccy/go-yaml is the same library Hugo's front-matter decoder uses, and
+	// it quotes ambiguous strings (e.g. date-looking values) so they stay
+	// strings. Keys keep their exact case either way.
+	frontMatter, err := yaml.Marshal(map[string]interface{}{
 		"cc_partial": req.Partial,
-		"cc_props":   props,
+		"cc_props":   integralizeNumbers(props),
 	})
 	if err != nil {
 		return errorValue("failed to encode props for %s: %s", req.Partial, err)
 	}
 
-	builder.writeFile("content/_index.md", string(frontMatter)+"\n")
+	builder.writeFile("content/_index.md", "---\n"+string(frontMatter)+"---\n")
 
 	if err := builder.build(); err != nil {
 		return errorValue("%s", err)

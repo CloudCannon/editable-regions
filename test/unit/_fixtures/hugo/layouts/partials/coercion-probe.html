@@ -1,0 +1,23 @@
+{{/*
+  Params-coercion diagnostics (params-coercion.test.ts): the renderer writes
+  props as YAML front matter (integral floats canonicalized to ints) and the
+  editor layout passes them to the partial as .Params.cc_props — so props are
+  round-tripped through Hugo's front-matter parsing. These lines reveal what
+  that does to key casing and value types: exact-case index vs lowercased
+  index, printf "%T" of resolved values, and a printf "%d" to prove ints
+  format like ints. `index` (not dotted access) so a casing miss renders
+  MISSING instead of failing the whole render.
+*/}}
+<div>dotCamel={{ .camelCaseKey }}</div>
+<div>camelExact={{ with (index . "camelCaseKey") }}{{ . }}{{ else }}MISSING{{ end }}</div>
+<div>camelLower={{ with (index . "camelcasekey") }}{{ . }}{{ else }}MISSING{{ end }}</div>
+<div>nestedExact={{ with (index . "nested" "NestedKey") }}{{ . }}{{ else }}MISSING{{ end }}</div>
+<div>nestedLower={{ with (index . "nested" "nestedkey") }}{{ . }}{{ else }}MISSING{{ end }}</div>
+<div>date={{ with (index . "date") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>datetime={{ with (index . "datetime") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>count={{ with (index . "count") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>countFmt={{ printf "%d" (index . "count") }}</div>
+<div>ratio={{ with (index . "ratio") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>big={{ with (index . "big") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>flag={{ with (index . "flag") }}{{ printf "%T" . }}={{ . }}{{ else }}MISSING{{ end }}</div>
+<div>text={{ with (index . "text") }}{{ . }}{{ else }}MISSING{{ end }}</div>
