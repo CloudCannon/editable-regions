@@ -4,6 +4,11 @@ State of `feat/hugo-editable-regions` after a review/rework session. The
 original design doc (`hugo-integration-shape.md`) predates this — where they
 disagree, this document wins.
 
+Updated same day after a follow-up design session: decisions 8–12 added
+(GOOS=js settled, content-loading design, page-map removal); the open
+items were rewritten to match. Items 2–4 below supersede their earlier
+versions entirely.
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -59,6 +64,32 @@ lazily once the CloudCannon API appears; each component render rewrites
 7. CI: `test.yml` now sets up Go (`go-version-file` from
    `renderer/go.mod`) and Hugo 0.164.0 extended — the fixture previously
    could not run in CI at all.
+8. **GOOS=js is the settled target** (session 2). wasip1 was evaluated
+   thoroughly and deferred — evidence in the wasip1 item below. The
+   short version: vanilla Hugo CLI doesn't compile to wasip1, WASI has
+   no file notifications, and lazy fetch inside a syscall is impossible
+   on the browser main thread.
+9. **No `tplimpl` seam hunt** (session 2). Executing compiled partials
+   directly would couple us to private Hugo internals for marginal gain;
+   the per-render incremental build stays. The `.Params` coercion fix, if
+   a test confirms it bites, is the JSON-string-param fallback (public
+   API only), not a template-execution seam.
+10. **Content loads in phases** (session 2): boot with templates + a
+    content-file *listing* (from the CloudCannon API at runtime, not a
+    build-time page map); when content is fetched, fetch **front matter
+    only** and write stub content files with blank bodies. Full bodies
+    stay unloaded until a demonstrated need appears.
+11. **Full-site rendering is suppressed with build options, not
+    `disableKinds`** (session 2, probe-verified on v0.164.0): editor
+    config gets `cascade: [{build: {render: "link"}}]`; the dispatcher
+    stub `content/_index.md` opts back in with `build: {render: always}`.
+    Pages stay in the store (collections, `.Content`/`.Summary`, and
+    permalinks all work — `render: "never"` would empty `.RelPermalink`)
+    while only `index.html` is published.
+12. **The page map is removed** (session 2): `window.cc_hugo_pages`
+    emission, `runtimeData.pages`, and the `page-map.html` partial get
+    deleted. The CloudCannon API already enumerates files at runtime;
+    re-add a map only when a concrete consumer defines what it needs.
 
 ## Hugo gotchas encountered (worth knowing)
 
@@ -83,6 +114,21 @@ lazily once the CloudCannon API appears; each component render rewrites
   `rm -rf public resources` instead.
 - `resources.Concat` inserts `\n;\n` barriers between JS files (moot now —
   concat is gone — but good to know).
+- **What hugolib reads, and when** (read-trace probe, v0.164.0, afero
+  wrapper logging every read): `content/`, `data/`, `i18n/`, and
+  `layouts/` are read **fully** at initial build (walked trees are
+  all-or-nothing per tree — if `content/` is absent, nothing faults and
+  collection partials silently render empty). `assets/` is **lazy** —
+  read only when an executed template references a path via
+  `resources.Get` et al. Incremental builds re-read only the changed
+  file + its directory listing. Config load probes ~15 well-known paths
+  (`go.mod`, `package.json`, `archetypes/`, `_vendor/`, ...).
+- **Front-matter build options**: the key is `build`, not `_build`
+  (`_build` was removed in Hugo 0.145). `build.render` values:
+  `always` (default), `never` (in store, but `.RelPermalink` empty),
+  `link` (in store, permalink works, no output rendered).
+  `.Content`/`.Summary` of `link`/`never` pages render on demand when
+  another page accesses them.
 
 ## Open items, in suggested order
 
@@ -98,66 +144,89 @@ Agreed direction: `release.yml` (already triggers on `v*`) attaches
 `wasm_url` points at the version-pinned release URL. The module needs to
 know its own version for that URL — add e.g. a `params.editable_regions._version`
 placeholder in the module config that the release job stamps. Runtime fetch
-is already lazy + remote-capable. (Rejected: committing the 16MB binary to
-the dev repo.)
+is already lazy + remote-capable. (Rejected: committing the binary to the
+dev repo — ~20MB gz as of the Hugo 0.164.0 bump, up from ~16MB at
+0.147.6.)
 
-### 2. Render hook re-evaluation (idea 3) — the big one
+### 2. Content loading — the big one (design settled session 2)
 
-Current hook: per render, rewrite `content/_index.md` front matter with
-`cc_partial`/`cc_props` → fake fsnotify event → incremental `Sites.Build`
-(with `Running`/`Watch` flags forced) → read `public/index.html`. Uses only
-public `hugolib` API, but:
+Goal: components that touch collections (`.Site.RegularPages`,
+`site.GetPage`, etc.) render real data in the editor, without paying a
+full-content load for sites/components that never use them.
 
-- **Props round-trip through front matter → `.Params` coercion.** Hugo
-  lowercases param keys and mangles types (dates→strings, numbers→float64).
-  UNVERIFIED for our exact path — write a test with camelCase keys, dates,
-  and nested maps first to confirm severity.
-- The rebuild machinery (fake fsnotify, Running/Watch, counting publish FS)
-  exists *only* to re-execute a template with new props.
+Settled design:
 
-Key insight: the snapshot is immutable during an editing session; props are
-the only per-render variable. Proposed hook: **build once at init, then
-execute the already-compiled partial template directly with props as the
-context** — kills the fsnotify theater and the coercion problem in one move,
-and render latency drops to pure template execution. Risk: executing a named
-   template sits below `hugolib`'s public API (`tplimpl` territory) — spike it
-   against the pinned v0.164.0 in the module cache
-   (`~/go/pkg/mod/github.com/gohugoio/hugo@v0.164.0`; look for a
-   `Site.Tmpl()`/template-lookup seam reachable from `hugolib.HugoSites`).
-The Go module cache trick from this session — reading Hugo's source there —
-was repeatedly effective.
+- **Boot stays as-is**: template/data/config snapshot, stub
+  `content/_index.md`. No content files at boot.
+- **Content listing comes from the CloudCannon API at runtime** — no
+  build-time page map (see removal task, item 5). No batch-fetch API
+  exists today; callers should call freely and let the API internals
+  optimise.
+- **When content loads, fetch front matter only** and write stub content
+  files with blank bodies via `writeHugoFiles` + change events. Bodies
+  stay blank until a demonstrated need (no sentinel-body tricks yet).
+- **Suppress full-site output with build options** (decision 11):
+  `cascade: [{build: {render: "link"}}]` in `buildEditorConfig`;
+  `renderHugoPartial` adds `build: {render: always}` to the dispatcher
+  stub it already writes. Page store stays complete; only `index.html`
+  is published.
+- **Trigger is an open question**: the FS layer cannot detect "this
+  partial uses collections" (absent `content/` → no reads → no signal).
+  Candidates: background warm after first render (edited file jumps the
+  queue), or explicit/config-driven. Decide at implementation time.
+- **Open idea, not adopted**: a fault-and-settle afero wrapper (log reads
+  of absent paths → JS fetches → rebuild). A generic answer for
+  `assets/`, `i18n/`, `static/`, which the snapshot doesn't cover.
+  Deferred until the loading work shows whether it's needed.
 
-Cheap fallback if the seam is ugly: keep per-render Build, but pass props as
-a JSON *string* param and `transform.Unmarshal` it in the editor layout —
-fixes coercion with a five-line change.
+### 3. Render hook — descoped (was "idea 3")
 
-### 3. wasip1 instead of GOOS=js (idea 2)
+The per-render incremental build (rewrite `content/_index.md` → fake
+fsnotify event → `Sites.Build` → read `public/index.html`) **stays**.
+The direct-template-execution seam was rejected: it sits below
+`hugolib`'s public API (`tplimpl` territory) and the maintenance
+coupling isn't worth the latency win.
 
-Honest framing: this is a **glue-layer upgrade, not an internals fix** — the
-fsnotify/Watch fakery is target-independent (item 2 is where that lives).
-What wasip1 buys:
+Still open: the `.Params` coercion question (camelCase keys lowercased,
+dates→strings, numbers→float64) remains UNVERIFIED for our exact path —
+write the test with camelCase keys, dates, and nested maps. If it bites,
+the fix is the JSON-string props param + `transform.Unmarshal` in the
+editor layout (five lines, public API).
 
-- Deletes `wasm_exec.js` (578 vendored lines that must exactly match the Go
-  toolchain version — real maintenance hazard).
-- Standard runtime: the binary runs under wasmtime/Node WASI —
-  `verify-renderer.mjs` gets simpler and portable.
-- go.mod is already on Go 1.24, which added `//go:wasmexport` for wasip1 —
-  keep the current request/response call model (`renderHugoPartial` as an
-  exported function); do NOT take on a blocking stdio process loop.
+### 4. wasip1 instead of GOOS=js — researched, deferred (was "idea 2")
 
-Cost: a browser WASI host shim (`@bjorn3/browser_wasi_shim` or similar) —
-vendor it into module assets so `js.Build` bundles it without depending on
-the site's node_modules. Sequencing: if item 2 changes the Go-side
-interface, do it first so the wasmexport surface is built once.
+Session 2 evidence:
 
-### 4. Dead page map
+- **Vanilla Hugo CLI does not compile to wasip1**: `bep/mclib` (mkcert,
+  pulled in by `hugo server --tls`) has no wasip1 backend, and the
+  server/livereload deps have no build-tag escape hatch. "No custom Go
+  entrypoint" would mean carrying patches — strictly worse than our
+  ~290-line `main.go`, which survived the 0.147.6→0.164.0 bump
+  unchanged.
+- **WASI has no file-change notifications**: `poll_oneoff` subscriptions
+  are clock + fd readability only, so `hugo --watch` can't exist there —
+  vanilla CLI means full-build-per-render, the exact regression we
+  wanted to avoid.
+- **No lazy fetch inside a syscall**: EAGAIN/`poll_oneoff` parks the Go
+  goroutine while the JS main thread (suspended inside the WASM call)
+  can never resolve the fetch — deadlock. `Atomics.wait` is banned on
+  the main thread; Go doesn't support JSPI; Worker + SharedArrayBuffer
+  needs `crossOriginIsolated` response headers we can't impose on
+  customer sites.
+- **FS-in-JS buys nothing over `writeHugoFiles`**: the afero memfs is
+  Hugo's own required interface (not a GOOS=js workaround), and any live
+  data must be pushed before a build regardless (sync/async wall), so
+  routing logic lives at sync time either way.
 
-`window.cc_hugo_pages` is emitted and stored in `runtimeData.pages` but
-nothing consumes it. Either wire it up (the design doc intended it to back
-permalink/`ref`/`GetPage`-style lookups) or delete the emission.
+Remains a valid glue swap if `wasm_exec.js` maintenance ever actually
+hurts: wasmexport reactor model (Go 1.24+) + vendored
+`browser_wasi_shim`. Would also fix the startup-readiness poll (item 5).
 
 ### 5. Smaller items
 
+- **Delete the page map** (decision 12): `page-map.html` partial, its use
+  in `resources.html`, the `window.cc_hugo_pages` emission, and
+  `runtimeData.pages` in `browser/index.mjs`.
 - WASM startup readiness is a `setTimeout(10ms)` poll for
   `globalThis.renderHugoPartial` — the Go side could signal readiness
   explicitly.
