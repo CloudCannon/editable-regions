@@ -1,0 +1,52 @@
+// Resolves the renderer WASM URL the live-editing bundle's meta carries.
+//
+// Resolution order:
+//   1. params.editable_regions.wasm_url — explicit URL override (handled by
+//      editable-regions/resources.html, which only calls this partial when
+//      it isn't set).
+//   2. params.editable_regions._version — explicit version override (e.g.
+//      themes-dir consumers or private mirrors). Wins over auto-detection.
+//   3. hugo.Deps — the consuming site's own resolved version of this module
+//      (github.com/cloudcannon/editables) from its go.mod, so the pinned
+//      release asset always matches exactly what the site imported. Empty
+//      under a local replace or a themes/ copy — falls through to (4).
+//   4. The module's local cc-editable-regions/hugo_renderer.wasm.gz (built
+//      with integrations/hugo/renderer/build.sh) — development checkouts.
+//
+// For (2)/(3) the release asset is fetched as a remote resource at build
+// time, published under public/_cloudcannon/, and fingerprinted — the
+// runtime loads it same-origin (no CORS). An explicit "0.0.0-dev" selects
+// the local asset.
+//
+// Expects (dict "override_version" "base_url"). Called with partialCached so
+// a site emitting the bundle from a base layout (once per page) only fetches
+// and publishes the remote asset once per build. A partial may only `return`
+// a value once, so branches assign into $result first.
+{{- $version := .override_version -}}
+{{- if not $version -}}
+  {{- range hugo.Deps -}}
+    {{- if eq .Path "github.com/cloudcannon/editables" -}}
+      {{- $version = .Version -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- /* Release tags are "vX.Y.Z"; Go reports the leading v and (for v2+ root modules) "+incompatible". Note strings.TrimSuffix/TrimPrefix take (affix, s). */ -}}
+{{- $version = strings.TrimSuffix "+incompatible" $version -}}
+{{- $version = strings.TrimPrefix "v" $version -}}
+{{- $result := "" -}}
+{{- if and $version (ne $version "0.0.0-dev") -}}
+  {{- $url := printf "%s/v%s/hugo_renderer.wasm.gz" .base_url $version -}}
+  {{- $remote := resources.GetRemote $url -}}
+  {{- if not $remote -}}
+    {{- errorf "editable-regions: no renderer WASM at %s — the resolved version %q has no release asset. Pin the module to a release tag (not a commit), or set params.editable_regions._version / .wasm_url" $url (printf "v%s" $version) -}}
+  {{- else -}}
+    {{- $result = (resources.Copy "_cloudcannon/hugo_renderer.wasm.gz" $remote | fingerprint).RelPermalink -}}
+  {{- end -}}
+{{- else -}}
+  {{- with resources.Get "cc-editable-regions/hugo_renderer.wasm.gz" -}}
+    {{- $result = (. | fingerprint).RelPermalink -}}
+  {{- else -}}
+    {{- errorf "editable-regions: no renderer WASM available. Publish a tagged release of the module, or set params.editable_regions.wasm_url, or build the renderer locally with integrations/hugo/renderer/build.sh" -}}
+  {{- end -}}
+{{- end -}}
+{{- return $result -}}

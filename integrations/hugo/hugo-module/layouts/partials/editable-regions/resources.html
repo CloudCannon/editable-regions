@@ -15,11 +15,10 @@
 {{- $dataExts := slice ".json" ".yaml" ".yml" ".toml" ".csv" -}}
 {{- $wasmUrl := $cfg.wasm_url -}}
 {{- if not $wasmUrl -}}
-  {{- with resources.Get "cc-editable-regions/hugo_renderer.wasm.gz" -}}
-    {{- $wasmUrl = (. | fingerprint).RelPermalink -}}
-  {{- else -}}
-    {{- errorf "editable-regions: cc-editable-regions/hugo_renderer.wasm.gz not found in assets (build it with integrations/hugo/renderer/build.sh) and no params.editable_regions.wasm_url override set" -}}
-  {{- end -}}
+  {{- $wasmUrl = partialCached "editable-regions/wasm-url.html" (dict
+    "override_version" ($cfg._version | default "")
+    "base_url" ($cfg.wasm_base_url | default "https://github.com/CloudCannon/editable-regions/releases/download")
+  ) -}}
 {{- end -}}
 {{- $ctx := dict
   "meta" (dict

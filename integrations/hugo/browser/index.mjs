@@ -92,8 +92,10 @@ async function startEngine() {
 		);
 	}
 
-	// The snapshot always sets meta.wasmUrl (a fingerprinted module asset);
-	// this fallback only applies when booting outside the module's bundle.
+	// The snapshot always sets meta.wasmUrl — a fingerprinted same-origin
+	// asset (published under _cloudcannon/ from the version-pinned release,
+	// or the local build). This fallback only applies when booting outside
+	// the module's bundle.
 	const wasmUrl =
 		runtimeData.meta.wasmUrl ?? "/cc-editable-regions/hugo_renderer.wasm.gz";
 

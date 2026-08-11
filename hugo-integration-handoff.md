@@ -134,21 +134,42 @@ lazily once the CloudCannon API appears; each component render rewrites
 
 ## Open items, in suggested order
 
-### 1. WASM distribution — BLOCKER for real users
+### 1. WASM distribution — DONE (2026-08-12)
 
 `hugo_renderer.wasm.gz` is gitignored → **not in the module zip** → a site
-importing the module from GitHub hits the `errorf` in
-`editable-regions/resources.html`. Only the fixture works today (local
-replacement sees the locally built file).
+importing the module from GitHub previously hit the `errorf` in
+`editable-regions/resources.html`. Resolved as:
 
-Agreed direction: `release.yml` (already triggers on `v*`) attaches
-`hugo_renderer.wasm.gz` as a GitHub release asset; the module's default
-`wasm_url` points at the version-pinned release URL. The module needs to
-know its own version for that URL — add e.g. a `params.editable_regions._version`
-placeholder in the module config that the release job stamps. Runtime fetch
-is already lazy + remote-capable. (Rejected: committing the binary to the
-dev repo — ~20MB gz as of the Hugo 0.164.0 bump, up from ~16MB at
-0.147.6.)
+- **Release**: `release.yml`'s `upload-renderer-wasm` job builds the WASM
+  (Go + `build.sh`, deterministic `gzip -n`) and attaches
+  `hugo_renderer.wasm.gz` to the `v*` GitHub release.
+- **Pinning**: no stamping — the module reads its own resolved version from
+  the consumer's module graph via **`hugo.Deps`** (`eq .Path
+  "github.com/cloudcannon/editables"` → `.Version`, available since Hugo
+  v0.92). Release tags are `vX.Y.Z`; Go reports the leading `v` and, at
+  v2+ (no root go.mod), `+incompatible` — both trimmed before URL use.
+  `strings.TrimSuffix/TrimPrefix` take `(affix, string)`, unlike Go's stdlib.
+- **Load**: `editable-regions/wasm-url.html` (partialCached) fetches the
+  pinned asset with `resources.GetRemote` at consumer build time, publishes
+  it under `public/_cloudcannon/`, fingerprints, and the runtime loads it
+  same-origin (no CORS). Cached per version by Hugo's remote-resource cache.
+- **Overrides**: `params.editable_regions.wasm_url` (full URL) and
+  `_version` (version override, wins over `hugo.Deps` — for themes-dir
+  consumers / private mirrors), plus `wasm_base_url`.
+- **Fallbacks**: an explicit `_version = "0.0.0-dev"` or an empty resolved
+  version (local replace/themes copy) falls through to the locally built
+  module asset; commit-pinned consumers (pseudo-versions — no release asset
+  exists) get an actionable `errorf`.
+- Gotchas hit: `resources.GetRemote` fails to resolve a media type for
+  `.wasm.gz`/octet-stream bodies (no `gz` type in Hugo's registry, and no
+  mediaType option) — that's fine, the module only needs to *publish* the
+  bytes; `GetRemote` returns nil on 404 (guard before `resources.Copy`);
+  `resources.Copy` takes `(target, resource)` and a partial may only
+  `return` a value once (single trailing return, interim `$result`).
+- (Rejected: committing the binary to the dev repo — ~20MB gz as of the
+  Hugo 0.164.0 bump, up from ~16MB at 0.147.6; and the release-job-stamps-`_version`
+  variant — tags are immutable, so it couldn't work without a pre-tag commit
+  dance, which `hugo.Deps` made unnecessary.)
 
 ### 2. Content loading — the big one (design settled session 2)
 
@@ -273,6 +294,6 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
 - `walk-dir.html` uses `merge` in a loop (O(n²)) — fine at partial scale.
 - `hugo-integration-shape.md` describes the superseded output-format plan;
   keep as historical record or refresh.
-- `browser/index.mjs`'s default `wasmUrl` fallback
-  (`/cc-editable-regions/hugo_renderer.wasm.gz`) is from the static-file era
-  — re-evaluate once item 1 lands.
+- **Done (2026-08-12): `browser/index.mjs`'s `wasmUrl` fallback** comment
+  refreshed for the build-time `_cloudcannon/` asset (item 1). The fallback
+  itself remains as a boot-outside-the-bundle safety net.

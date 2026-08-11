@@ -51,6 +51,14 @@ partial instead and use the resource however you like:
 {{ $bundle := partial "editable-regions/resources.html" . }}
 ```
 
+**The renderer WASM is pulled at build time from the GitHub release
+matching your module version** (determined from your own `go.mod` via
+`hugo.Deps`, so it never drifts from what you imported), copied into
+`public/_cloudcannon/`, and fingerprinted — the browser runtime then
+loads it same-origin. Building the site therefore needs network access to
+reach the release asset; development checkouts that mount the repo
+directly (a local `replace`) fall back to the locally built WASM instead.
+
 Annotate components where they're rendered by wrapping the partial call in an
 editable-component region:
 
@@ -78,7 +86,14 @@ editable-component region:
   template_dirs = ["layouts/partials"]  # dirs snapshotted for the renderer
   data_dirs = ["data"]                  # data files available as site.Data
   template_extensions = [".html", ".htm"]
-  wasm_url = ""                         # override the renderer WASM URL
+  wasm_url = ""                         # full override of the renderer WASM URL
+  # Optional version override. Normally the version is auto-detected from
+  # your module pin via hugo.Deps; set this to force a specific release
+  # (e.g. themes-dir consumers or private mirrors). No leading "v".
+  _version = ""
+  # Base of the release download URL used when _version or the module pin
+  # resolves to a release. Override when mirroring the assets.
+  wasm_base_url = "https://github.com/CloudCannon/editable-regions/releases/download"
   verbose = false                       # console logging in the editor
 ```
 
@@ -96,7 +111,9 @@ hugo build
   │                   window.cc_hugo_config <- baseURL, title, params, menus
   │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
   │                   + the browser runtime (integrations/hugo/browser)
-  └── /cc-editable-regions/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
+  └── /_cloudcannon/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
+        (pulled from the version-pinned GitHub release asset at build time,
+         or the locally built WASM in development checkouts)
 ```
 
 The WASM renderer holds a `hugolib` site over an in-memory filesystem. At
@@ -132,6 +149,13 @@ production pages costs one small script, not a 16MB download.
   differ from the site's. Template behavior is stable across versions for
   the component-scoped surface above, but brand-new template functions may
   lag behind.
+- **WASM availability**: the renderer is published as a GitHub release
+  asset, so a pinned module version that isn't a release tag (e.g. a commit
+  pin → pseudo-version) has no asset to fetch and the build fails with an
+  actionable error. Pin `hugo mod get` to a release tag, or override
+  `params.editable_regions.wasm_url` / `_version`. Consumers without a Go-
+  module dependency (a copy under `themes/`) always need one of those
+  overrides. Builds need network access to fetch the asset.
 
 ## Development (this repo)
 
