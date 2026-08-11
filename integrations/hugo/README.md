@@ -137,8 +137,7 @@ production pages costs one small script, not a 16MB download.
 
 - `renderer/` — the Go WASM renderer. `./build.sh` compiles it and installs
   the gzipped binary into `hugo-module/assets/` (gitignored; also what
-  `npm run build:hugo` runs). `node verify-renderer.mjs` smoke-tests the
-  render surface in Node.
+  `npm run build:hugo` runs).
 - `browser/` — the runtime source, mounted into the site's assets by the
   repo-root `hugo.toml`. `entry.js` is the bundle entry: a Go template
   rendered with the site snapshot (excluded from biome), bundled from
@@ -148,11 +147,12 @@ production pages costs one small script, not a 16MB download.
   `editable-regions/` namespace) and the renderer WASM asset.
 - `hugo.toml` (repo root) — the module itself: mounts exposing the
   partials, assets, runtime sources, and shared helpers.
+- `test/unit/hugo/wasm-renderer.test.ts` — boots the built WASM renderer
+  in vitest and exercises its full surface (props, nested partials, data,
+  error recovery, live template updates). Requires the renderer to be
+  built first (`npm run build:hugo`).
 - `test/integrations/hugo/` — fixture site importing the module via a
   local `replacements` entry, exactly as a real site would. Note that
   relative replacement targets resolve against `themesDir`, not the
   project dir (hence the four `..` levels). `npm run build` inside it
-  builds the WASM, builds the site with Hugo, and runs
-  `verify-bundle.mjs`, which checks the emit contract and then boots the
-  real WASM from the emitted data and asserts an editor render matches
-  the build-time HTML.
+  builds the WASM and builds the site with Hugo.
