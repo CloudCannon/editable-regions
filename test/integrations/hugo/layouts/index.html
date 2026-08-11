@@ -7,11 +7,9 @@
 	</head>
 	<body>
 		<h1>{{ .Title }}</h1>
-		{{ partial "editable-regions/component.html" (dict
-			"component" "card.html"
-			"prop" "card"
-			"props" .Params.card
-		) }}
+		<div data-editable="component" data-component="card.html" data-prop="card">
+			{{- partial "card.html" .Params.card -}}
+		</div>
 		{{ partial "nav.html" . }}
 	</body>
 </html>

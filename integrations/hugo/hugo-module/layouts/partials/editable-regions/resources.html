@@ -1,8 +1,8 @@
 {{- /*
   Builds the single live-editing bundle: the runtime entry asset, rendered
-  with the site's snapshot (template sources, data files, site config, page
-  map) via resources.ExecuteAsTemplate, bundled by js.Build and
-  fingerprinted for cache-busting.
+  with the site's snapshot (template sources, data files, site config) via
+  resources.ExecuteAsTemplate, bundled by js.Build and fingerprinted for
+  cache-busting.
 
   Returns the resource. The editable-regions.html partial is the
   batteries-included wrapper; call this directly if you need control over
@@ -30,7 +30,6 @@
   "files" (partial "editable-regions/walk-files.html" (dict "dirs" $templateDirs "exts" $templateExts))
   "data" (partial "editable-regions/walk-files.html" (dict "dirs" $dataDirs "exts" $dataExts))
   "config" (partial "editable-regions/site-config.html" .)
-  "pages" (partial "editable-regions/page-map.html" .)
 -}}
 {{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}
 {{- if not $entry -}}

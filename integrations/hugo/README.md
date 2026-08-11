@@ -12,8 +12,8 @@ module that does its work with two first-party mechanisms:
 1. **Partials + the asset pipeline**: a single partial in the site's `<head>`
    builds the live-editing bundle through Hugo Pipes — the runtime's entry
    asset is rendered with the site snapshot (template sources, data files,
-   normalized site config, and a page map resolved from `.Site.Pages`) via
-   `resources.ExecuteAsTemplate`, bundled from source by `js.Build` (Hugo's
+   and normalized site config) via `resources.ExecuteAsTemplate`, bundled
+   from source by `js.Build` (Hugo's
    embedded esbuild), fingerprinted, and emitted as one `<script>` tag with
    SRI.
 2. **Module mounts**: the module is this repository's root; its `hugo.toml`
@@ -51,21 +51,25 @@ partial instead and use the resource however you like:
 {{ $bundle := partial "editable-regions/resources.html" . }}
 ```
 
-Annotate components where they're rendered:
+Annotate components where they're rendered by wrapping the partial call in an
+editable-component region:
 
 ```go-html-template
-{{ partial "editable-regions/component.html" (dict
-  "component" "card.html"   # partial name, relative to layouts/partials
-  "prop" "card"             # source path for the props (data-prop)
-  "props" .Params.card      # the props to render with at build time
-) }}
+<div data-editable="component" data-component="card.html" data-prop="card">
+  {{ partial "card.html" .Params.card }}
+</div>
 ```
 
-The `component` name doubles as the browser-side component key: the runtime
-resolves it against the same `layouts/partials` tree, so the build-time render
-and every editor re-render come from the same template. Other region types
-(`data-editable="text|image|array|array-item|source"`) are plain attributes —
-write them directly in your templates.
+- `data-component` is the partial name, relative to `layouts/partials`. It
+  doubles as the browser-side component key: the runtime resolves it against
+  the same tree, so the build-time render and every editor re-render come
+  from the same template.
+- `data-prop` is the source path the shared core resolves live against the
+  CloudCannon API (here: the front matter's `card` object). Omit it to render
+  the component with empty props.
+- `data-editable="component"` marks the region; other region types
+  (`data-editable="text|image|array|array-item|source"`) are plain attributes
+  written directly in your templates.
 
 ### Options (`params.editable_regions`)
 
@@ -90,7 +94,6 @@ hugo build
   │                   window.cc_hugo_files  <- layouts/partials/** snapshot
   │                   window.cc_hugo_data   <- data/** snapshot
   │                   window.cc_hugo_config <- baseURL, title, params, menus
-  │                   window.cc_hugo_pages  <- input path -> URL (from .Site.Pages)
   │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
   │                   + the browser runtime (integrations/hugo/browser)
   └── /cc-editable-regions/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser

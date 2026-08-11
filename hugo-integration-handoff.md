@@ -25,7 +25,7 @@ Architecture in one paragraph: the consuming site adds
 and `helpers/` into the virtual FS (at repo-relative paths, so import
 specifiers inside the sources resolve identically when mounted).
 `editable-regions/resources.html` builds a snapshot context (walk-files,
-site-config, page-map partials + fingerprinted WASM URL), renders the entry
+site-config partials + fingerprinted WASM URL), renders the entry
 asset `browser/entry.js` with it via `resources.ExecuteAsTemplate`, bundles
 with `js.Build` (minify off under `hugo.IsDevelopment`), fingerprints, and
 `editable-regions.html` emits the single `<script>` (SRI + defer). In the
@@ -56,9 +56,11 @@ lazily once the CloudCannon API appears; each component render rewrites
 4. **Module-local logger** (`browser/logger.mjs`); the import of
    `integrations/liquid/logger.mjs` is gone.
 5. **Partial API**: `{{ partial "editable-regions" . }}` (head include),
-   `editable-regions/component.html` (annotation), internals under
-   `editable-regions/` (resources, walk-*, site-config, page-map).
-   `cc/` namespace deleted.
+   internals under `editable-regions/` (resources, walk-*, site-config).
+   Annotations are plain wrapper markup, documented in the README (an
+   auto-emitted `editable-regions/component.html` wrapper was removed —
+   zero consumers, and the hand-written form is as readable). `cc/`
+   namespace deleted.
 6. `gzip -n` in `renderer/build.sh` — deterministic WASM bytes so
    fingerprint URLs only churn on real changes.
 7. CI: `test.yml` now sets up Go (`go-version-file` from
@@ -260,14 +262,14 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
 
 ### 5. Smaller items
 
-- **Delete the page map** (decision 12): `page-map.html` partial, its use
-  in `resources.html`, the `window.cc_hugo_pages` emission, and
+- **Done (2026-08-12): page map removed** (decision 12) — `page-map.html`,
+  its use in `resources.html`, the `window.cc_hugo_pages` emission, and
   `runtimeData.pages` in `browser/index.mjs`.
+- **Done (2026-08-12): `editable-regions/component.html` removed**; the
+  annotation is documented wrapper markup in the README.
 - WASM startup readiness is a `setTimeout(10ms)` poll for
   `globalThis.renderHugoPartial` — the Go side could signal readiness
   explicitly.
-- `editable-regions/component.html` hardcodes a `<div>` wrapper — consider
-  making the element/attributes configurable.
 - `walk-dir.html` uses `merge` in a loop (O(n²)) — fine at partial scale.
 - `hugo-integration-shape.md` describes the superseded output-format plan;
   keep as historical record or refresh.

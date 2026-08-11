@@ -9,7 +9,6 @@ window.cc_hugo = {{ .meta | jsonify }};
 window.cc_hugo_files = {{ .files | jsonify }};
 window.cc_hugo_data = {{ .data | jsonify }};
 window.cc_hugo_config = {{ .config | jsonify }};
-window.cc_hugo_pages = {{ .pages | jsonify }};
 
 import { initHugoLiveEditing } from "./index.mjs";
 

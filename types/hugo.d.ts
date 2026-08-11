@@ -6,8 +6,6 @@ declare module "@cloudcannon/editable-regions/hugo/browser" {
 		data: Record<string, string>;
 		/** Normalized site config (baseURL, title, params, menus). */
 		config: Record<string, any>;
-		/** Page map: input path → { url, title, kind }. */
-		pages: Record<string, { url: string; title: string; kind: string }>;
 		/** Emitter metadata: { generator, wasmUrl, verbose }. */
 		meta: Record<string, any>;
 	}
@@ -59,11 +57,6 @@ declare global {
 		cc_hugo_data?: Record<string, string>;
 		/** Normalized site config. */
 		cc_hugo_config?: Record<string, any>;
-		/** Page map keyed by input path. */
-		cc_hugo_pages?: Record<
-			string,
-			{ url: string; title: string; kind: string }
-		>;
 	}
 }
 

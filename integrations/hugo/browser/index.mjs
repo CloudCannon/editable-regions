@@ -1,9 +1,8 @@
 // Browser half of the Hugo integration. The Hugo module's snapshot prelude
-// (`cc/snapshot.html`) emits the site's template snapshot, data files,
-// config, and page map onto `window.cc_hugo*`, concatenated ahead of this
-// runtime in the published bundle. This module boots the Hugo WASM renderer
-// from that data and registers `window.cc_components` renderers for the
-// shared core.
+// emits the site's template snapshot, data files, and config onto
+// `window.cc_hugo*`, concatenated ahead of this runtime in the published
+// bundle. This module boots the Hugo WASM renderer from that data and
+// registers `window.cc_components` renderers for the shared core.
 
 import "./wasm_exec.js";
 import { apiLoadedPromise } from "../../../helpers/cloudcannon.mjs";
@@ -27,7 +26,6 @@ const PARTIALS_PREFIX = "layouts/partials/";
  * @property {Record<string, string>} files - Template snapshot, project-relative paths
  * @property {Record<string, string>} data - Data file snapshot, project-relative paths
  * @property {Record<string, any>} config - Normalized site config (baseURL, title, params, menus)
- * @property {Record<string, any>} pages - Page map: input path -> {url, title, kind}
  * @property {Record<string, any>} meta - {generator, wasmUrl, verbose}
  */
 
@@ -51,7 +49,6 @@ export function initHugoLiveEditing(options = {}) {
 		files: options.files ?? win.cc_hugo_files ?? {},
 		data: options.data ?? win.cc_hugo_data ?? {},
 		config: options.config ?? win.cc_hugo_config ?? {},
-		pages: options.pages ?? win.cc_hugo_pages ?? {},
 		meta: { ...(win.cc_hugo ?? {}), ...options },
 	};
 

@@ -117,7 +117,6 @@ check(
 	"site config carries menus",
 	win.cc_hugo_config?.menus?.main?.some((item) => item.name === "Blog"),
 );
-check("page map resolves the home page", win.cc_hugo_pages?.["_index.md"]?.url === "/");
 check(
 	"meta carries the fingerprinted wasm url",
 	/\/cc-editable-regions\/hugo_renderer\.wasm\..+\.gz$/.test(
