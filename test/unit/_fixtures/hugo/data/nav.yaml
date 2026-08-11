@@ -1,0 +1,6 @@
+# Data the globals suite probes via site.Data / hugo.Data.
+links:
+  - label: Home
+    url: /
+  - label: Blog
+    url: /blog/

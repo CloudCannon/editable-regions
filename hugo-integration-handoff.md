@@ -304,12 +304,18 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
   it didn't work). Fixed in `renderer/loadConfig` by propagating the
   flags across `cfg.LanguageConfigMap`. Found while verifying the new
   globals suite.
-- **Done (2026-08-12): globals test suite** (`test/unit/hugo/globals.test.ts`)
-  — dedicated probes over the rendered WASM for the `site.*` and `hugo.*`
-  surfaces, `site.Data`/`hugo.Data` + query helpers, page collections and
-  `site.GetPage` over the stub editor site, language identity, and `site`
-  staying in scope in nested partials. Also: the emitter's `locale` config
-  key is a real Hugo key (`langs.LanguageConfig.Locale`) — verified
-  `site.Language.Locale` resolves through it. Shared WASM boot harness
-  extracted to `test/unit/_helpers/wasm-renderer.ts` (wasm-renderer.test.ts
-  refactored onto it, zero behavior change).
+- **Done (2026-08-12): globals test suite** (`test/unit/hugo/globals.test.ts`,
+  bundle-path as requested) — the `globals-*.html` probe partials, the
+  `data/` files, and the config surface (title, `languageCode`, extra
+  params, two menus) live in the fixture site, and the tests render them
+  through the built live-editing bundle (`loadHugoBundle`), covering the
+  `site.*` and `hugo.*` surfaces, `site.Data`/`hugo.Data` + query helpers,
+  page collections and `site.GetPage` over the stub editor site, language
+  identity, and `site` staying in scope in nested partials. Also: the
+  emitter's `locale` config key is a real Hugo key
+  (`langs.LanguageConfig.Locale`) — verified `site.Language.Locale`
+  resolves through it end-to-end. The WASM-boot harness extracted to
+  `test/unit/_helpers/wasm-renderer.ts` remains the boot path for the
+  direct-renderer `wasm-renderer.test.ts` (refactored onto it, zero
+  behavior change). The slots "Bundled partials include" regex was
+  loosened — the sorted list now interleaves the globals probes.

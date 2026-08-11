@@ -4,6 +4,10 @@
 # repo root — with a local replacement so the tests use the working tree.
 baseURL = "/"
 title = "Hugo Unit Fixture"
+# The globals suite asserts language identity end-to-end: the snapshot emits
+# site.LanguageCode as `locale`, which the renderer's Hugo reads back via
+# langs.LanguageConfig.Locale.
+languageCode = "en-AU"
 
 [module]
   # Relative replacement targets resolve against themesDir
@@ -15,5 +19,27 @@ title = "Hugo Unit Fixture"
 [params]
   brand = "Fixture Brand"
 
+  # Params the globals suite probes (nested map + array access).
+  tags = ["one", "two"]
+
+  [params.extra]
+    region = "apac"
+
   [params.editable_regions]
     verbose = false
+
+# Menus the globals suite probes via site.Menus.
+[[menus.main]]
+  name = "Home"
+  url = "/"
+  weight = 1
+
+[[menus.main]]
+  name = "Blog"
+  url = "/blog/"
+  weight = 2
+
+[[menus.footer]]
+  name = "Privacy"
+  url = "/privacy/"
+  weight = 1
