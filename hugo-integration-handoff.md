@@ -205,6 +205,21 @@ current page via the `page` global.
   never-rendered page alive (its `build.render` opt-in requires a front
   matter re-read). The current design doesn't need it — the dispatch
   dependency re-renders — but it's a lever for future optimizations.
+- **`disableKinds` behaves differently between the WASM renderer and the
+  native CLI** (2026-08-12, probed natively + in the WASM): with identical
+  config (cascade + `disableKinds` removing taxonomy/term/RSS/sitemap/404),
+  `site.Pages` excludes the auto-built taxonomy/term pages in the WASM (5
+  content pages) but the native CLI keeps them (10). Likely the difference
+  between the renderer's event-driven rebuild assembly and a fresh build;
+  nothing depends on it, and the collection tests assert content-kind counts
+  only (home/section/page are identical in both).
+- **Under the render-link cascade, a page's list surfaces only its direct
+  children** (2026-08-12, probed): `site.Home.Pages`/`.RegularPages` return
+  the home's direct children only (the blog section + about); one/two,
+  nested under the blog (link) section, don't bubble up into home's
+  aggregate. The section's own `.Pages`/`.RegularPages` (2) still include
+  them, and global `site.RegularPages` (3) includes everything. Same numbers
+  natively and in the WASM.
 - **Home page `.Date` defaults to the site's latest content date**: a home
   stub without an explicit `date` gets the newest page's date (Hugo's
   aggregate behavior). Give fixture/mock home files an explicit `date` so

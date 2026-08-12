@@ -1,0 +1,19 @@
+{{/*
+  Collections-query probes (collections.test.ts): query helpers and the page
+  tree over the loaded front-matter stubs — sections, content-kind
+  breakdowns, where filters, section/GetPage lookups, and Summary behavior
+  with blank bodies. Counts are over the CONTENT kinds only: taxonomy/term
+  membership differs between the WASM renderer and the native CLI (see the
+  disableKinds gotcha in the handoff), so those rows are deliberately
+  asserted elsewhere or not at all.
+*/}}
+<div class="kind-home">{{ len (where site.Pages "Kind" "home") }}</div>
+<div class="kind-section">{{ len (where site.Pages "Kind" "section") }}</div>
+<div class="kind-page">{{ len (where site.Pages "Kind" "page") }}</div>
+<div class="sections">{{ len site.Sections }}|{{ range site.Sections }}{{ .Title }};{{ end }}</div>
+<div class="where-section">{{ len (where site.RegularPages "Section" "blog") }}</div>
+<div class="where-author">{{ len (where site.RegularPages "Params.author" "alice") }}</div>
+<div class="blog">{{ with site.GetPage "/blog/" }}{{ .Title }}|{{ .Params.subtitle }}|{{ len .RegularPages }}{{ else }}missing{{ end }}</div>
+<div class="home-tree">{{ len site.Home.Pages }}|{{ len site.Home.RegularPages }}</div>
+<div class="summary">{{ with site.GetPage "/blog/one/" }}{{ .Summary }}{{ end }}|{{ with site.GetPage "/about/" }}{{ len .Summary }}{{ end }}</div>
+<div class="by-title">{{ range site.RegularPages.ByTitle }}{{ .Title }};{{ end }}</div>

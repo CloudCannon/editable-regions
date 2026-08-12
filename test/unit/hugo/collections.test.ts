@@ -1,12 +1,17 @@
 /**
- * Bundle-path tests for content loading and current-page rendering: the
- * editor site's content tree comes from the CloudCannon API at runtime
- * (front matter only, blank bodies), and the page being edited is captured
- * ONCE at boot — navigating reboots the editor, so the render target never
- * changes mid session. The current page's stub is opted into publishing at
- * boot (build.render: always under the render-link cascade), and each render
- * only rewrites the hidden dispatch page that carries the component request;
- * the current page re-renders through its dependency on it.
+ * Bundle-path tests for content loading and collections: the editor site's
+ * content tree comes from the CloudCannon API at runtime (front matter only,
+ * blank bodies), and components query it with the full Hugo collection
+ * surface — `site.Pages`/`site.RegularPages`/`site.Sections`,
+ * `site.GetPage`, `where`, sort helpers, and the `page` global for the page
+ * being edited.
+ *
+ * The page being edited is captured ONCE at boot — navigating reboots the
+ * editor, so the render target never changes mid session. Its stub is opted
+ * into publishing at boot (build.render: always under the render-link
+ * cascade), and each render only rewrites the hidden dispatch page that
+ * carries the component request; the current page re-renders through its
+ * dependency on it.
  *
  * These use the existing CloudCannon API mock: `setMockFiles` supplies the
  * content listing the runtime loads at boot, and `setMockCurrentFile` (set at
@@ -117,6 +122,27 @@ test("the editor site's page tree reflects the loaded front matter", async () =>
 			"About||carol|2025-03-05",
 			"One|alice", // site.GetPage over a loaded stub
 			"Card From Front Matter", // site.Home.Params from the real home stub
+		].join("\n"),
+	);
+});
+
+test("the full collections surface queries the loaded tree", async () => {
+	const el = await window.cc_components?.["collections-query"]({});
+
+	expect(lines(el)).toBe(
+		[
+			"1", // site.Pages of kind home
+			"1", // ...kind section (blog — the headless dispatch page stays out)
+			"3", // ...kind page (one, two, about)
+			"1|Blog;", // site.Sections
+			"2", // where site.RegularPages "Section" "blog"
+			"1", // where site.RegularPages "Params.author" "alice"
+			"Blog|Posts from the fixture.|2", // site.GetPage "/blog/" → section with params
+			"2|1", // site.Home.Pages | site.Home.RegularPages — under the render-link
+			// cascade, home's list surfaces only its direct children (the blog
+			// section + about); descendants under the link section stay out.
+			"The first post.|0", // .Summary honors front matter summary; blank body stays blank
+			"About;One;Two;", // site.RegularPages.ByTitle
 		].join("\n"),
 	);
 });
