@@ -1,0 +1,1 @@
+# example.com/cc-fixture-vendor v0.0.1

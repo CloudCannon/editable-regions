@@ -141,6 +141,14 @@ the bundle on production pages costs one small script, not a 16MB download.
 - Any partial rendering from its props: templating, nested partials,
   `partialCached` (as a plain partial), the full Hugo template function
   surface (`markdownify`, `where`, `printf`, `time`, …) — it's real Hugo.
+- **Theme and vendored-module templates**: partials (plus render hooks and
+  shortcodes) provided by the site's themes and its vendored module imports
+  are snapshotted too — theme names come from `hugo.Deps` (entries whose
+  `themes/<dir>` exists on disk), vendored modules from `hugo.Deps` entries
+  flagged `Vendor` (walked from `_vendor/<path>`). Project templates win on
+  name clashes, matching Hugo's lookup priority. Non-vendored go-module
+  imports still need `template_dirs` pointing at their physical source or a
+  local copy.
 - The `site` global (components get props as their context, so use `site.*`,
   not `.Site.*`): `site.Params` (dotted paths, nested maps, arrays),
   `site.Title`, `site.Menus`, `site.Language` (`.Lang`, `.Locale` —
@@ -195,9 +203,14 @@ the bundle on production pages costs one small script, not a 16MB download.
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
 - **Shortcodes** aren't processed inside `markdownify`.
-- **Module-mounted templates**: the emitter walks the project directory
-  (`readDir` can't see theme mounts), so partials provided by other modules
-  need a local copy or an extra entry in `template_dirs`.
+- **Non-vendored module templates**: partials from go-module imports that
+  aren't vendored live in the go module cache, which templates can't reach —
+  `hugo mod vendor` them, or point `template_dirs` at their physical source
+  or a local copy. Themes and vendored modules are captured automatically.
+- **Project-level `module.mounts`**: a site mounting its own extra dirs into
+  the layout tree (e.g. `source = "shared"` → `target = "layouts/partials"`)
+  still needs those sources in `template_dirs` — the snapshot doesn't read
+  the site config's mounts section.
 - **Version skew**: the WASM renderer pins its own Hugo version, which may
   differ from the site's. Template behavior is stable across versions for
   the component-scoped surface above, but brand-new template functions may

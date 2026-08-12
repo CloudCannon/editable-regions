@@ -37,6 +37,27 @@ are kept so the render chain doesn't break. Covered by
 `test/unit/hugo/content-freshness.test.ts` (7 tests) using new mock site-wide
 event emitters (`emitMockApiChange`/`emitMockApiDelete`). See item 2.
 
+Updated 2026-08-12 (late) with the template-capture widening: the snapshot now
+includes **theme and vendored-module templates** (partials, render hooks,
+shortcodes). Themes are discovered from `hugo.Deps` (an entry whose physical
+`themesDir/<Path>` exists), vendored modules from `hugo.Deps` entries with
+`Vendor=true` (`_vendor/<Path>`); module configs are probed for
+`module.mounts` so mount-remapped trees capture under their logical targets,
+and layers merge first-wins keyed by logical path with the project walking
+merged last (project wins), matching Hugo lookup priority. Kind layouts stay
+excluded (the dispatch-layout shadowing rule). Content and data remain **not**
+captured — content still loads from the CloudCannon API at runtime with live
+refresh; data still walks physical `dataDir` only (theme data files stay
+absent; see the "not captured" notes). Along the way this surfaced and fixed
+a latent `layout-dirs.html` bug: the `os.*` template funcs read Hugo's UNION
+filesystem, where an imported module's root `hugo.toml` (ours included) shows
+up at the union path "hugo.toml" — so config.toml users' dir probe was reading
+the module's config (defaults by luck). The probe now skips module-fingerprint
+configs (only `[module]` mounts). Covered by
+`test/unit/hugo/module-templates.test.ts` (6 tests, fixture gains a `proot`
+theme + a hand-vendored `example.com/cc-fixture-vendor` module in `_vendor/`).
+See the gotchas and item 2's notes.
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -61,6 +82,14 @@ event emitters (`emitMockApiChange`/`emitMockApiDelete`). See item 2.
   re-renders through its dependency on the dispatch page. Components get
   real page data via `site.*` collections/*GetPage* and the current page
   via the `page` global. See item 2.
+- *(then)* — **mid-session content freshness** (`cb9a286`): CloudCannon's
+  site-wide change/delete events rewrite content stubs live (see item 2's
+  freshness notes).
+- *(then)* — **theme + vendored-module template capture** (2026-08-12 late):
+  the snapshot walks `themes/*` and `_vendor/*` (from `hugo.Deps`), mount-
+  aware per module, project-wins on clash; content/data from those layers
+  stay uncaptured. Also fixed the latent `os.*`-union config-probe bug in
+  `layout-dirs.html`. See item 2's capture notes.
 
 Architecture in one paragraph: the consuming site adds
 `[[module.imports]] path = "github.com/cloudcannon/editables"` and
@@ -162,7 +191,10 @@ current page via the `page` global.
       approximation**: Hugo merges `config/_default/*` *over* the root file
       per key, so a dir configured only in the config dir (with a root
       config present) is missed — sites virtually always set these at the
-      root; revisit only if a consumer hits it.
+      root; revisit only if a consumer hits it. **Module-config guard**
+      (2026-08-12 late): candidates that are a module's own config (only
+      `[module]` with mounts) are skipped so the probe falls through to the
+      project's real file — see the union-fs gotcha below.
     - The default walk scans `<layoutDir>/partials`,
       `<layoutDir>/_default/_markup` (render hooks), `<layoutDir>/shortcodes`,
       and `<dataDir>`. Kind layouts stay excluded — a real
@@ -193,6 +225,22 @@ current page via the `page` global.
   normal front-matter path, no template fs access, and headless pages are
   excluded from `site.Pages`/`AllPages`/`RegularPages`, emit no output, yet
   resolve via `site.GetPage` (verified natively + in the WASM).
+- **Natively, the `os.*` template funcs read Hugo's UNION filesystem — and
+  its directory listings do NOT merge theme/mount layers** (2026-08-12 late,
+  probe-verified on v0.164.0): `readDir "layouts/partials"` lists only the
+  project layer's entries (theme partials absent), while `readFile`/
+  `fileExists` on the *same* path DO resolve theme files (the overlay falls
+  through layers for known paths), and physical theme paths (`readDir
+  "themes/<name>/layouts/partials"`) enumerate fine. Consequence: the old
+  walker missed themes only because it relied on logical-path `readDir` — not
+  because theme files are unreadable. The capture now walks `themes/*` and
+  `_vendor/*` physically and remaps to logical keys (see item 2). Second
+  consequence: the UNION means an imported module's root `hugo.toml` appears
+  at the union path "hugo.toml" — so `layout-dirs.html`'s config probe was
+  silently reading the MODULE's config for sites whose own config is
+  `config.toml` (an editables import is sufficient to trigger it; defaults
+  masked it). The probe now skips candidates whose parsed content lacks a
+  site-level key (module-fingerprint configs are just `[module]` + mounts).
 - **Multi-content-change builds skip newly-opted pages** (2026-08-12,
   repro'd in the WASM): a build whose change set contains **≥2 user content
   writes** silently fails to render a page whose `build.render` was just
@@ -463,6 +511,50 @@ What landed:
   NOT switch pages) and `test/unit/hugo/home-page.test.ts` (no current file
   at boot → home fallback with real home data). Probes:
   `page-context.html`, `content-pages.html`, `collections-query.html`.
+
+### Template capture from themes and vendored modules — LANDED (2026-08-12 late)
+
+The snapshot now includes templates provided outside the project's own tree:
+
+- **Themes** (`walk-modules.html`): discovered from `hugo.Deps` — an entry
+  whose physical `themesDir/<Path>` directory exists is a theme (imports
+  resolve from the go module graph/cache, not `themes/`, so the disk check
+  is unambiguous and needs no config parsing). A vendored theme (dep
+  `Vendor=true`) walks from `_vendor/<Path>` instead.
+- **Vendored modules**: `hugo.Deps` entries with `Vendor=true` walk from
+  `_vendor/<Path>` — the layout `hugo mod vendor` produces. **Non-vendored
+  imports stay unreachable** (go module cache; templates can't resolve it) —
+  `hugo mod vendor`, `template_dirs`, or a local copy remain the options.
+- **Mount-aware per module** (`module-templates.html`): the module's own
+  `hugo.{toml,yaml,yml,json}` is probed for `module.mounts`; mounts whose
+  target is `layouts` or `layouts/{partials,_default/_markup,shortcodes}` map
+  their physical source onto the logical target prefix (the site's
+  `layoutDir`). No mounts → the module's default `layouts/` tree is walked.
+- **Priority is first-wins per logical path**: themes in `hugo.Deps` order
+  then vendored imports, and the project's own walk is merged LAST (merge's
+  rightmost-arg-wins = project wins) — matching Hugo lookup priority. Kind
+  layouts stay excluded everywhere (dispatch-layout shadowing rule).
+- **`walk-dir.html` gained a `keyDir`**: physical module dirs are read while
+  keys land under the logical prefix (e.g. read `themes/proot/layouts/
+  partials/x.html`, key `layouts/partials/x.html`).
+- **Not captured (deliberately, per the user's call)**: **content and data
+  from themes/modules**. Content stays CloudCannon-API-driven (live refresh,
+  and theme-shipped content files aren't real CC files); data still walks
+  the physical `dataDir` only, so `site.Data` file entries from theme data
+  dirs stay absent in the editor. Also not captured: non-vendored import
+  trees (above) and project-level `module.mounts` not listed in
+  `template_dirs`. See the `os.*` union-fs gotcha for the mechanics that
+  makes theme capture possible (physical-path reads) and the latent
+  `layout-dirs` config-probe bug this surfaced (fixed with the
+  module-config guard).
+- **Tests**: `test/unit/hugo/module-templates.test.ts` (6 bundle-path
+  tests). Fixture gained `theme = "proot"` (`themes/proot/`: partials incl. a
+  `dupe.html` name clash, `_default/_markup/render-link.html`, and a
+  shortcode) + a hand-vendored `example.com/cc-fixture-vendor` in `_vendor/`
+  (modules.txt present => Hugo auto-vendors; no go toolchain needed in the
+  fixture build). Coverage: theme partial renders, cross-tree nested
+  includes, project-shadows-theme dedup, theme shortcode + render hook
+  inside component `markdownify`, vendored partial renders.
 
 Deferred / next:
 

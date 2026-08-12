@@ -9,12 +9,21 @@ title = "Hugo Unit Fixture"
 # langs.LanguageConfig.Locale.
 languageCode = "en-AU"
 
+# The theme provides partials/shortcodes/render hooks the module-templates
+# suite renders through the editor (see themes/proot).
+theme = "proot"
+
 [module]
   # Relative replacement targets resolve against themesDir
   # (test/unit/_fixtures/hugo/themes), not the project dir — hence five levels.
   replacements = "github.com/cloudcannon/editables -> ../../../../.."
   [[module.imports]]
     path = "github.com/cloudcannon/editables"
+  # A vendored module import for the module-templates suite. The _vendor/
+  # directory is hand-crafted (with modules.txt) so the build resolves it
+  # without the go toolchain — `hugo mod vendor` is not run here.
+  [[module.imports]]
+    path = "example.com/cc-fixture-vendor"
 
 [params]
   brand = "Fixture Brand"
