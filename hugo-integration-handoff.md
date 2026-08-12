@@ -402,16 +402,47 @@ What landed:
   and props can't ride in generated template code (no multi-line literal in
   Hugo templates; `"\n"` escapes work but per-value escaping + template
   injection make it strictly worse than the front-matter channel).
-- **Test suite**: `test/unit/hugo/current-page.test.ts` (boot with a mocked
-  current page: identity/params/dates/blank-content, collections + GetPage,
-  steady-state freshness, and the "session target is fixed at boot" contract —
-  later `setMockCurrentFile` changes do NOT switch pages) and
-  `test/unit/hugo/home-page.test.ts` (no current file at boot → home
-  fallback with real home data). Probes: `page-context.html`,
-  `content-pages.html`.
+- **Test suite**: `test/unit/hugo/collections.test.ts` (boot with a mocked
+  current page: current-page context, the page tree + query surface
+  (`collections-query.html`), steady-state freshness, and the "session
+  target is fixed at boot" contract — later `setMockCurrentFile` changes do
+  NOT switch pages) and `test/unit/hugo/home-page.test.ts` (no current file
+  at boot → home fallback with real home data). Probes:
+  `page-context.html`, `content-pages.html`, `collections-query.html`.
 
 Deferred / next:
 
+- **Mirror the site's configured taxonomies into the editor site** (design
+  settled 2026-08-12, not landed). Components touching taxonomies — tag
+  clouds (`range site.Taxonomies`), category sidebars, `site.GetPage
+  "/tags/hugo/"` term listings — currently render wrong/empty in the editor
+  because the WASM builds Hugo's **default** dimensions (tags + categories)
+  and trims taxonomy/term pages from the store. Plan:
+  - **Source of the config**: templates can't read the taxonomies config —
+    `site.Config.Taxonomies` doesn't exist on v0.164.0 (probe:
+    "can't evaluate field Taxonomies in type page.SiteConfig"); the populated
+    `site.Taxonomies` is reachable but can't reveal EMPTY configured
+    dimensions. So extract `taxonomies` from the site's own config
+    file(s) with the exact `os.ReadFile` + `transform.Unmarshal` probe
+    pattern `layout-dirs.html` already uses for layoutDir/dataDir/contentDir
+    (runs on the consumer's native build, where os.ReadFile works).
+  - **Forwarding**: carry it in the snapshot (`site-config.html`) and in
+    `buildEditorConfig`, so the editor config declares the site's actual
+    dimensions (including custom ones like `author`).
+  - **Stop disabling the kinds**: remove "taxonomy"/"term" from
+    `DISABLED_KINDS` in `browser/index.mjs` — keeping them disabled is what
+    makes the WASM drop those pages from `site.Pages` (the disableKinds
+    native-vs-WASM divergence gotcha). The cascade (`render: "link"`)
+    already suppresses their output, so keeping them in the store costs
+    only a small assembly pass (one page per distinct tag value in the
+    loaded front matter).
+  - **Verify** in the WASM: `site.Taxonomies` matches production membership,
+    term pages resolve via `site.GetPage`, term `.Pages` hold the real
+    stubs, and no term/taxonomy output files are emitted under the cascade.
+    Revisit the collections-query probe then (it deliberately avoids
+    term/taxonomy rows while the kinds are disabled).
+  - Caveat: terms are built from the LOADED stubs' front matter only
+    (same front-matter-without-bodies boundary as everything else).
 - **Dependency-walk loading (the big optimization) — still future.** Now
   that content is in the editor site, Hugo's dependency tracker can say
   which pages a component touched (research below) and drive a second phase:
