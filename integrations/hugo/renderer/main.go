@@ -288,12 +288,17 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	contentDir := builder.Cfg.Base.ContentDir
 	builder.writeFile(filepath.Join(layoutDir, "all.html"), editorLayout)
 
+	// An empty dispatch page must exist before the first build: every
+	// opted-in page's layout executes site.GetPage "/cc-dispatch/" and records
+	// that page as a dependency, and the re-render chain depends on it. This
+	// file is where each render request writes the partial + props.
+	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\nheadless: true\ncc_partial: \"\"\n---\n")
+
 	// The browser writes every content stub (including the home page's real
-	// front matter, with build.render: always so it publishes under the
-	// cascade) before init. Only plant a placeholder home page when none
-	// arrived, so loader-provided data is never clobbered. `build.render:
-	// always` on the placeholder keeps the home page emitting output even
-	// when the site config carries the render: "link" cascade.
+	// front matter and the current edit target's opt-in, both with
+	// build.render: always so they publish under the cascade) before init.
+	// Only plant a placeholder home page when none arrived, so loader-provided
+	// data is never clobbered.
 	homeStub := filepath.Join(contentDir, "_index.md")
 	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {
 		builder.writeFile(homeStub, "---\ncc_initialized: true\nbuild:\n  render: always\n---\n")
@@ -313,22 +318,11 @@ type renderRequest struct {
 	Props   json.RawMessage `json:"props"`
 	// The Hugo path of the page being edited ("/", "/blog/one/"); the render
 	// reads that page's output, so the dispatch layout runs with the page as
-	// its Page.
+	// its Page. The target is fixed at boot (the page the user is editing);
+	// navigating in the editor causes a full reboot, so it never changes mid
+	// session and no per-render page write is needed — the target was opted
+	// into publishing when its stub was loaded.
 	Page string `json:"page"`
-	// The edit target's content file (stub) to write this render: the real
-	// front matter plus build.render: always, serialized by the browser. For
-	// the home page this is the home stub; omitted when the browser had no
-	// data for it (or for renderer-only callers), in which case a placeholder
-	// is planted. Writing this file is the content change event that makes
-	// the target stale and re-rendered — with the dispatch-page write below
-	// it is the only per-render content write, so builds stay on the cheap,
-	// incremental path.
-	PageFile *pageFileSpec `json:"pageFile"`
-}
-
-type pageFileSpec struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
 }
 
 // Where the built site writes the page at the given editor path: "/" is the
@@ -364,24 +358,13 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 
 	contentDir := builder.Cfg.Base.ContentDir
 
-	// The target stub write makes the target page stale for this build. The
-	// browser's serialized stub carries the page's real front matter plus the
-	// build.render opt-in (the home page's stub is always opted in). Without
-	// one — renderer-only callers — plant the home placeholder.
-	pageFile := req.PageFile
-	if pageFile == nil {
-		pageFile = &pageFileSpec{
-			Path:    filepath.Join(contentDir, "_index.md"),
-			Content: "---\ncc_initialized: true\nbuild:\n  render: always\n---\n",
-		}
-	}
-	builder.writeFile(pageFile.Path, pageFile.Content)
-
-	// The dispatch page carries the render request: partial and props. It's
-	// headless so it never appears in site.Pages/AllPages or emits output of
-	// its own, and only the dispatch layout (via site.GetPage) ever reads it —
-	// real pages' front matter stays pristine. Its front matter is YAML (not
-	// JSON) so props keep their types: JSON decodes every number as float64,
+	// The dispatch page carries the render request: partial and props. Every
+	// opted-in page depends on it (their layouts site.GetPage it), so writing
+	// it is what makes the edit target stale and re-rendered each render.
+	// It's headless so it never appears in site.Pages/AllPages or emits
+	// output of its own, and only the dispatch layout ever reads it — real
+	// pages' front matter stays pristine. Its front matter is YAML (not JSON)
+	// so props keep their types: JSON decodes every number as float64,
 	// turning whole numbers into floats (printf "%d" fails, large ids print
 	// in scientific notation). goccy/go-yaml is the same library Hugo's
 	// front-matter decoder uses, and it quotes ambiguous strings (e.g.

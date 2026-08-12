@@ -1,14 +1,16 @@
 /**
- * Bundle-path tests for content loading: the editor site's content tree
- * comes from the CloudCannon API at runtime (decision 10) — front matter
- * only, blank bodies — and the renderer renders the *current* page through
- * the dispatch layout, so component partials reach that page via the `page`
- * global.
+ * Bundle-path tests for content loading and current-page rendering: the
+ * editor site's content tree comes from the CloudCannon API at runtime
+ * (front matter only, blank bodies), and the page being edited is captured
+ * ONCE at boot — navigating reboots the editor, so the render target never
+ * changes mid session. The current page's stub is opted into publishing at
+ * boot (build.render: always under the render-link cascade), and each render
+ * only rewrites the hidden dispatch page that carries the component request;
+ * the current page re-renders through its dependency on it.
  *
  * These use the existing CloudCannon API mock: `setMockFiles` supplies the
- * content listing the runtime loads at boot, and `setMockCurrentFile` is the
- * "current page" the editor is editing. Mock state is set at module scope so
- * it's in place before `beforeAll(loadHugoBundle)` boots the engine.
+ * content listing the runtime loads at boot, and `setMockCurrentFile` (set at
+ * module scope, before `beforeAll(loadHugoBundle)`) is the page being edited.
  *
  * The fixture's real content files (test/unit/_fixtures/hugo/content/) mirror
  * this listing; the bundle itself never snapshots content files.
@@ -69,6 +71,8 @@ const about = mkFile("/content/about.md", {
 });
 
 setMockFiles([home, blogIndex, one, two, about]);
+// The page being edited for this whole boot — captured by the runtime once,
+// before the engine starts (home-page fallback is covered by home-page.test.ts).
 setMockCurrentFile(one);
 
 // Built fixture bundle — run `npm run test:build-hugo-fixture` first.
@@ -82,7 +86,7 @@ function lines(el: HTMLElement | null | undefined): string {
 
 // --- Current page context ------------------------------------------------
 
-test("a component sees the current page's title, params, and identity as `page`", async () => {
+test("a component sees the boot-time current page's title, params, and identity as `page`", async () => {
 	const el = await window.cc_components?.["page-context"]({
 		title: "Prop One",
 	});
@@ -117,32 +121,28 @@ test("the editor site's page tree reflects the loaded front matter", async () =>
 	);
 });
 
-// --- Switching the current page ------------------------------------------
+// --- Steady state --------------------------------------------------------
 
-test("changes the current page with setMockCurrentFile between renders", async () => {
-	setMockCurrentFile(two);
-	const el = await window.cc_components?.["page-context"]({
-		title: "Prop Two",
+test("re-renders stay fresh through repeated renders of the same page", async () => {
+	const first = await window.cc_components?.["page-context"]({
+		title: "First",
 	});
+	expect(lines(first)).toContain("First");
 
-	expect(lines(el)).toBe(
-		[
-			"Two",
-			"bob",
-			"blog",
-			"/blog/two/",
-			"page",
-			"2025-02-20",
-			"length=0",
-			"",
-			"Prop Two",
-		].join("\n"),
-	);
+	const second = await window.cc_components?.["page-context"]({
+		title: "Second",
+	});
+	expect(lines(second)).toContain("Second");
+	expect(lines(second)).not.toContain("First");
 });
 
-test("switching back to the first page keeps its data intact", async () => {
-	setMockCurrentFile(one);
-	const el = await window.cc_components?.["page-context"]({ title: "Back" });
+test("the session target is fixed at boot: later current-file changes don't switch pages", async () => {
+	// The editor reboots (a fresh page load) when the user navigates, so the
+	// runtime captures the current page once at boot and never re-reads it.
+	setMockCurrentFile(two);
+	const el = await window.cc_components?.["page-context"]({
+		title: "Still One",
+	});
 
 	expect(lines(el)).toBe(
 		[
@@ -154,27 +154,7 @@ test("switching back to the first page keeps its data intact", async () => {
 			"2025-01-15",
 			"length=0",
 			"",
-			"Back",
-		].join("\n"),
-	);
-});
-
-test("with no current file, the component renders against the home page", async () => {
-	setMockCurrentFile(null);
-	const el = await window.cc_components?.["page-context"]({});
-
-	// No props are passed, so the final prop-title line renders empty and is
-	// trimmed by `lines`.
-	expect(lines(el)).toBe(
-		[
-			"Home", // the loaded home front matter
-			"", // no author on home
-			"", // home has no section
-			"/",
-			"home",
-			"2024-01-01", // the home stub's explicit date
-			"length=0",
-			"dark", // page.Params.theme survives on the home stub
+			"Still One",
 		].join("\n"),
 	);
 });

@@ -36,15 +36,16 @@ cascade build suppression (decision 11) is in. This session also wrote
   end-to-end** (decision 13): config-file probe, snapshot walk + config
   passthrough, renderer writes under the configured dirs, dedicated
   fixture + tests.
-- *(next commit)* — **content loading + cascade** (this session): the
-  runtime loads every content file's front matter at boot and writes
-  front-matter stubs (blank bodies) into the renderer; the editor config
-  carries `cascade: build.render: "link"` so only opted-in pages (the home
-  page and the current edit target) publish output; per render the renderer
-  writes the target's own stub (front matter + `build.render: always`) and a
-  headless `cc-dispatch` page carrying the request, then reads the target's
-  output. Components get real page data via `site.*` collections/*GetPage*
-  and the current page via the `page` global. See item 2.
+- *(next commit)* — **content loading + cascade + current-page rendering**
+  (this session): the runtime loads every content file's front matter at
+  boot and writes front-matter stubs (blank bodies), opting the home page
+  and the boot-time current page into publishing (`build.render: always`)
+  under the config's `cascade: build.render: "link"`; init seeds an empty
+  headless `cc-dispatch` page; each render rewrites only that dispatch page
+  (partial + props) and reads the current page's output — the current page
+  re-renders through its dependency on the dispatch page. Components get
+  real page data via `site.*` collections/*GetPage* and the current page
+  via the `page` global. See item 2.
 
 Architecture in one paragraph: the consuming site adds
 `[[module.imports]] path = "github.com/cloudcannon/editables"` and
@@ -60,11 +61,12 @@ with `js.Build` (minify off under `hugo.IsDevelopment`), fingerprints, and
 browser the runtime boots real Hugo (GOOS=js WASM, hugolib over afero memfs)
 lazily once the CloudCannon API appears; the runtime then loads every
 content file's front matter as stubs (dirs resolved from the site config,
-decision 13; defaults `layouts`/`data`/`content`), the editor config carries
-`cascade: build.render: "link"`, and each component render writes the current
-page's stub (`req.pageFile`) plus a headless `cc-dispatch` request page and
-runs an incremental build — rendering through the current page, so
-components see it via the `page` global.
+decision 13; defaults `layouts`/`data`/`content`), opting the home page and
+the boot-time current page into publishing under the config's
+`cascade: build.render: "link"`, and each component render rewrites only the
+headless `cc-dispatch` request page and runs an incremental build — the
+current page re-renders through its dependency on it, so components see the
+current page via the `page` global.
 
 ## Decisions made (with rationale)
 
@@ -118,9 +120,9 @@ components see it via the `page` global.
     phased/dependency-walk refinement is item 2).
 11. **Full-site rendering is suppressed with build options, not
     `disableKinds`** (session 2, probe-verified on v0.164.0): editor
-    config gets `cascade: [{build: {render: "link"}}]`; the home stub opts
-    back in with `build: {render: always}` and each render opts the current
-    target in via its own stub (`req.pageFile`). Pages stay in the store
+    config gets `cascade: [{build: {render: "link"}}]`; the home stub and
+    the boot-time current page opt in with `build: {render: always}` —
+    the only two pages that ever publish. Pages stay in the store
     (collections, `.Content`/`.Summary`, and permalinks all work —
     `render: "never"` would empty `.RelPermalink`) while only the opted-in
     pages publish. **Landed 2026-08-12**.
@@ -178,14 +180,31 @@ components see it via the `page` global.
   resolve via `site.GetPage` (verified natively + in the WASM).
 - **Multi-content-change builds skip newly-opted pages** (2026-08-12,
   repro'd in the WASM): a build whose change set contains **≥2 user content
-  writes** (plus the dispatch write) silently fails to render a page whose
-  `build.render` was just flipped to `always` — no error, no output, while
-  home still re-renders via the dispatch dependency. Single-write-per-render
-  builds (target stub + dispatch page, exactly 2 content events) are rock
-  solid (the 20-render burst stays fresh). This is why the previous-target
-  "restore" write was dropped: it created 3-event builds. Root cause in
-  Hugo's partial-rebuild rendering gates is not yet understood; don't batch
-  content writes per render until it is.
+  writes** silently fails to render a page whose `build.render` was just
+  flipped to `always` — no error, no output, while already-published pages
+  still re-render via their dispatch dependency. Single-write-per-render
+  builds (the current design: one dispatch write) are rock solid (the
+  20-render burst stays fresh). This quirk is why per-render page writes
+  (opt-ins/restores) were graduated to boot time. Root cause in Hugo's
+  partial-rebuild rendering gates is not yet understood; don't batch content
+  writes per render until it is.
+- **No multi-line string literal exists in Hugo templates** (2026-08-12,
+  probe-verified): a raw newline inside `"…"` is a parse error
+  ("unterminated quoted string"), and backtick raw strings (a Go *language*
+  feature) don't exist in template syntax either. Escaped `"\n"` in a
+  literal IS unquoted at render time (multi-line values are representable
+  as escapes), and `{{ $x := partial … }}` captures rendered multi-line
+  output into a variable — but `template`/`block` invocations are not
+  assignable. Consequences: generated-template prop embedding is possible
+  but requires per-value escaping (quotes, backslashes, control chars,
+  `{{`/`}}`) — strictly worse than the front-matter channel, which is why
+  the dispatch page carries props.
+- **A layout write alone re-renders already-published pages**: the
+  "template changed" path re-renders every page that has rendered before,
+  with no content write (verified in the WASM). It cannot bring a
+  never-rendered page alive (its `build.render` opt-in requires a front
+  matter re-read). The current design doesn't need it — the dispatch
+  dependency re-renders — but it's a lever for future optimizations.
 - **Home page `.Date` defaults to the site's latest content date**: a home
   stub without an explicit `date` gets the newest page's date (Hugo's
   aggregate behavior). Give fixture/mock home files an explicit `date` so
@@ -329,57 +348,66 @@ What landed:
   into real `time.Time` (verified via the renderer). The home stub always
   carries `build: {render: always}`.
 - **Cascade suppression landed** (decision 11): `buildEditorConfig` emits
-  `cascade: {build: {render: "link"}}`; the home page (loader stub or
-  renderer placeholder) opts back in with `build.render: always`. Pages
-  stay in the store with working `.RelPermalink`/`.Content`; only opted-in
-  pages publish. Verified probe: `cascade` as a config key (map form) with
-  `render: "link"` suppresses outputs while `site.Pages`/GetPage stay
-  complete.
-- **Render through the current page**: the renderer now reads
-  `CloudCannon.currentFile()` (mocked via `setMockCurrentFile` in tests)
-  and renders THAT page — `page` (global) is the page being edited, so
-  components use `page.Title`, `page.Params.*`, `page.RelPermalink`, etc.
-  while their own context stays the props. With no current file, "/" is
-  the target.
-- **Dispatch page, not a request file** (the os\* constraint below
-  forced this). Per render, `renderHugoPartial` writes two content files:
-  1. the **target's own stub** — real front matter + `build.render: always`
-     from `req.pageFile` (the browser serializes it; omitted → home
-     placeholder). Writing the target's file is what makes it stale and
-     re-rendered; this + the dispatch write are the ONLY per-render
-     content changes, which matters (see the multi-event quirk below).
-  2. `contentDir/cc-dispatch/index.md` — `headless: true` +
-     `cc_partial`/`cc_props` (goccy YAML, integralized, exactly the old
-     props-coercion path) + `cc_page`. Headless pages are invisible to
-     `site.Pages`/`AllPages`/`RegularPages`, produce no output, but
-     resolve via `site.GetPage` — verified natively. The dispatch layout
-     `{{ with site.GetPage "/cc-dispatch/" }}{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}{{ end }}`
-     runs on every rendered page (all.html is the last-resort layout for
-     every kind), so the target's output carries the component HTML with
-     `page` bound to the target.
+  `cascade: {build: {render: "link"}}`. Pages stay in the store with working
+  `.RelPermalink`/`.Content`; only pages opted in with `build.render: always`
+  publish — exactly two: the home page and the current edit target.
+- **The current page is fixed at boot** (per the user, 2026-08-12 evening):
+  navigating to another page reboots the editor (fresh page load), so the
+  target never changes mid session. `loadEditorContent` captures
+  `CloudCannon.currentFile()` **once** and opts that page's stub into
+  publishing alongside home; with no current file the target is home. The
+  render request therefore only needs `partial` + `props` — the `pageFile`
+  mechanism and all per-render page writes are GONE.
+- **The dispatch page — now static, seeded at init** (the os\* constraint
+  below forced this channel). `initHugoEditorSite` writes an EMPTY
+  `<contentDir>/cc-dispatch/index.md` (`headless: true`, `cc_partial: ""`)
+  before the first build. Every opted-in page's layout executes
+  `site.GetPage "/cc-dispatch/"`, so that first render records the dispatch
+  page as a **dependency** of home and the current page. Each render then
+  writes ONLY this one file with the real request (`cc_partial`/`cc_props`
+  via goccy YAML, integralized — the same typed props path as ever) — the
+  current page re-renders through the dependency chain. Headless pages are
+  invisible to `site.Pages`/`AllPages`/`RegularPages`, produce no output,
+  but resolve via `site.GetPage` (verified natively). The dispatch layout
+  `{{ with site.GetPage "/cc-dispatch/" }}{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}{{ end }}`
+  runs on every rendered page (all.html is the last-resort layout for every
+  kind), so the target's output carries the component HTML with `page`
+  bound to the target. **One content write per render** — immune to the
+  multi-event quirk below.
 - **Props typing preserved**: props travel through goccy YAML front matter
-  on the dispatch page → `transform.Unmarshal` is not involved anymore —
-  they're read back as `.Params.cc_props`, same typed round-trip as the
-  old stub front matter. `integralizeNumbers` unchanged.
-- **Current-page test suite** (`test/unit/hugo/current-page.test.ts`, 5
-  tests, + fixture content files + `page-context.html`/`content-pages.html`
-  probes): current-page identity/params/dates/blank-content, collections +
-  `site.GetPage` over loaded stubs, switching the mocked current page
-  between renders, and the no-current-file → home fallback.
+  on the dispatch page and are read back as `.Params.cc_props` — same typed
+  round-trip as the old stub front matter. `integralizeNumbers` unchanged.
+  `renderHugoPartial` keeps only the dispatch write + build + output read.
+- **Layout change = re-render trigger** (verified 2026-08-12 evening):
+  writing `layouts/all.html` alone re-rendered an already-published page with
+  no stub write (the "template changed" path). Not used — the dispatch
+  dependency already re-renders — but a useful lever for future
+  optimizations (e.g. a bare-request steady state). It does NOT bring a
+  never-rendered page alive (its `build.render` opt-in needs a file re-read)
+  and props can't ride in generated template code (no multi-line literal in
+  Hugo templates; `"\n"` escapes work but per-value escaping + template
+  injection make it strictly worse than the front-matter channel).
+- **Test suite**: `test/unit/hugo/current-page.test.ts` (boot with a mocked
+  current page: identity/params/dates/blank-content, collections + GetPage,
+  steady-state freshness, and the "session target is fixed at boot" contract —
+  later `setMockCurrentFile` changes do NOT switch pages) and
+  `test/unit/hugo/home-page.test.ts` (no current file at boot → home
+  fallback with real home data). Probes: `page-context.html`,
+  `content-pages.html`.
 
 Deferred / next:
 
-- **Restore of previously targeted pages dropped.** Each render writes only
-  the target's stub; previously opted-in pages keep `build.render: always`
-  in the memfs, so they keep re-rendering every build (bounded waste) and
-  their `.Params.build` stays visible. Restoring them requires an extra
-  content write per build, which hits the multi-event quirk below — revisit
-  when that's understood (a separate "reconcile" build pass or a
-  `RecentlyTouched`-style targeting are candidates).
 - **Dependency-walk loading (the big optimization) — still future.** Now
   that content is in the editor site, Hugo's dependency tracker can say
   which pages a component touched (research below) and drive a second phase:
   fetch front matter only for touched files, leaving the rest unloaded.
+- **The home + current page keep their opt-ins until reboot** (the memfs is
+  disposable and the session is fixed at boot, so nothing accumulates — no
+  restore machinery needed). `build` remains visible in those pages'
+  `.Params`; accepted and documented.
+- **Exotic filenames**: the JS slugifier approximates Hugo's `urlize`;
+  unicodé/spacey source paths may produce page paths that don't match
+  Hugo's. Revisit if a consumer hits it.
 - **Bodies remain blank** until a demonstrated need (decision 10).
 
 - **Dependency-walk detection — researched, source-verified, but NOT

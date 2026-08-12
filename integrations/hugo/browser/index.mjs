@@ -48,6 +48,15 @@ const contentFrontMatter = new Map();
 const pagePathFiles = new Map();
 
 /**
+ * The page being edited, captured once at boot from the CloudCannon API.
+ * Navigating to another page reboots the editor (a fresh page load), so the
+ * target never changes mid session — the renderer reads this page's output
+ * and this page's stub was opted into publishing when content loaded.
+ * @type {string}
+ */
+let sessionPage = "/";
+
+/**
  * Maps a CloudCannon API file path ("/content/blog/one.md") to its Hugo page
  * path ("/blog/one/"). `_index`/`index` files become their parent page (or
  * "/"), and each segment is slugified like Hugo's `urlize` (lowercased,
@@ -243,6 +252,11 @@ async function startEngine() {
  */
 async function loadEditorContent() {
 	if (!CloudCannon?.files) return;
+	// The page being edited is fixed for the session (navigation reboots the
+	// editor and re-runs this), so capture it once at boot: the loader opts
+	// that page's stub into publishing. The home page is always opted in —
+	// it's the boot surface and the fallback target when no page is current.
+	sessionPage = toHugoPagePath(CloudCannon.currentFile?.()?.path) ?? "/";
 	let listing;
 	try {
 		listing = await CloudCannon.files();
@@ -268,57 +282,20 @@ async function loadEditorContent() {
 		if (!page) continue;
 		contentFrontMatter.set(page, frontMatter);
 		pagePathFiles.set(page, relContentFile(apiPath));
+		const optsIntoPublishing = page === "/" || page === sessionPage;
 		stubs[`${contentDir()}/${relContentFile(apiPath)}`] = serializeFrontMatter(
-			page === "/"
+			optsIntoPublishing
 				? { ...frontMatter, build: { render: "always" } }
 				: frontMatter,
 		);
 	}
 	if (Object.keys(stubs).length > 0) {
-		log(`Loading editor content: ${Object.keys(stubs).length} content files`);
+		log(
+			`Loading editor content: ${Object.keys(stubs).length} content files` +
+				(sessionPage === "/" ? "" : ` (editing ${sessionPage})`),
+		);
 		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(stubs));
 	}
-}
-
-/**
- * The edit target's stub for the render request: its real front matter plus
- * build.render: always (the home page's stub always carries the opt-in). The
- * renderer writes this file itself, so the target page goes stale in the
- * same build that renders it — the external stub write is the only per-render
- * content change (with the dispatch page's), which keeps rebuilds on the
- * cheap incremental path.
- *
- * Returns null when the page has no stub (not in the loaded content listing,
- * or renderer-only callers) — the renderer then plants its home placeholder.
- *
- * @param {string} page - Hugo page path of the edit target
- * @param {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1File | null | undefined} apiFile
- * @returns {Promise<{ path: string, content: string } | null>}
- */
-async function pageFileSpec(page, apiFile) {
-	if (!contentFrontMatter.has(page) && apiFile?.data?.get) {
-		// The current page isn't in the boot listing; fetch its front matter
-		// on demand so its stub can still be written.
-		try {
-			const data = await apiFile.data.get();
-			if (data && typeof data === "object") {
-				contentFrontMatter.set(page, data);
-				pagePathFiles.set(page, relContentFile(apiFile.path) ?? "");
-			}
-		} catch (error) {
-			warn(`Failed to load front matter for current page ${page}:`, error);
-		}
-	}
-	const file = pagePathFiles.get(page);
-	const frontMatter = contentFrontMatter.get(page);
-	if (!file || !frontMatter) return null;
-	return {
-		path: `${contentDir()}/${file}`,
-		content: serializeFrontMatter({
-			...frontMatter,
-			build: { render: "always" },
-		}),
-	};
 }
 
 /**
@@ -401,20 +378,16 @@ function createComponentRenderer(key) {
 		group(`Rendering Hugo component: ${key}`);
 		log("Partial:", partial, "Props:", props);
 
-		// The page being edited comes from the CloudCannon API; the renderer
-		// renders that page so the component sees it as `page`. The current
-		// page's stub is opted into publishing (and the previous target
-		// restored) before the request, so the ready-to-read output exists.
-		const apiFile = CloudCannon?.currentFile?.() ?? null;
-		const page = toHugoPagePath(apiFile?.path) ?? "/";
-		const pageFile = await pageFileSpec(page, apiFile);
-
+		// Every render targets the session page captured at boot (navigating
+		// to another page reboots the editor). Its stub was opted into
+		// publishing at boot, so writing the dispatch page is the only thing
+		// that needs to happen per render — the current page re-renders via
+		// its dependency on the dispatch page.
 		const result = /** @type {any} */ (globalThis).renderHugoPartial(
 			JSON.stringify({
 				partial,
 				props: props ?? {},
-				page,
-				pageFile,
+				page: sessionPage,
 			}),
 		);
 

@@ -154,8 +154,11 @@ script, not a 16MB download.
 - **The current page** (the page being edited, from the CloudCannon API) is
   the page the renderer renders, so components reach it through the global
   `page` function: `page.Title`, `page.Params.*`, `page.RelPermalink`, and
-  page methods all work while props remain the component's context. With no
-  page in context the render falls back to the home page.
+  page methods all work while props remain the component's context. The
+  current page is captured **once at boot** and its stub is opted into
+  publishing (navigating to another page in the editor reboots the runtime,
+  so the target never changes mid session); with no page in context the
+  render falls back to the home page.
 - The `hugo.*` namespace: `hugo.Version`, `hugo.Generator`,
   `hugo.Environment` (`"production"` in the editor), and
   **`hugo.IsServer` is `true` in the editor site** — guard editor-only
