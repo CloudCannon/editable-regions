@@ -124,11 +124,15 @@ hugo build
 ```
 
 The WASM renderer holds a `hugolib` site over an in-memory filesystem. At
-startup it receives the snapshot (config, partials, data); each component
-render rewrites one content file and runs an incremental build — sub-millisecond
-in practice. The runtime only fetches the WASM once the CloudCannon Visual
-Editor API announces itself, so shipping the bundle on
-production pages costs one small script, not a 16MB download.
+startup it receives the snapshot (config, partials, data) plus **content
+stubs — every content file's front matter with a blank body**, loaded from
+the CloudCannon API at runtime (never baked into the snapshot). Each
+component render runs an incremental build — sub-millisecond in practice —
+and a config-level `cascade` (`build.render: "link"`) suppresses per-page
+output: only the home page and the page currently being edited are rendered.
+The runtime only fetches the WASM once the CloudCannon Visual Editor API
+announces itself, so shipping the bundle on production pages costs one small
+script, not a 16MB download.
 
 ## What works in editor renders
 
@@ -140,9 +144,18 @@ production pages costs one small script, not a 16MB download.
   `site.Title`, `site.Menus`, `site.Language` (`.Lang`, `.Locale` —
   `site.LanguageCode` is deprecated but still resolves), `site.BaseURL`,
   `site.Data`, and `site.Param "key"` — from the emitted config/data
-  snapshots. Page collections (`site.Pages`, `site.RegularPages`,
-  `site.Sections`) and `site.GetPage` read the editor site, which holds only
-  the stub home page — safe but empty.
+  snapshots.
+- **Real page data**: the editor site holds every content file as a
+  front-matter stub (blank bodies). Page collections (`site.Pages`,
+  `site.RegularPages`, `site.Sections`), `site.GetPage`, and `.Params` /
+  `.Title` / `.Date` / `.Section` over those pages reflect the site's real
+  content — typed like a real Hugo build (whole numbers as ints, dates as
+  `time.Time`). `.Content` stays empty until bodies are loaded.
+- **The current page** (the page being edited, from the CloudCannon API) is
+  the page the renderer renders, so components reach it through the global
+  `page` function: `page.Title`, `page.Params.*`, `page.RelPermalink`, and
+  page methods all work while props remain the component's context. With no
+  page in context the render falls back to the home page.
 - The `hugo.*` namespace: `hugo.Version`, `hugo.Generator`,
   `hugo.Environment` (`"production"` in the editor), and
   **`hugo.IsServer` is `true` in the editor site** — guard editor-only
@@ -160,13 +173,9 @@ production pages costs one small script, not a 16MB download.
 
 ## Limitations and fallbacks
 
-- **Page context**: components render with props as their context, not a
-  `Page`, so they reach the site through the `site` global, not `.Site`.
-  Page-scoped methods (`page.Resources`, `.Next`, `.IsHome`, …) aren't
-  available, and the editor site holds no real content — `site.Pages` /
-  `site.RegularPages` / `site.GetPage` come back empty or the stub home
-  page (see open item: content loading). Keep content-props-driven, or
-  guard editor-only branches with `hugo.IsServer`.
+- **Content bodies are blank**: only front matter loads into the editor site.
+  `.Content` / `.Summary` render empty until a demonstrated need pushes
+  body loading.
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
 - **Shortcodes** aren't processed inside `markdownify`.

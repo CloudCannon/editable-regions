@@ -22,6 +22,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"syscall/js"
@@ -36,9 +37,16 @@ import (
 	"github.com/spf13/afero"
 )
 
-// The layout every render goes through: dispatches to the requested partial
-// with the request's props as its context.
-const editorLayout = `{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}`
+// The layout every rendered page goes through. The render request rides in
+// the front matter of a dedicated headless page (contentDir/cc-dispatch),
+// so the layout can run the requested partial while keeping the page being
+// rendered as the template's Page — components reach their page through the
+// `page` global without the request keys polluting any real page's front
+// matter. Headless pages are invisible to site.Pages/AllPages/RegularPages
+// but resolvable via site.GetPage, and they render no output of their own.
+// No template filesystem access is needed, so this works in the WASM
+// renderer where os.ReadFile sees no files.
+const editorLayout = `{{ with site.GetPage "/cc-dispatch/" }}{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}{{ end }}`
 
 type editorSiteBuilder struct {
 	Cfg          *allconfig.Configs
@@ -279,7 +287,17 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	layoutDir := builder.Cfg.Base.LayoutDir
 	contentDir := builder.Cfg.Base.ContentDir
 	builder.writeFile(filepath.Join(layoutDir, "all.html"), editorLayout)
-	builder.writeFile(filepath.Join(contentDir, "_index.md"), "{ \"cc_initialized\": true }\n")
+
+	// The browser writes every content stub (including the home page's real
+	// front matter, with build.render: always so it publishes under the
+	// cascade) before init. Only plant a placeholder home page when none
+	// arrived, so loader-provided data is never clobbered. `build.render:
+	// always` on the placeholder keeps the home page emitting output even
+	// when the site config carries the render: "link" cascade.
+	homeStub := filepath.Join(contentDir, "_index.md")
+	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {
+		builder.writeFile(homeStub, "---\ncc_initialized: true\nbuild:\n  render: always\n---\n")
+	}
 
 	if err := builder.createSites(); err != nil {
 		return errorValue("failed to create site: %s", err)
@@ -293,6 +311,35 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 type renderRequest struct {
 	Partial string          `json:"partial"`
 	Props   json.RawMessage `json:"props"`
+	// The Hugo path of the page being edited ("/", "/blog/one/"); the render
+	// reads that page's output, so the dispatch layout runs with the page as
+	// its Page.
+	Page string `json:"page"`
+	// The edit target's content file (stub) to write this render: the real
+	// front matter plus build.render: always, serialized by the browser. For
+	// the home page this is the home stub; omitted when the browser had no
+	// data for it (or for renderer-only callers), in which case a placeholder
+	// is planted. Writing this file is the content change event that makes
+	// the target stale and re-rendered — with the dispatch-page write below
+	// it is the only per-render content write, so builds stay on the cheap,
+	// incremental path.
+	PageFile *pageFileSpec `json:"pageFile"`
+}
+
+type pageFileSpec struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// Where the built site writes the page at the given editor path: "/" is the
+// home page (public/index.html); "/blog/one/" renders to
+// public/blog/one/index.html.
+func renderOutputPath(page string) string {
+	rel := strings.Trim(page, "/")
+	if rel == "" {
+		return "public/index.html"
+	}
+	return "public/" + rel + "/index.html"
 }
 
 func renderHugoPartial(this js.Value, args []js.Value) interface{} {
@@ -311,30 +358,54 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	// YAML (not JSON) front matter so props keep their types: JSON front
-	// matter decodes every number as float64, which turns whole numbers into
-	// floats (printf "%d" fails, large ids print in scientific notation).
-	// goccy/go-yaml is the same library Hugo's front-matter decoder uses, and
-	// it quotes ambiguous strings (e.g. date-looking values) so they stay
-	// strings. Keys keep their exact case either way.
-	frontMatter, err := yaml.Marshal(map[string]interface{}{
-		"cc_partial": req.Partial,
-		"cc_props":   integralizeNumbers(props),
-	})
-	if err != nil {
-		return errorValue("failed to encode props for %s: %s", req.Partial, err)
+	if req.Page == "" {
+		req.Page = "/"
 	}
 
 	contentDir := builder.Cfg.Base.ContentDir
-	builder.writeFile(filepath.Join(contentDir, "_index.md"), "---\n"+string(frontMatter)+"---\n")
+
+	// The target stub write makes the target page stale for this build. The
+	// browser's serialized stub carries the page's real front matter plus the
+	// build.render opt-in (the home page's stub is always opted in). Without
+	// one — renderer-only callers — plant the home placeholder.
+	pageFile := req.PageFile
+	if pageFile == nil {
+		pageFile = &pageFileSpec{
+			Path:    filepath.Join(contentDir, "_index.md"),
+			Content: "---\ncc_initialized: true\nbuild:\n  render: always\n---\n",
+		}
+	}
+	builder.writeFile(pageFile.Path, pageFile.Content)
+
+	// The dispatch page carries the render request: partial and props. It's
+	// headless so it never appears in site.Pages/AllPages or emits output of
+	// its own, and only the dispatch layout (via site.GetPage) ever reads it —
+	// real pages' front matter stays pristine. Its front matter is YAML (not
+	// JSON) so props keep their types: JSON decodes every number as float64,
+	// turning whole numbers into floats (printf "%d" fails, large ids print
+	// in scientific notation). goccy/go-yaml is the same library Hugo's
+	// front-matter decoder uses, and it quotes ambiguous strings (e.g.
+	// date-looking values) so they stay strings. Keys keep their exact case
+	// either way.
+	frontMatter, err := yaml.Marshal(map[string]interface{}{
+		"headless":   true,
+		"cc_partial": req.Partial,
+		"cc_props":   integralizeNumbers(props),
+		"cc_page":    req.Page,
+	})
+	if err != nil {
+		return errorValue("failed to encode request for %s: %s", req.Partial, err)
+	}
+	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\n"+string(frontMatter)+"---\n")
 
 	if err := builder.build(); err != nil {
 		return errorValue("%s", err)
 	}
 
-	html, err := builder.readFile("public/index.html")
+	outputPath := renderOutputPath(req.Page)
+	html, err := builder.readFile(outputPath)
 	if err != nil {
-		return errorValue("build produced no output for %s: %s", req.Partial, err)
+		return errorValue("build produced no output at %s for %s: %s", outputPath, req.Partial, err)
 	}
 
 	return js.ValueOf(map[string]interface{}{

@@ -1,0 +1,15 @@
+{{/*
+  Current-page context probes (current-page.test.ts): the renderer renders the
+  CURRENT page through the dispatch layout, so the `page` global is that page
+  (with its loaded front matter, blank body) while the component's dot stays
+  the props.
+*/}}
+<div class="page-title">{{ page.Title }}</div>
+<div class="page-author">{{ page.Params.author }}</div>
+<div class="page-section">{{ page.Section }}</div>
+<div class="page-rel">{{ page.RelPermalink }}</div>
+<div class="page-kind">{{ page.Kind }}</div>
+<div class="page-date">{{ page.Date.Format "2006-01-02" }}</div>
+<div class="page-content">length={{ len page.Content }}</div>
+<div class="page-theme">{{ with page.Params.theme }}{{ . }}{{ end }}</div>
+<div class="prop-title">{{ .title }}</div>

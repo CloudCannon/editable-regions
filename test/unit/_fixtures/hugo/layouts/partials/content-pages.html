@@ -1,0 +1,11 @@
+{{/*
+  Content-loading probes (current-page.test.ts): the editor site's page tree
+  over loaded front-matter stubs — real page data from the CloudCannon API,
+  blank bodies, and the home page carrying its own real params.
+*/}}
+<div class="regular-pages">{{ len site.RegularPages }}</div>
+{{ range site.RegularPages.ByDate -}}
+<div class="page">{{ .Title }}|{{ .Section }}|{{ .Params.author }}|{{ .Date.Format "2006-01-02" }}</div>
+{{ end -}}
+<div class="getpage">{{ with site.GetPage "/blog/one/" }}{{ .Title }}|{{ .Params.author }}{{ else }}missing{{ end }}</div>
+<div class="home-card">{{ site.Home.Params.card.title }}</div>

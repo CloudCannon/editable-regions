@@ -15,6 +15,13 @@ page-map/component-wrapper/globals items (item 5) all got their DONE
 markers; the builtins battery and a new decision 13 (custom
 layout/data/content directories) were added to the shape section.
 
+Updated 2026-08-12 (evening) with the content-loading first pass landing
+(item 2 below adjusted accordingly): front matter for all content files
+loads at boot, the renderer renders *through the current page*, and the
+cascade build suppression (decision 11) is in. This session also wrote
+`current-page.test.ts` and discovered a hard renderer constraint
+(`os.*` template funcs see no files in the WASM).
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -29,6 +36,15 @@ layout/data/content directories) were added to the shape section.
   end-to-end** (decision 13): config-file probe, snapshot walk + config
   passthrough, renderer writes under the configured dirs, dedicated
   fixture + tests.
+- *(next commit)* — **content loading + cascade** (this session): the
+  runtime loads every content file's front matter at boot and writes
+  front-matter stubs (blank bodies) into the renderer; the editor config
+  carries `cascade: build.render: "link"` so only opted-in pages (the home
+  page and the current edit target) publish output; per render the renderer
+  writes the target's own stub (front matter + `build.render: always`) and a
+  headless `cc-dispatch` page carrying the request, then reads the target's
+  output. Components get real page data via `site.*` collections/*GetPage*
+  and the current page via the `page` global. See item 2.
 
 Architecture in one paragraph: the consuming site adds
 `[[module.imports]] path = "github.com/cloudcannon/editables"` and
@@ -42,9 +58,13 @@ asset `browser/entry.js` with it via `resources.ExecuteAsTemplate`, bundles
 with `js.Build` (minify off under `hugo.IsDevelopment`), fingerprints, and
 `editable-regions.html` emits the single `<script>` (SRI + defer). In the
 browser the runtime boots real Hugo (GOOS=js WASM, hugolib over afero memfs)
-lazily once the CloudCannon API appears; each component render rewrites the
-site's `<contentDir>/_index.md` (dirs resolved from the site config, decision
-13; defaults `layouts`/`data`/`content`) and runs an incremental build.
+lazily once the CloudCannon API appears; the runtime then loads every
+content file's front matter as stubs (dirs resolved from the site config,
+decision 13; defaults `layouts`/`data`/`content`), the editor config carries
+`cascade: build.render: "link"`, and each component render writes the current
+page's stub (`req.pageFile`) plus a headless `cc-dispatch` request page and
+runs an incremental build — rendering through the current page, so
+components see it via the `page` global.
 
 ## Decisions made (with rationale)
 
@@ -93,14 +113,17 @@ site's `<contentDir>/_index.md` (dirs resolved from the site config, decision
     content-file *listing* (from the CloudCannon API at runtime, not a
     build-time page map); when content is fetched, fetch **front matter
     only** and write stub content files with blank bodies. Full bodies
-    stay unloaded until a demonstrated need appears.
+    stay unloaded until a demonstrated need appears. **Landed 2026-08-12
+    as "all front matter at boot"** (the user's chosen first pass; the
+    phased/dependency-walk refinement is item 2).
 11. **Full-site rendering is suppressed with build options, not
     `disableKinds`** (session 2, probe-verified on v0.164.0): editor
-    config gets `cascade: [{build: {render: "link"}}]`; the dispatcher
-    stub `content/_index.md` opts back in with `build: {render: always}`.
-    Pages stay in the store (collections, `.Content`/`.Summary`, and
-    permalinks all work — `render: "never"` would empty `.RelPermalink`)
-    while only `index.html` is published.
+    config gets `cascade: [{build: {render: "link"}}]`; the home stub opts
+    back in with `build: {render: always}` and each render opts the current
+    target in via its own stub (`req.pageFile`). Pages stay in the store
+    (collections, `.Content`/`.Summary`, and permalinks all work —
+    `render: "never"` would empty `.RelPermalink`) while only the opted-in
+    pages publish. **Landed 2026-08-12**.
 12. **The page map is removed** (session 2): `window.cc_hugo_pages`
     emission, `runtimeData.pages`, and the `page-map.html` partial get
     deleted. The CloudCannon API already enumerates files at runtime;
@@ -141,6 +164,32 @@ site's `<contentDir>/_index.md` (dirs resolved from the site config, decision
 
 ## Hugo gotchas encountered (worth knowing)
 
+- **`os.*` template funcs see NO files in the WASM renderer** (2026-08-12,
+  probe-verified): `os.ReadFile`/`os.FileExists` return empty/false for
+  everything — including `config.json` and `content/_index.md` — because the
+  os namespace reads `BaseFs.Work`/`BaseFs.Content`, which are not backed by
+  the renderer's memfs. This killed the planned `cc_request.yaml` +
+  `os.ReadFile` dispatch (decision 13's config-file probe never exercised
+  this path inside the WASM — the dirs travel in the snapshot instead). The
+  **headless dispatch page** (`contentDir/cc-dispatch`, read via
+  `site.GetPage` from the dispatch layout) is the WASM-safe request channel:
+  normal front-matter path, no template fs access, and headless pages are
+  excluded from `site.Pages`/`AllPages`/`RegularPages`, emit no output, yet
+  resolve via `site.GetPage` (verified natively + in the WASM).
+- **Multi-content-change builds skip newly-opted pages** (2026-08-12,
+  repro'd in the WASM): a build whose change set contains **≥2 user content
+  writes** (plus the dispatch write) silently fails to render a page whose
+  `build.render` was just flipped to `always` — no error, no output, while
+  home still re-renders via the dispatch dependency. Single-write-per-render
+  builds (target stub + dispatch page, exactly 2 content events) are rock
+  solid (the 20-render burst stays fresh). This is why the previous-target
+  "restore" write was dropped: it created 3-event builds. Root cause in
+  Hugo's partial-rebuild rendering gates is not yet understood; don't batch
+  content writes per render until it is.
+- **Home page `.Date` defaults to the site's latest content date**: a home
+  stub without an explicit `date` gets the newest page's date (Hugo's
+  aggregate behavior). Give fixture/mock home files an explicit `date` so
+  date-based assertions are deterministic.
 - **`with` + `return` + `:=` trap**: in `{{- with x -}}`, a following
   `{{- $v := ... -}}` is parsed as `with`'s *else-assignment* clause; the
   variable doesn't exist in the body. And a piped `return (...)` inside
@@ -253,36 +302,89 @@ importing the module from GitHub previously hit the `errorf` in
   variant — tags are immutable, so it couldn't work without a pre-tag commit
   dance, which `hugo.Deps` made unnecessary.)
 
-### 2. Content loading — the big one (design settled session 2)
+### 2. Content loading — FIRST PASS LANDED (2026-08-12 evening)
 
-Goal: components that touch collections (`.Site.RegularPages`,
-`site.GetPage`, etc.) render real data in the editor, without paying a
-full-content load for sites/components that never use them.
+Goal (unchanged): components that touch collections (`site.GetPage`, page
+ranges, current-page data) render real data in the editor. The first pass
+loads **all** content front matter at boot (per the user's call to keep it
+simple), leaving bodies blank. The dependency-walk design below remains the
+refinement path, now unblocked by the content that exists.
 
-Settled design:
+What landed:
 
-- **Boot stays as-is**: template/data/config snapshot, stub
-  `content/_index.md`. No content files at boot.
-- **Content listing comes from the CloudCannon API at runtime** — no
-  build-time page map (see removal task, item 5). No batch-fetch API
-  exists today; callers should call freely and let the API internals
-  optimise.
-- **When content loads, fetch front matter only** and write stub content
-  files with blank bodies via `writeHugoFiles` + change events. Bodies
-  stay blank until a demonstrated need (no sentinel-body tricks yet).
-- **Suppress full-site output with build options** (decision 11):
-  `cascade: [{build: {render: "link"}}]` in `buildEditorConfig`;
-  `renderHugoPartial` adds `build: {render: always}` to the dispatcher
-  stub it already writes. Page store stays complete; only `index.html`
-  is published.
-- **Trigger is an open question**: the FS layer cannot detect "this
-  partial uses collections" (absent `content/` → no reads → no signal).
-  First pass: background warm after first render (edited file jumps the
-  queue), or explicit/config-driven. Decide at implementation time.
+- **Content load at boot** (`browser/index.mjs` `loadEditorContent`): after
+  the snapshot write and before `initHugoEditorSite`, the runtime lists
+  files via `CloudCannon.files()`, filters to the content dir + content
+  extensions, fetches each file's front matter (`file.data.get()`), and
+  writes stubs (front matter, blank body) through `writeHugoFiles`. Files
+  land **before** site creation, so no incremental content-add path is
+  involved (read-trace: adds via fake events are not guaranteed to load).
+  Pages are slugified per-segment from their file names (a JS
+  approximation of Hugo's `urlize`; exotic filenames may diverge).
+- **Stub format is YAML** (`browser/serialize-yaml.mjs`, ~120 lines, no
+  dependency so the module keeps bundling from consumer `node_modules`):
+  every string double-quoted, 2-space indent. JSON stubs would turn every
+  whole number into float64 in `.Params` (the params-coercion lesson);
+  YAML keeps ints ints (`printf "%d"` works) and Hugo parses date strings
+  into real `time.Time` (verified via the renderer). The home stub always
+  carries `build: {render: always}`.
+- **Cascade suppression landed** (decision 11): `buildEditorConfig` emits
+  `cascade: {build: {render: "link"}}`; the home page (loader stub or
+  renderer placeholder) opts back in with `build.render: always`. Pages
+  stay in the store with working `.RelPermalink`/`.Content`; only opted-in
+  pages publish. Verified probe: `cascade` as a config key (map form) with
+  `render: "link"` suppresses outputs while `site.Pages`/GetPage stay
+  complete.
+- **Render through the current page**: the renderer now reads
+  `CloudCannon.currentFile()` (mocked via `setMockCurrentFile` in tests)
+  and renders THAT page — `page` (global) is the page being edited, so
+  components use `page.Title`, `page.Params.*`, `page.RelPermalink`, etc.
+  while their own context stays the props. With no current file, "/" is
+  the target.
+- **Dispatch page, not a request file** (the os\* constraint below
+  forced this). Per render, `renderHugoPartial` writes two content files:
+  1. the **target's own stub** — real front matter + `build.render: always`
+     from `req.pageFile` (the browser serializes it; omitted → home
+     placeholder). Writing the target's file is what makes it stale and
+     re-rendered; this + the dispatch write are the ONLY per-render
+     content changes, which matters (see the multi-event quirk below).
+  2. `contentDir/cc-dispatch/index.md` — `headless: true` +
+     `cc_partial`/`cc_props` (goccy YAML, integralized, exactly the old
+     props-coercion path) + `cc_page`. Headless pages are invisible to
+     `site.Pages`/`AllPages`/`RegularPages`, produce no output, but
+     resolve via `site.GetPage` — verified natively. The dispatch layout
+     `{{ with site.GetPage "/cc-dispatch/" }}{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}{{ end }}`
+     runs on every rendered page (all.html is the last-resort layout for
+     every kind), so the target's output carries the component HTML with
+     `page` bound to the target.
+- **Props typing preserved**: props travel through goccy YAML front matter
+  on the dispatch page → `transform.Unmarshal` is not involved anymore —
+  they're read back as `.Params.cc_props`, same typed round-trip as the
+  old stub front matter. `integralizeNumbers` unchanged.
+- **Current-page test suite** (`test/unit/hugo/current-page.test.ts`, 5
+  tests, + fixture content files + `page-context.html`/`content-pages.html`
+  probes): current-page identity/params/dates/blank-content, collections +
+  `site.GetPage` over loaded stubs, switching the mocked current page
+  between renders, and the no-current-file → home fallback.
+
+Deferred / next:
+
+- **Restore of previously targeted pages dropped.** Each render writes only
+  the target's stub; previously opted-in pages keep `build.render: always`
+  in the memfs, so they keep re-rendering every build (bounded waste) and
+  their `.Params.build` stays visible. Restoring them requires an extra
+  content write per build, which hits the multi-event quirk below — revisit
+  when that's understood (a separate "reconcile" build pass or a
+  `RecentlyTouched`-style targeting are candidates).
+- **Dependency-walk loading (the big optimization) — still future.** Now
+  that content is in the editor site, Hugo's dependency tracker can say
+  which pages a component touched (research below) and drive a second phase:
+  fetch front matter only for touched files, leaving the rest unloaded.
+- **Bodies remain blank** until a demonstrated need (decision 10).
+
 - **Dependency-walk detection — researched, source-verified, but NOT
-  first pass** (session 2). The precise long-term answer to the trigger
-  question: Hugo's own dependency tracker records, per rendered page,
-  exactly which pages it touched — reachable entirely through public
+  implemented** (session 2). Hugo's own dependency tracker records, per
+  rendered page, exactly which pages it touched — reachable through public
   API. Evidence chain (v0.164.0 source):
   - `tpl/tplimpl/template_funcs.go:140` (`trackDependencies`): every
     template method/func execution walks the receiver's identities into
@@ -297,36 +399,31 @@ Settled design:
     (`pageState.IdentifierBase()` = `Path()`, `page__meta.go:56`), which
     map directly onto the API content listing.
   - Recording is gated on `t.watching` (`template_funcs.go:117`), driven
-    by the same Watch/Running flags the render hook already forces —
-    tracking is already on in our builds.
-  The loop: boot with blank skeleton files built from the (cheap) API
-  listing → render → walk the dispatcher page's deps → fetch exactly the
-  touched files → rebuild → re-walk to fixpoint (1–2 iterations). Empty
-  dep set = component ignores content = zero content fetches. No
-  sentinel values: skeletons carry structure only; the sensor is access,
-  not output. Handle `identity.GenghisKhan` ("depends on everything") as
-  a broad-fetch fallback.
-  **Known hole**: value predicates evaluated inside Go (`where` on
-  `.Params.*`, `if` on blank titles) record nothing and filter wrong
-  against blank skeletons. Not fixable locally by any scheme; the real
-  fix is a CloudCannon front-matter/batch API (real front matter in
-  skeletons, only bodies lazy). Structural predicates (`Section`) and
-  output-position value access are fine.
-  First verification spike when resumed: render the test-site dispatcher
-  and print the walked identity set (~20 lines in `renderer/main.go`).
+    by the same Watch/Running flags the render already forces — tracking
+    is already on in our builds.
+  - **Empirically confirmed this session**: the home page re-renders on
+    dispatch-page changes through exactly this dependency chain (the
+    dispatch write changes the page the layout reads), even when the home
+    stub itself didn't change.
+  The loop (if/when implemented): render → walk the target page's deps →
+  fetch exactly the touched files → rebuild → re-walk to fixpoint.
+  Handle `identity.GenghisKhan` ("depends on everything") as a
+  broad-fetch fallback. **Known hole**: value predicates evaluated inside
+  Go (`where` on `.Params.*`, `if` on blank titles) record nothing and
+  filter wrong against blank skeletons. The real fix is a CloudCannon
+  front-matter/batch API.
 - **Open idea, superseded**: a fault-and-settle afero wrapper (log reads
   of absent paths → JS fetches → rebuild). The probe showed walked trees
   give no useful FS-level signal, and the dependency walk above is the
-  better sensor. Would only remain relevant for `assets/`/`i18n/`/
-  `static/` laziness, which the snapshot mostly covers.
+  better sensor.
 
 ### 3. Render hook — descoped (was "idea 3")
 
-The per-render incremental build (rewrite `content/_index.md` → fake
-fsnotify event → `Sites.Build` → read `public/index.html`) **stays**.
-The direct-template-execution seam was rejected: it sits below
-`hugolib`'s public API (`tplimpl` territory) and the maintenance
-coupling isn't worth the latency win.
+The per-render incremental build (write the current target's own stub +
+the dispatch page → fake fsnotify events → `Sites.Build` → read
+`public/<target>/index.html`) **stays**. The direct-template-execution
+seam was rejected: it sits below `hugolib`'s public API (`tplimpl`
+territory) and the maintenance coupling isn't worth the latency win.
 
 **Params coercion — RESOLVED (2026-08-12)** by a bundle-path probe
 (`coercion-probe.html` + `test/unit/hugo/params-coercion.test.ts`) and a

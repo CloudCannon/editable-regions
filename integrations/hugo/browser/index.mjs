@@ -5,9 +5,13 @@
 // registers `window.cc_components` renderers for the shared core.
 
 import "./wasm_exec.js";
-import { apiLoadedPromise } from "../../../helpers/cloudcannon.mjs";
+import {
+	apiLoadedPromise,
+	CloudCannon,
+} from "../../../helpers/cloudcannon.mjs";
 import { enhanceHugoError, missingComponentError } from "./errors.mjs";
 import { group, groupEnd, log, setVerbose, warn } from "./logger.mjs";
+import { serializeFrontMatter } from "./serialize-yaml.mjs";
 
 /** Kinds the editor site never renders; disabling them trims every rebuild. */
 const DISABLED_KINDS = [
@@ -22,6 +26,78 @@ const DISABLED_KINDS = [
 /** Partials prefix relative to the snapshot: the site's layoutDir + partials. */
 function partialsPrefix() {
 	return `${runtimeData?.config?.layoutDir ?? "layouts"}/partials/`;
+}
+
+/** The site's configured content directory ("content" by default). */
+function contentDir() {
+	return runtimeData?.config?.contentDir ?? "content";
+}
+
+/** Content file extensions Hugo recognizes; everything else is ignored when loading editor content. */
+const CONTENT_EXTENSIONS = [".md", ".markdown", ".mdown", ".html", ".htm"];
+
+/**
+ * Parsed front matter for every content file loaded from the CloudCannon
+ * API at boot, keyed by the Hugo page path ("/blog/one/"). The parallel map
+ * resolves a page path back to its project-relative source file
+ * ("blog/one.md") so the runtime can rewrite stubs for the edit target.
+ */
+const contentFrontMatter = new Map();
+
+/** Hugo page path -> project-relative content file ("blog/one.md"). */
+const pagePathFiles = new Map();
+
+/**
+ * Maps a CloudCannon API file path ("/content/blog/one.md") to its Hugo page
+ * path ("/blog/one/"). `_index`/`index` files become their parent page (or
+ * "/"), and each segment is slugified like Hugo's `urlize` (lowercased,
+ * non-alphanumerics collapsed to "-"). Exotic filenames (unicode, spaces in
+ * the source tree) may diverge from Hugo's urls — first-pass limitation.
+ *
+ * @param {string | undefined} apiPath
+ * @returns {string | null} The Hugo page path, or null when not under contentDir
+ */
+function toHugoPagePath(apiPath) {
+	const rel = String(apiPath ?? "")
+		.replace(/^\/+/, "")
+		.replace(/\\/g, "/");
+	const prefix = `${contentDir()}/`;
+	if (!rel.startsWith(prefix)) return null;
+	let file = rel
+		.slice(prefix.length)
+		.replace(/\.(md|markdown|mdown|html|htm)$/i, "");
+	if (file === "_index" || file === "index") return "/";
+	if (file.endsWith("/_index") || file.endsWith("/index")) {
+		file = file.slice(0, file.lastIndexOf("/"));
+	} else if (file.startsWith("_index/") || file.startsWith("index/")) {
+		file = file.slice("_index".length);
+	}
+	const slugged = file.split("/").map(urlizeSegment).filter(Boolean).join("/");
+	if (!slugged) return "/";
+	return `/${slugged}/`;
+}
+
+/** @param {string} segment */
+function urlizeSegment(segment) {
+	return segment
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Project-relative source file ("blog/one.md") for an API path, or null when
+ * not under contentDir.
+ * @param {string | undefined} apiPath
+ */
+function relContentFile(apiPath) {
+	const rel = String(apiPath ?? "")
+		.replace(/^\/+/, "")
+		.replace(/\\/g, "/");
+	const prefix = `${contentDir()}/`;
+	if (!rel.startsWith(prefix)) return null;
+	return rel.slice(prefix.length);
 }
 
 /**
@@ -144,6 +220,11 @@ async function startEngine() {
 	};
 	/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 
+	// Content stubs (front matter only, blank bodies) land on the filesystem
+	// before the site is created, so the editor site is built with the full
+	// page tree present from the start — no incremental content-add path.
+	await loadEditorContent();
+
 	const initError = /** @type {any} */ (globalThis).initHugoEditorSite();
 	if (initError?.error) {
 		groupEnd();
@@ -152,6 +233,92 @@ async function startEngine() {
 
 	log("Hugo renderer ready");
 	groupEnd();
+}
+
+/**
+ * Loads the front matter of every content file from the CloudCannon API and
+ * writes it as a stub content file with a blank body — the first-pass content
+ * model: real page data, no bodies (decision 10). The home page's stub also
+ * carries build.render: "always" so it keeps publishing under the cascade.
+ */
+async function loadEditorContent() {
+	if (!CloudCannon?.files) return;
+	let listing;
+	try {
+		listing = await CloudCannon.files();
+	} catch (error) {
+		warn("Failed to list editor files, content will be unavailable:", error);
+		return;
+	}
+	const stubs = /** @type {Record<string, string>} */ ({});
+	for (const file of listing ?? []) {
+		const apiPath = file?.path;
+		if (!relContentFile(apiPath)) continue;
+		if (!CONTENT_EXTENSIONS.some((ext) => String(apiPath).endsWith(ext)))
+			continue;
+		let frontMatter;
+		try {
+			frontMatter = await file?.data?.get?.();
+		} catch (error) {
+			warn(`Failed to read front matter for ${apiPath}:`, error);
+			continue;
+		}
+		if (!frontMatter || typeof frontMatter !== "object") continue;
+		const page = toHugoPagePath(apiPath);
+		if (!page) continue;
+		contentFrontMatter.set(page, frontMatter);
+		pagePathFiles.set(page, relContentFile(apiPath));
+		stubs[`${contentDir()}/${relContentFile(apiPath)}`] = serializeFrontMatter(
+			page === "/"
+				? { ...frontMatter, build: { render: "always" } }
+				: frontMatter,
+		);
+	}
+	if (Object.keys(stubs).length > 0) {
+		log(`Loading editor content: ${Object.keys(stubs).length} content files`);
+		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(stubs));
+	}
+}
+
+/**
+ * The edit target's stub for the render request: its real front matter plus
+ * build.render: always (the home page's stub always carries the opt-in). The
+ * renderer writes this file itself, so the target page goes stale in the
+ * same build that renders it — the external stub write is the only per-render
+ * content change (with the dispatch page's), which keeps rebuilds on the
+ * cheap incremental path.
+ *
+ * Returns null when the page has no stub (not in the loaded content listing,
+ * or renderer-only callers) — the renderer then plants its home placeholder.
+ *
+ * @param {string} page - Hugo page path of the edit target
+ * @param {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1File | null | undefined} apiFile
+ * @returns {Promise<{ path: string, content: string } | null>}
+ */
+async function pageFileSpec(page, apiFile) {
+	if (!contentFrontMatter.has(page) && apiFile?.data?.get) {
+		// The current page isn't in the boot listing; fetch its front matter
+		// on demand so its stub can still be written.
+		try {
+			const data = await apiFile.data.get();
+			if (data && typeof data === "object") {
+				contentFrontMatter.set(page, data);
+				pagePathFiles.set(page, relContentFile(apiFile.path) ?? "");
+			}
+		} catch (error) {
+			warn(`Failed to load front matter for current page ${page}:`, error);
+		}
+	}
+	const file = pagePathFiles.get(page);
+	const frontMatter = contentFrontMatter.get(page);
+	if (!file || !frontMatter) return null;
+	return {
+		path: `${contentDir()}/${file}`,
+		content: serializeFrontMatter({
+			...frontMatter,
+			build: { render: "always" },
+		}),
+	};
 }
 
 /**
@@ -166,6 +333,14 @@ function buildEditorConfig(emitted) {
 		baseURL: "/",
 		...emitted,
 		disableKinds: DISABLED_KINDS,
+		// Suppress per-page output: pages stay in the store (site.Pages, .GetPage,
+		// .RelPermalink and .Content all keep working) but only pages opted back
+		// in with build.render: always — the home page and the current edit
+		// target — emit HTML. Rendering N stubs per rebuild is what this cascade
+		// avoids, and the renderer only reads the target's output.
+		cascade: {
+			build: { render: "link" },
+		},
 		markup: {
 			...(emitted.markup ?? {}),
 			goldmark: {
@@ -226,8 +401,21 @@ function createComponentRenderer(key) {
 		group(`Rendering Hugo component: ${key}`);
 		log("Partial:", partial, "Props:", props);
 
+		// The page being edited comes from the CloudCannon API; the renderer
+		// renders that page so the component sees it as `page`. The current
+		// page's stub is opted into publishing (and the previous target
+		// restored) before the request, so the ready-to-read output exists.
+		const apiFile = CloudCannon?.currentFile?.() ?? null;
+		const page = toHugoPagePath(apiFile?.path) ?? "/";
+		const pageFile = await pageFileSpec(page, apiFile);
+
 		const result = /** @type {any} */ (globalThis).renderHugoPartial(
-			JSON.stringify({ partial, props: props ?? {} }),
+			JSON.stringify({
+				partial,
+				props: props ?? {},
+				page,
+				pageFile,
+			}),
 		);
 
 		if (result?.error || typeof result?.html !== "string") {
