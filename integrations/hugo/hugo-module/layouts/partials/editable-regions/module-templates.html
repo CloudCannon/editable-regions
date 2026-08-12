@@ -1,47 +1,75 @@
- {{- /* Captures one module's template trees (themes and vendored modules) into
-logical layout paths.
+ {{- /*
+  Captures one module's template trees (themes and vendored modules) into
+  logical layout paths.
 
-Expects: (dict "root" "themes/proot" "layoutDir" "layouts" "exts" (slice)).
+  Expects: (dict "root" "themes/proot" "layoutDir" "layouts" "exts" (slice)).
 
   - root      physical module directory, relative to the project ("themes/proot"
               or "_vendor/example.com/foo")
   - layoutDir the site's configured layout dir — the logical prefix every
-              captured template is keyed under (the module's own "layouts" tree
-              mounts into the same virtual layouts root as the project's
+              captured template is keyed under (the module's own "layouts"
+              tree mounts into the same virtual layouts root as the project's
               layoutDir)
 
-The module's own config file (hugo.* at its root) is probed for
-[module.mounts]: mounts whose target falls under "layouts" are mapped
-source -> logical target (so a theme mounting "parts" onto "layouts/partials"
-captures correctly). With no mounts, the module's default layouts tree is
-walked. Kind layouts (e.g. layouts/_default/index.html) are deliberately not
-captured — they would shadow the renderer's dispatch layout (decision 13).
+  The module's own config file (hugo.* at its root) is probed for
+  [module.mounts]: mounts whose target falls under "layouts" are mapped
+  source -> logical target (so a theme mounting "parts" onto
+  "layouts/partials" captures correctly). With no mounts, the module's
+  default layouts tree is walked. Kind layouts (e.g. layouts/_default/
+  index.html) are deliberately not captured — they would shadow the
+  renderer's dispatch layout (decision 13).
 
-Returns: a flat dict of logical path -> contents covering the partials,
-render hooks (_default/_markup), and shortcodes dirs. */ -}}
-{{- $root := .root -}} {{- $layoutDir := .layoutDir | default "layouts" -}}
-{{- $exts := .exts -}} {{- $files := dict -}} {{- $subdirs := slice "partials"
-"_default/_markup" "shortcodes" -}} {{- /* A module's mounts are read from its
-own config file, the same probe pattern as layout-dirs.html. Only hugo.* names
-are supported (modules aren't legacy-config sites). */ -}} {{- $conf := dict -}}
+  Returns: a flat dict of logical path -> contents covering the partials,
+  render hooks (_default/_markup), and shortcodes dirs.
+*/ -}}
+{{- $root := .root -}}
+{{- $layoutDir := .layoutDir | default "layouts" -}}
+{{- $exts := .exts -}}
+{{- $files := dict -}}
+{{- $subdirs := slice "partials" "_default/_markup" "shortcodes" -}}
+{{- /* A module's mounts are read from its own config file, the same probe
+  pattern as layout-dirs.html. Only hugo.* names are supported (modules
+  aren't legacy-config sites). */ -}}
+{{- $conf := dict -}}
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" -}}
-{{- $cfgPath := path.Join $root $candidate -}} {{- if os.FileExists $cfgPath -}}
-{{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}} {{- $conf =
-os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}} {{- break -}}
-{{- end -}} {{- end -}} {{- $mounts := slice -}} {{- with $conf.module -}} {{-
-with .mounts -}} {{- $mounts = . -}} {{- end -}} {{- end -}} {{- /* Resolve the
-(source dir, logical target prefix) pairs that contribute templates. */ -}}
-{{- $pairs := slice -}} {{- if gt (len $mounts) 0 -}} {{- range $mount := $mounts
--}} {{- $target := $mount.target | default "" -}} {{- $source := $mount.source |
-default "" -}} {{- if eq $source "." -}} {{- $source = "" -}} {{- end -}} {{- if
-eq $target "layouts" -}} {{- range $sub := $subdirs -}} {{- $pairs = $pairs |
-append (dict "source" (path.Join $root $source $sub) "target" (path.Join
-$layoutDir $sub)) -}} {{- end -}} {{- else if (in $subdirs (strings.TrimPrefix
-"layouts/" $target)) -}} {{- $sub := strings.TrimPrefix "layouts/" $target -}}
-{{- $pairs = $pairs | append (dict "source" (path.Join $root $source) "target"
-(path.Join $layoutDir $sub)) -}} {{- end -}} {{- end -}} {{- else -}} {{- range
-$sub := $subdirs -}} {{- $pairs = $pairs | append (dict "source" (path.Join
-$root "layouts" $sub) "target" (path.Join $layoutDir $sub)) -}} {{- end -}} {{-
-end -}} {{- range $pair := $pairs -}} {{- $files = merge $files (partial
-"editable-regions/walk-dir.html" (dict "dir" $pair.source "keyDir" $pair.target
-"exts" $exts)) -}} {{- end -}} {{- return $files -}}
+  {{- $cfgPath := path.Join $root $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}}
+    {{- $conf = os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+{{- $mounts := slice -}}
+{{- with $conf.module -}}
+  {{- with .mounts -}}
+    {{- $mounts = . -}}
+  {{- end -}}
+{{- end -}}
+{{- /* Resolve the (source dir, logical target prefix) pairs that contribute
+  templates. */ -}}
+{{- $pairs := slice -}}
+{{- if gt (len $mounts) 0 -}}
+  {{- range $mount := $mounts -}}
+    {{- $target := $mount.target | default "" -}}
+    {{- $source := $mount.source | default "" -}}
+    {{- if eq $source "." -}}
+      {{- $source = "" -}}
+    {{- end -}}
+    {{- if eq $target "layouts" -}}
+      {{- range $sub := $subdirs -}}
+        {{- $pairs = $pairs | append (dict "source" (path.Join $root $source $sub) "target" (path.Join $layoutDir $sub)) -}}
+      {{- end -}}
+    {{- else if (in $subdirs (strings.TrimPrefix "layouts/" $target)) -}}
+      {{- $sub := strings.TrimPrefix "layouts/" $target -}}
+      {{- $pairs = $pairs | append (dict "source" (path.Join $root $source) "target" (path.Join $layoutDir $sub)) -}}
+    {{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- range $sub := $subdirs -}}
+    {{- $pairs = $pairs | append (dict "source" (path.Join $root "layouts" $sub) "target" (path.Join $layoutDir $sub)) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $pair := $pairs -}}
+  {{- $files = merge $files (partial "editable-regions/walk-dir.html" (dict "dir" $pair.source "keyDir" $pair.target "exts" $exts)) -}}
+{{- end -}}
+{{- return $files -}}

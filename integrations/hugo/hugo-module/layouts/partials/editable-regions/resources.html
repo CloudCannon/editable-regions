@@ -1,35 +1,53 @@
-{{- /* Builds the single live-editing bundle: the runtime entry asset, rendered
-with the site's snapshot (template sources, data files, site config) via
-resources.ExecuteAsTemplate, bundled by js.Build and fingerprinted for
-cache-busting. Returns the resource. The editable-regions.html partial is the
-batteries-included wrapper; call this directly if you need control over the
-script tag (conditional loading, your own pipeline, etc.). Template trees
-default to the site's configured layout dir (layoutDir): partials, render hooks,
-and shortcodes are snapshotted by default, and the dirs themselves travel in the
-config snapshot so the renderer resolves them in the editor. Override the whole
-list with template_dirs. Templates from the site's themes and vendored modules
-are captured on top (walk-modules.html) and merged under the project's files,
-so a component including a theme/vendored partial resolves in the editor. */ -}}
-{{- $cfg := site.Params.editable_regions | default dict -}} {{- $dirs := partial
-"editable-regions/layout-dirs.html" . -}} {{- $layoutDir := $dirs.layoutDir -}}
-{{- $templateDirs := $cfg.template_dirs | default (slice (printf "%s/partials"
-$layoutDir) (printf "%s/_default/_markup" $layoutDir) (printf "%s/shortcodes"
-$layoutDir) ) -}} {{- $dataDirs := $cfg.data_dirs | default (slice $dirs.dataDir)
--}} {{- $templateExts := $cfg.template_extensions | default (slice ".html"
-".htm") -}} {{- $dataExts := slice ".json" ".yaml" ".yml" ".toml" ".csv" -}}
-{{- $wasmUrl := $cfg.wasm_url -}} {{- if not $wasmUrl -}} {{- $wasmUrl =
-partialCached "editable-regions/wasm-url.html" (dict "override_version"
-($cfg._version | default "") "base_url" ($cfg.wasm_base_url | default
-"https://github.com/CloudCannon/editable-regions/releases/download") ) -}} {{-
-end -}} {{- $moduleFiles := partial "editable-regions/walk-modules.html" (dict
-"themesDir" ($dirs.themesDir | default "themes") "layoutDir" $layoutDir "exts"
-$templateExts) -}} {{- $projectFiles :=
-partial "editable-regions/walk-files.html" (dict "dirs" $templateDirs "exts"
-$templateExts) -}} {{- $ctx := dict "meta" (dict "generator" (printf "Hugo %s"
-hugo.Version) "wasmUrl" $wasmUrl "verbose" ($cfg.verbose | default false) )
-"files" (merge $moduleFiles $projectFiles) "data" (partial
-"editable-regions/walk-files.html" (dict "dirs" $dataDirs "exts" $dataExts))
-"config" (partial "editable-regions/site-config.html" $dirs) -}} {{- $entry :=
-resources.Get "integrations/hugo/browser/entry.js" -}} {{- if not $entry -}}
-{{- errorf "editable-regions: integrations/hugo/browser/entry.js not found in assets — is the editable-regions module imported and mounted?" -}} {{- end -}}
+ {{- /*
+  Builds the single live-editing bundle: the runtime entry asset, rendered
+  with the site's snapshot (template sources, data files, site config) via
+  resources.ExecuteAsTemplate, bundled by js.Build and fingerprinted for
+  cache-busting. Returns the resource. The editable-regions.html partial is
+  the batteries-included wrapper; call this directly if you need control over
+  the script tag (conditional loading, your own pipeline, etc.). Template
+  trees default to the site's configured layout dir (layoutDir): partials,
+  render hooks, and shortcodes are snapshotted by default, and the dirs
+  themselves travel in the config snapshot so the renderer resolves them in
+  the editor. Override the whole list with template_dirs. Templates from the
+  site's themes and vendored modules are captured on top
+  (walk-modules.html) and merged under the project's files, so a component
+  including a theme/vendored partial resolves in the editor.
+*/ -}}
+{{- $cfg := site.Params.editable_regions | default dict -}}
+{{- $dirs := partial "editable-regions/layout-dirs.html" . -}}
+{{- $layoutDir := $dirs.layoutDir -}}
+{{- $templateDirs := $cfg.template_dirs | default (slice
+  (printf "%s/partials" $layoutDir)
+  (printf "%s/_default/_markup" $layoutDir)
+  (printf "%s/shortcodes" $layoutDir)
+) -}}
+{{- $dataDirs := $cfg.data_dirs | default (slice $dirs.dataDir) -}}
+{{- $templateExts := $cfg.template_extensions | default (slice ".html" ".htm") -}}
+{{- $dataExts := slice ".json" ".yaml" ".yml" ".toml" ".csv" -}}
+{{- $wasmUrl := $cfg.wasm_url -}}
+{{- if not $wasmUrl -}}
+  {{- $wasmUrl = partialCached "editable-regions/wasm-url.html" (dict
+    "override_version" ($cfg._version | default "")
+    "base_url" ($cfg.wasm_base_url | default "https://github.com/CloudCannon/editable-regions/releases/download")
+  ) -}}
+{{- end -}}
+{{- $moduleFiles := partial "editable-regions/walk-modules.html" (dict
+  "themesDir" ($dirs.themesDir | default "themes")
+  "layoutDir" $layoutDir
+  "exts" $templateExts
+) -}}
+{{- $projectFiles := partial "editable-regions/walk-files.html" (dict
+  "dirs" $templateDirs
+  "exts" $templateExts
+) -}}
+{{- $ctx := dict
+  "meta" (dict "generator" (printf "Hugo %s" hugo.Version) "wasmUrl" $wasmUrl "verbose" ($cfg.verbose | default false))
+  "files" (merge $moduleFiles $projectFiles)
+  "data" (partial "editable-regions/walk-files.html" (dict "dirs" $dataDirs "exts" $dataExts))
+  "config" (partial "editable-regions/site-config.html" $dirs)
+-}}
+{{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}
+{{- if not $entry -}}
+  {{- errorf "editable-regions: integrations/hugo/browser/entry.js not found in assets — is the editable-regions module imported and mounted?" -}}
+{{- end -}}
 {{- return ($entry | resources.ExecuteAsTemplate "cc-editable-regions/live-editing.js" $ctx | js.Build (dict "minify" (not hugo.IsDevelopment)) | fingerprint) -}}

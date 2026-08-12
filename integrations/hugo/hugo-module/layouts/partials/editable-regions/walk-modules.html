@@ -1,44 +1,65 @@
- {{- /* Walks the template trees of the site's themes and vendored modules and
-returns them as a dict of logical layout path -> contents, in Hugo's lookup
-priority (themes in graph order, then vendored module imports). The project's
-own templates are walked separately (walk-files.html) and merged over this
-dict where they collide (merge's rightmost-arg-wins turns project files into
-the winners).
+ {{- /*
+  Walks the template trees of the site's themes and vendored modules and
+  returns them as a dict of logical layout path -> contents, in Hugo's
+  lookup priority (themes in graph order, then vendored module imports). The
+  project's own templates are walked separately (walk-files.html) and merged
+  over this dict where they collide (merge's rightmost-arg-wins turns the
+  project files into the winners).
 
-Input: (dict "themesDir" "themes" "layoutDir" "layouts" "exts" (slice ".html")).
+  Input: (dict "themesDir" "themes" "layoutDir" "layouts" "exts" (slice ".html")).
 
-Themes are discovered from hugo.Deps itself: an entry whose Physical
-"themesDir/<Path>" directory exists is a theme (imported modules resolve from
-the go module graph/cache, not from themesDir, so the disk check is
-unambiguous and avoids parsing the site config for the `theme` key). A theme
-dep with Vendor=true (the site vendors) lives at "_vendor/<Path>" instead.
+  Themes are discovered from hugo.Deps itself: an entry whose physical
+  "themesDir/<Path>" directory exists is a theme (imported modules resolve
+  from the go module graph/cache, not from themesDir, so the disk check is
+  unambiguous and avoids parsing the site config for the `theme` key). A
+  theme dep with Vendor=true (the site vendors) lives at "_vendor/<Path>"
+  instead.
 
-Hugo.Deps also contributes the vendored module imports: an entry with
-Vendor=true lives at "_vendor/<Path>", the layout `hugo mod vendor` produces.
-Non-vendored imports sit in the go module cache and are not reachable from
-templates; they keep needing template_dirs or a local copy.
+  Hugo.Deps also contributes the vendored module imports: an entry with
+  Vendor=true lives at "_vendor/<Path>", the layout `hugo mod vendor`
+  produces. Non-vendored imports sit in the go module cache and are not
+  reachable from templates; they keep needing template_dirs or a local copy.
 
-Only the three editor-resolvable template kinds are captured (partials,
-_default/_markup render hooks, shortcodes) — kind layouts stay excluded so a
-real "_default/index.html" can't shadow the renderer's dispatch layout.
-First-wins per logical path. */ -}}
-{{- $themesDir := .themesDir | default "themes" -}} {{- $layoutDir :=
-.layoutDir | default "layouts" -}} {{- $exts := .exts -}} {{- $files := dict -}}
+  Only the three editor-resolvable template kinds are captured (partials,
+  _default/_markup render hooks, shortcodes) — kind layouts stay excluded so
+  a real "_default/index.html" can't shadow the renderer's dispatch layout.
+  First-wins per logical path.
+*/ -}}
+{{- $themesDir := .themesDir | default "themes" -}}
+{{- $layoutDir := .layoutDir | default "layouts" -}}
+{{- $exts := .exts -}}
+{{- $files := dict -}}
 {{- /* Themes: Hugo.Deps entries with a physical themesDir directory. */ -}}
-{{- $themes := slice -}} {{- range $dep := hugo.Deps -}} {{- if and $dep.Path
-(fileExists (path.Join $themesDir $dep.Path)) -}} {{- $themes = $themes | append
-$dep.Path -}} {{- end -}} {{- end -}} {{- /* First-wins insertion, in priority
-order: a path already captured by a higher-priority layer is kept. */ -}} {{-
-range $name := $themes -}} {{- $root := path.Join $themesDir $name -}} {{- range
-$dep := hugo.Deps -}} {{- if and (eq $dep.Path $name) $dep.Vendor -}} {{- $root =
-path.Join "_vendor" $name -}} {{- end -}} {{- end -}} {{- $layer := partial
-"editable-regions/module-templates.html" (dict "root" $root "layoutDir"
-$layoutDir "exts" $exts) -}} {{- range $path, $contents := $layer -}} {{- if not
-(isset $files $path) -}} {{- $files = merge $files (dict $path $contents) -}}
-{{- end -}} {{- end -}} {{- end -}} {{- range $dep := hugo.Deps -}} {{- if and
-$dep.Vendor (not (in $themes $dep.Path)) -}} {{- $layer := partial
-"editable-regions/module-templates.html" (dict "root" (path.Join "_vendor"
-$dep.Path) "layoutDir" $layoutDir "exts" $exts) -}} {{- range $path, $contents
-:= $layer -}} {{- if not (isset $files $path) -}} {{- $files = merge $files
-(dict $path $contents) -}} {{- end -}} {{- end -}} {{- end -}} {{- end -}} {{-
-return $files -}}
+{{- $themes := slice -}}
+{{- range $dep := hugo.Deps -}}
+  {{- if and $dep.Path (fileExists (path.Join $themesDir $dep.Path)) -}}
+    {{- $themes = $themes | append $dep.Path -}}
+  {{- end -}}
+{{- end -}}
+{{- /* First-wins insertion, in priority order: a path already captured by a
+  higher-priority layer is kept. */ -}}
+{{- range $name := $themes -}}
+  {{- $root := path.Join $themesDir $name -}}
+  {{- range $dep := hugo.Deps -}}
+    {{- if and (eq $dep.Path $name) $dep.Vendor -}}
+      {{- $root = path.Join "_vendor" $name -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $layer := partial "editable-regions/module-templates.html" (dict "root" $root "layoutDir" $layoutDir "exts" $exts) -}}
+  {{- range $path, $contents := $layer -}}
+    {{- if not (isset $files $path) -}}
+      {{- $files = merge $files (dict $path $contents) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- range $dep := hugo.Deps -}}
+  {{- if and $dep.Vendor (not (in $themes $dep.Path)) -}}
+    {{- $layer := partial "editable-regions/module-templates.html" (dict "root" (path.Join "_vendor" $dep.Path) "layoutDir" $layoutDir "exts" $exts) -}}
+    {{- range $path, $contents := $layer -}}
+      {{- if not (isset $files $path) -}}
+        {{- $files = merge $files (dict $path $contents) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- return $files -}}
