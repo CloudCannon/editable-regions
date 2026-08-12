@@ -1,0 +1,8 @@
+{{/* Exercises the other custom-walked trees: a shortcode (via a body prop so
+   the shortcode syntax never appears in template source), a render hook (from
+   templates/_default/_markup), and data from the custom data dir. */}}
+<div class="rich">
+  <div class="shout">{{ with .body }}{{ . | markdownify }}{{ end }}</div>
+  <div class="link">{{ "[docs](https://example.com/)" | markdownify }}</div>
+  <div class="brand">{{ hugo.Data.site_brand.site_brand }}</div>
+</div>

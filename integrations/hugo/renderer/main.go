@@ -262,9 +262,24 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // Creates the Hugo site from the files written so far. The editor layout and
 // a stub content file are installed here so the first build always has a
 // renderable page.
+//
+// The site config (written by the browser from the snapshot) carries the
+// site's configured layoutDir/contentDir, so the dispatch layout and stub go
+// where Hugo will actually look for them — not always "layouts"/"content".
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
-	builder.writeFile("layouts/all.html", editorLayout)
-	builder.writeFile("content/_index.md", "{ \"cc_initialized\": true }\n")
+	// Load config first so the dispatch layout and stub can be written under
+	// the site's configured layoutDir/contentDir. After that the original
+	// write-then-create-then-build order is preserved: Hugo's first Running
+	// build only re-renders everything when the files exist before the site
+	// is created.
+	if err := builder.loadConfig(); err != nil {
+		return errorValue("failed to load config: %s", err)
+	}
+
+	layoutDir := builder.Cfg.Base.LayoutDir
+	contentDir := builder.Cfg.Base.ContentDir
+	builder.writeFile(filepath.Join(layoutDir, "all.html"), editorLayout)
+	builder.writeFile(filepath.Join(contentDir, "_index.md"), "{ \"cc_initialized\": true }\n")
 
 	if err := builder.createSites(); err != nil {
 		return errorValue("failed to create site: %s", err)
@@ -310,7 +325,8 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		return errorValue("failed to encode props for %s: %s", req.Partial, err)
 	}
 
-	builder.writeFile("content/_index.md", "---\n"+string(frontMatter)+"---\n")
+	contentDir := builder.Cfg.Base.ContentDir
+	builder.writeFile(filepath.Join(contentDir, "_index.md"), "---\n"+string(frontMatter)+"---\n")
 
 	if err := builder.build(); err != nil {
 		return errorValue("%s", err)

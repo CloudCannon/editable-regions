@@ -18,6 +18,7 @@
 			"types/**",
 			"!test/integrations",
 			"!test/unit/_fixtures/hugo",
+			"!test/unit/_fixtures/hugo-custom-dirs",
 			"!**/*.astro",
 			"!**/*.svelte",
 			"!**/*.vue",

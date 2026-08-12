@@ -15,7 +15,8 @@ export function enhanceHugoError(message, componentKey) {
 		hint =
 			" This partial isn't in the bundled template snapshot. Check that it " +
 			"lives under one of the directories in " +
-			"`params.editable_regions.template_dirs` (default: layouts/partials) " +
+			"`params.editable_regions.template_dirs` (by default the partials, " +
+			"render hooks, and shortcodes of your configured layout dir) " +
 			"and rebuild the site.";
 	} else if (/execute of template failed/i.test(message)) {
 		hint =

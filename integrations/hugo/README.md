@@ -83,8 +83,11 @@ editable-component region:
 
 ```toml
 [params.editable_regions]
-  template_dirs = ["layouts/partials"]  # dirs snapshotted for the renderer
-  data_dirs = ["data"]                  # data files available as site.Data
+  # Dirs snapshotted for the renderer. Defaults derive from your configured
+  # layoutDir: its partials, render hooks (_default/_markup), and shortcodes.
+  # Only set these to override the default dirs.
+  template_dirs = []
+  data_dirs = []                        # default: your configured dataDir
   template_extensions = [".html", ".htm"]
   wasm_url = ""                         # full override of the renderer WASM URL
   # Optional version override. Normally the version is auto-detected from
@@ -106,9 +109,13 @@ hugo build
   │           └── /cc-editable-regions/live-editing.<hash>.js
   │                 entry.js (module asset) rendered with the site snapshot,
   │                 then bundled from source by js.Build:
-  │                   window.cc_hugo_files  <- layouts/partials/** snapshot
-  │                   window.cc_hugo_data   <- data/** snapshot
-  │                   window.cc_hugo_config <- baseURL, title, params, menus
+  │                   window.cc_hugo_files  <- template tree snapshot: the
+  │                       partials, render hooks and shortcodes of your
+  │                       configured layout dir (default layouts/**)
+  │                   window.cc_hugo_data   <- data dir snapshot (default data/**)
+  │                   window.cc_hugo_config <- baseURL, title, params, menus,
+  │                       plus layoutDir/dataDir/contentDir so the renderer
+  │                       finds everything in the editor
   │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
   │                   + the browser runtime (integrations/hugo/browser)
   └── /_cloudcannon/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser

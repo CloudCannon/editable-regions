@@ -1,20 +1,14 @@
-{{- /*
-  Serializes the browser-relevant slice of the site configuration. The
-  runtime writes this (plus editor overrides) as the WASM site's config, so
-  component partials can use `site.Params`, `site.Title`, and `site.Menus`.
-*/ -}}
-{{- $menus := dict -}}
-{{- range $name, $entries := site.Menus -}}
-  {{- $items := slice -}}
-  {{- range $entries -}}
-    {{- $items = $items | append (dict "name" .Name "url" .URL "weight" .Weight) -}}
-  {{- end -}}
-  {{- $menus = merge $menus (dict $name $items) -}}
-{{- end -}}
-{{- return (dict
-  "baseURL" ("/" | absURL)
-  "title" site.Title
-  "locale" (site.LanguageCode | default "")
-  "params" site.Params
-  "menus" $menus
-) -}}
+{{- /* Serializes the browser-relevant slice of the site configuration. The
+runtime writes this (plus editor overrides) as the WASM site's config, so
+component partials can use `site.Params`, `site.Title`, and `site.Menus`.
+Expects the directory map from editable-regions/layout-dirs.html (the site's
+configured layoutDir/dataDir/contentDir): those are forwarded so the renderer
+looks for templates, data, and the dispatch layout in the right places.
+Provisioned by editable-regions/resources.html. */ -}} {{- $menus := dict -}}
+{{- range $name, $entries := site.Menus -}} {{- $items := slice -}} {{- range
+$entries -}} {{- $items = $items | append (dict "name" .Name "url" .URL "weight"
+.Weight) -}} {{- end -}} {{- $menus = merge $menus (dict $name $items) -}} {{-
+end -}} {{- return (dict "baseURL" ("/" | absURL) "title" site.Title "locale"
+(site.LanguageCode | default "") "params" site.Params "menus" $menus "layoutDir"
+(.layoutDir | default "layouts") "dataDir" (.dataDir | default "data")
+"contentDir" (.contentDir | default "content") ) -}}

@@ -4,19 +4,37 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const assetDir = path.resolve(
-	here,
-	"../_fixtures/hugo/public/cc-editable-regions",
-);
+const defaultFixture = "hugo";
+
+/** The fixture loadHugoBundle boots; select with useHugoFixture(). */
+let currentFixture = defaultFixture;
+
+/**
+ * Selects which built `test/unit/_fixtures/<name>` bundle a suite boots. Call
+ * before `beforeAll(loadHugoBundle)`. The default ("hugo") itself uses default
+ * directory layout; "hugo-custom-dirs" relocates its template/file dirs.
+ */
+export function useHugoFixture(fixture: string): void {
+	currentFixture = fixture;
+}
+
+/** Resolves the built asset dir for the selected fixture. */
+function fixtureAssetDir(): string {
+	return path.resolve(
+		here,
+		`../_fixtures/${currentFixture}/public/cc-editable-regions`,
+	);
+}
 
 function findAsset(name: string, pattern: RegExp): string {
-	const file = fs.readdirSync(assetDir).find((f) => pattern.test(f));
+	const dir = fixtureAssetDir();
+	const file = fs.readdirSync(dir).find((f) => pattern.test(f));
 	if (!file) {
 		throw new Error(
-			`No ${name} in ${assetDir} — run \`npm run test:build-hugo-fixture\` first.`,
+			`No ${name} in ${dir} — run \`npm run test:build-hugo-fixture\` (hugo-custom-dirs via test:build-hugo-custom-dirs) first.`,
 		);
 	}
-	return path.join(assetDir, file);
+	return path.join(dir, file);
 }
 
 /** The Go renderer logs change events and build progress through console.log. */
@@ -35,7 +53,8 @@ export function restoreRendererStdout(): void {
  * and the engine starts once the CloudCannon API mock is on `window`.
  *
  * Call in `beforeAll` (with `afterAll(restoreRendererStdout)`); the first
- * render then awaits engine boot transparently.
+ * render then awaits engine boot transparently. Select the fixture with
+ * useHugoFixture() first for sites that don't use default directory layout.
  */
 export async function loadHugoBundle(): Promise<void> {
 	installWasmFetchStub();

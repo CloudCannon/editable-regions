@@ -19,7 +19,10 @@ const DISABLED_KINDS = [
 	"404",
 ];
 
-const PARTIALS_PREFIX = "layouts/partials/";
+/** Partials prefix relative to the snapshot: the site's layoutDir + partials. */
+function partialsPrefix() {
+	return `${runtimeData?.config?.layoutDir ?? "layouts"}/partials/`;
+}
 
 /**
  * @typedef {Object} HugoRuntimeData
@@ -187,9 +190,10 @@ function buildEditorConfig(emitted) {
  */
 export function resolvePartialName(key) {
 	const files = runtimeData?.files ?? {};
+	const prefix = partialsPrefix();
 	const candidates = [key, `${key}.html`, `${key}.htm`];
 	for (const candidate of candidates) {
-		if (`${PARTIALS_PREFIX}${candidate}` in files) {
+		if (`${prefix}${candidate}` in files) {
 			return candidate;
 		}
 	}
@@ -198,9 +202,10 @@ export function resolvePartialName(key) {
 
 /** @returns {string[]} Partial names available in the snapshot. */
 function availablePartials() {
+	const prefix = partialsPrefix();
 	return Object.keys(runtimeData?.files ?? {})
-		.filter((path) => path.startsWith(PARTIALS_PREFIX))
-		.map((path) => path.slice(PARTIALS_PREFIX.length));
+		.filter((path) => path.startsWith(prefix))
+		.map((path) => path.slice(prefix.length));
 }
 
 /**

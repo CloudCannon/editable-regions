@@ -1,0 +1,17 @@
+{{- /* Detects the site's configured directory base names from its config file.
+Hugo templates can't read config directly, so we parse the config file(s)
+themselves. Mirrors Hugo's lookup order: project-root config before
+config/_default/*, legacy "config.toml" names before the "hugo.*" names. Values
+fall back to Hugo's defaults when unset. Returns: (dict "layoutDir" "dataDir"
+"contentDir") */ -}} {{- $layoutDir := "layouts" -}} {{- $dataDir := "data" -}}
+{{- $contentDir := "content" -}} {{- $candidates := slice "hugo.toml"
+"hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml"
+"config.json" "config/_default/hugo.toml" "config/_default/hugo.yaml"
+"config/_default/hugo.yml" "config/_default/hugo.json" -}} {{- range $file :=
+$candidates -}} {{- if os.FileExists $file -}} {{- $ext := strings.TrimPrefix
+"." (path.Ext $file) -}} {{/* TrimPrefix is (prefix, s) — prefix first */}} {{-
+$conf := os.ReadFile $file | transform.Unmarshal (dict "format" $ext) -}} {{-
+with $conf.layoutDir -}}{{- $layoutDir = . -}}{{- end -}} {{- with $conf.dataDir
+-}}{{- $dataDir = . -}}{{- end -}} {{- with $conf.contentDir -}}{{- $contentDir
+= . -}}{{- end -}} {{- break -}} {{- end -}} {{- end -}} {{- return (dict
+"layoutDir" $layoutDir "dataDir" $dataDir "contentDir" $contentDir) -}}
