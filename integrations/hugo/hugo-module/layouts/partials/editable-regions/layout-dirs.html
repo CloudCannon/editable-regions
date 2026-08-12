@@ -1,9 +1,11 @@
 {{- /* Detects the site's configured directory base names from its config file.
 Hugo templates can't read config directly, so we parse the config file(s)
-themselves. Mirrors Hugo's lookup order: project-root config before
-config/_default/*, legacy "config.toml" names before the "hugo.*" names. Values
-fall back to Hugo's defaults when unset. Returns: (dict "layoutDir" "dataDir"
-"contentDir") */ -}} {{- $layoutDir := "layouts" -}} {{- $dataDir := "data" -}}
+themselves. Mirrors Hugo's lookup order (config/configLoader.go): root
+"hugo.*" names before legacy "config.*", and root files before
+config/_default/*. First-found-wins is an approximation — Hugo merges the
+config dir over the root file per key, so a dir set only in config/_default/
+(with a root config present) is missed. Values fall back to Hugo's defaults
+when unset. Returns: (dict "layoutDir" "dataDir" "contentDir") */ -}} {{- $layoutDir := "layouts" -}} {{- $dataDir := "data" -}}
 {{- $contentDir := "content" -}} {{- $candidates := slice "hugo.toml"
 "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml"
 "config.json" "config/_default/hugo.toml" "config/_default/hugo.yaml"

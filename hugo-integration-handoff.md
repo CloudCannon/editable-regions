@@ -9,6 +9,12 @@ Updated same day after a follow-up design session: decisions 8–12 added
 items were rewritten to match. Items 2–4 below supersede their earlier
 versions entirely.
 
+Updated 2026-08-12 with the follow-ups that landed on the branch since:
+WASM distribution (item 1), render-hook params coercion (item 3), and the
+page-map/component-wrapper/globals items (item 5) all got their DONE
+markers; the builtins battery and a new decision 13 (custom
+layout/data/content directories) were added to the shape section.
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -17,6 +23,12 @@ versions entirely.
   `[outputs]` requirement deleted, WASM fingerprinted.
 - `7a9b8e6` — runtime bundles **from source** via `js.Build` at site build
   time; the repo root is the module.
+- `b43cccd` — bundle-path **builtins battery** for Hugo template functions
+  (`test/unit/hugo/builtins.test.ts` + `builtins-probe.html`).
+- `0ce1d0c` — **custom `layoutDir`/`dataDir`/`contentDir` respected
+  end-to-end** (decision 13): config-file probe, snapshot walk + config
+  passthrough, renderer writes under the configured dirs, dedicated
+  fixture + tests.
 
 Architecture in one paragraph: the consuming site adds
 `[[module.imports]] path = "github.com/cloudcannon/editables"` and
@@ -30,8 +42,9 @@ asset `browser/entry.js` with it via `resources.ExecuteAsTemplate`, bundles
 with `js.Build` (minify off under `hugo.IsDevelopment`), fingerprints, and
 `editable-regions.html` emits the single `<script>` (SRI + defer). In the
 browser the runtime boots real Hugo (GOOS=js WASM, hugolib over afero memfs)
-lazily once the CloudCannon API appears; each component render rewrites
-`content/_index.md` and runs an incremental build.
+lazily once the CloudCannon API appears; each component render rewrites the
+site's `<contentDir>/_index.md` (dirs resolved from the site config, decision
+13; defaults `layouts`/`data`/`content`) and runs an incremental build.
 
 ## Decisions made (with rationale)
 
@@ -92,6 +105,39 @@ lazily once the CloudCannon API appears; each component render rewrites
     emission, `runtimeData.pages`, and the `page-map.html` partial get
     deleted. The CloudCannon API already enumerates files at runtime;
     re-add a map only when a concrete consumer defines what it needs.
+13. **Custom `layoutDir`/`dataDir`/`contentDir` are respected end-to-end**
+    (2026-08-12). Sites configuring these previously broke silently: the
+    default snapshot walked literal `layouts/`+`data/` and the renderer
+    installed its dispatch layout + stub at literal `layouts/`+`content/`
+    paths, so a relocated site bundled nothing and partials couldn't
+    resolve. The shape now:
+    - **Templates can't read config** (no accessor for the dir keys), so a
+      new `editable-regions/layout-dirs.html` partial probes the config
+      file(s) itself: first present of root `hugo.{toml,yaml,yml,json}` →
+      legacy `config.{toml,yaml,yml,json}` → `config/_default/hugo.*`, read
+      via `os.ReadFile` + `transform.Unmarshal` (explicit `format` from the
+      filename — TOML has no auto-detect in the template layer), falling
+      back to defaults. The snapshot's `data_dirs` and the default
+      `template_dirs` walk both derive from it. **First-found-wins is an
+      approximation**: Hugo merges `config/_default/*` *over* the root file
+      per key, so a dir configured only in the config dir (with a root
+      config present) is missed — sites virtually always set these at the
+      root; revisit only if a consumer hits it.
+    - The default walk scans `<layoutDir>/partials`,
+      `<layoutDir>/_default/_markup` (render hooks), `<layoutDir>/shortcodes`,
+      and `<dataDir>`. Kind layouts stay excluded — a real
+      `<layoutDir>/_default/index.html` must not shadow the renderer's
+      dispatch layout (tested). `browser/index.mjs` derives its
+      partial-path prefix from `layoutDir` as well.
+    - The renderer resolves dirs itself: `initHugoEditorSite` calls
+      `loadConfig()` before writing the dispatch layout + stub to
+      `Cfg.Base.LayoutDir`/`ContentDir`, and `renderHugoPartial` writes the
+      stub under `ContentDir` (the write-then-create-then-build ordering is
+      otherwise preserved — see the new gotcha).
+    - Covered by a dedicated fixture (`hugo-custom-dirs`:
+      `templates/`, `custom-data/`, `notes/`) + `test/unit/hugo/custom-dirs.test.ts`
+      (8 tests), built via `test:build-hugo-custom-dirs` wired into
+      `test:build-fixtures`.
 
 ## Hugo gotchas encountered (worth knowing)
 
@@ -105,7 +151,9 @@ lazily once the CloudCannon API appears; each component render rewrites
 - **Relative module `replacements` resolve against `themesDir`**, not the
   project dir (`createThemeDirname` in `modules/client.go`). The fixture's
   `github.com/cloudcannon/editables -> ../../../..` has four `..` for this
-  reason. With a local replacement, no Go toolchain or network is needed to
+  reason (`hugo-custom-dirs`, one level deeper, needs five). No themes
+  dir is committed — the replacement still resolves during the build.
+  With a local replacement, no Go toolchain or network is needed to
   build.
 - `js.Build` import resolution: bare imports resolve against the unified
   assets FS, then fall back to the *project's* `node_modules`. Auto-extension
@@ -131,6 +179,40 @@ lazily once the CloudCannon API appears; each component render rewrites
   `link` (in store, permalink works, no output rendered).
   `.Content`/`.Summary` of `link`/`never` pages render on demand when
   another page accesses them.
+- **Templates can't read the site config** (decision 13): no template
+  accessor exposes the `layoutDir`/`dataDir`/`contentDir` keys — only
+  derived surfaces like `site.Params`, menus, and languages are reachable —
+  so the integration parses the config file(s) from a partial
+  (`layout-dirs.html`). Root `hugo.*` names beat legacy `config.*` (source:
+  `config/configLoader.go` `DefaultConfigNames = ["hugo", "config"]`), and
+  the `config/_default/` dir merges *over* the root file per key rather
+  than falling back, which the probe approximates with first-found-wins.
+- **`{{< ... >}}` is a parse error inside a partial**: shortcode invocation
+  syntax can't appear literally in component template source — Hugo's
+  template pass has no render-mode lexer there. Components must carry the
+  call in data (a `body` prop run through `markdownify`, as the fixture's
+  `custom-rich` does) so the render-mode lexer expands it at render time.
+- **Data files need map roots**: a `data/*.yaml` whose root is a scalar
+  (e.g. a bare logo string) looks fine but hard-errors the whole build at
+  read time (`unexpected data type string`), taking the editor render down
+  — data fixtures should stay map-shaped.
+- **Init ordering in the renderer**: the dispatch layout + stub
+  `<contentDir>/_index.md` must exist as files *before* `createSites()`
+  (Hugo's first Running build only re-renders everything when they predate
+  site creation). `loadConfig()` therefore runs *before* those writes and
+  must not be moved after them.
+- **Template string literals can't span physical lines**: Hugo's template
+  parser (unlike Go's `text/template`) treats a newline inside a `"…"`
+  as an unterminated string — the *whole site build* dies with a template
+  **parse** error pointing at the action's first line. This bit us
+  on 2026-08-12 when prettier reflowed the `errorf` message in
+  `resources.html` across lines; it went undetected because the fixture
+  bundles in use had been built *before* the reflow. The module partials
+  are lint-excluded, so keep them out of formatter runs (or accept
+  single-line strings and re-run fixture builds) — and remember **fixture
+  bundles are gitignored, so `npm test` never rebuilds them**: a broken
+  module source hides behind last-known-good bundles until a fresh
+  `test:build-fixtures`.
 
 ## Open items, in suggested order
 
@@ -336,3 +418,25 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
   direct-renderer `wasm-renderer.test.ts` (refactored onto it, zero
   behavior change). The slots "Bundled partials include" regex was
   loosened — the sorted list now interleaves the globals probes.
+- **Done (2026-08-12): builtins battery** (`b43cccd` +
+  `6d33972`) — `test/unit/hugo/builtins.test.ts` renders one `<div
+  data-k>` row per builtin from `layouts/partials/builtins-probe.html`
+  through the real WASM bundle; ground truth was captured against the
+  native v0.164.0 binary (the same version the renderer bundles) with a
+  scratch site. Findings baked into the probe conventions: **piped values
+  land in the last positional slot** (vanilla text/template semantics — no
+  per-function reordering in Hugo, so `X | where "k" "v"`, `X | sort
+  "key"`, `X | replace "a" "b"`, `X | transform.Highlight "js"` etc. all
+  mis-route the piped value; the probe uses direct-call form for every
+  multi-arg builtin); `strings.Join` no longer exists (use
+  `collections.Delimit`); `crypto.FNV32a` moved to the `hash` namespace;
+  `strings.Count` is `(substr, s)`; `countrunes` excludes whitespace;
+  `math.Div` on ints truncates (10/4 → 2); time-test inputs are date-only
+  or explicit-UTC so results don't depend on the renderer timezone.
+- **Done (2026-08-12): custom-directories suite** (decision 13) —
+  `test/unit/_fixtures/hugo-custom-dirs` + `test/unit/hugo/custom-dirs.test.ts`
+  (8 tests) built by `test:build-hugo-custom-dirs` (part of
+  `test:build-fixtures`); the fixture's `templates/_default/index.html`
+  proves kind layouts are excluded by default, and a map-rooted data file
+  under `custom-data/` proves `hugo.Data` resolves from the configured
+  data dir.

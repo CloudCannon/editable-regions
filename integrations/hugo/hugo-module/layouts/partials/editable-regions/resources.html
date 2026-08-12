@@ -26,7 +26,6 @@ hugo.Version) "wasmUrl" $wasmUrl "verbose" ($cfg.verbose | default false) )
 "dirs" $dataDirs "exts" $dataExts)) "config" (partial
 "editable-regions/site-config.html" $dirs) -}} {{- $entry := resources.Get
 "integrations/hugo/browser/entry.js" -}} {{- if not $entry -}} {{- errorf
-"editable-regions: integrations/hugo/browser/entry.js not found in assets — is
-the editable-regions module imported and mounted?" -}} {{- end -}} {{- return
+"editable-regions: integrations/hugo/browser/entry.js not found in assets — is the editable-regions module imported and mounted?" -}} {{- end -}} {{- return
 ($entry | resources.ExecuteAsTemplate "cc-editable-regions/live-editing.js" $ctx
 | js.Build (dict "minify" (not hugo.IsDevelopment)) | fingerprint) -}}
