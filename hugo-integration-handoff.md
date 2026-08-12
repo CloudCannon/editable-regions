@@ -757,3 +757,91 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
   proves kind layouts are excluded by default, and a map-rooted data file
   under `custom-data/` proves `hugo.Data` resolves from the configured
   data dir.
+
+### 6. Replace the config-file probe with a salient-folder template walk — DESIGNED (2026-08-12), not implemented
+
+Supersedes the `layout-dirs.html` half of decision 13. Motivation: the
+probe re-implements Hugo's config loader in a template and silently
+misses real configurations — environment-specific config dirs
+(`config/production/`, `config/development/`), per-key merging of
+`config/_default/` over a root file, `HUGO_*` env overrides, the
+`--config` flag, and union-fs shadowing (a *theme* shipping `params` in
+its root `hugo.toml` passes the site-level fingerprint and the
+first-found-wins `break` then skips the project's real file). The
+replacement design agreed this session:
+
+- **Primary discovery is a recursive walk of the project tree** looking
+  for salient folder names (`partials`, `shortcodes`, `_default`,
+  `_markup`). Candidate template name = path from the FIRST salient
+  component onward (`templates/partials/card.html` →
+  `partials/card.html`; nested `layouts/partials/nested/partials/x.html`
+  still derives correctly). This makes discovery layoutDir-agnostic with
+  no config parsing at all.
+- **`templates.Exists` is the authoritative filter.** It queries the
+  parsed template namespace (probe-verified, v0.164.0 native binary):
+  true for partials (including mount-backed ones), shortcodes (incl.
+  nested `shortcodes/foo/bar.html`), and render hooks
+  (`_default/_markup/render-link.html`); names are namespace-relative
+  and prefix-required. False positives like `content/blog/partials/x.md`
+  fail the check and are skipped. The extension filter in
+  `walk-files.html` (`.html`/`.htm`) can be dropped — Exists is the
+  arbiter. Caveat: it is a POINT QUERY; stock Hugo has no template
+  enumeration, so it filters/validates walk-derived candidates, it
+  cannot generate them.
+- **The capture filter stays prefix-based, not Exists-only**: only
+  snapshot names starting `partials/`, `shortcodes/`, or
+  `_default/_markup/`. Otherwise `_default/list.html`/`baseof.html`
+  (kind layouts) pass Exists and get captured, violating the
+  dispatch-layout shadowing rule (decision 13, tested).
+- **Prune during the walk**: `themes/` + `_vendor/` (handled separately
+  via `hugo.Deps`, unchanged), plus `.git`, `public`, `resources`,
+  `node_modules`.
+- **Fallback is a params-configured dir list** (e.g.
+  `params.editableRegions.templateDirs`), and it must be ADDITIVE
+  (walk ∪ configured dirs), not only-when-empty — the mount scenario is
+  "walk finds the normal `layouts/` tree fine but silently misses
+  `shared/`".
+- **`dataDir`/`contentDir`**: likely not needed going forward; the probe
+  can shrink to forwarding defaults. Revisit when content/data needs
+  settle.
+
+Probe-verified fs facts behind the design (v0.164.0 native binary,
+scratch site with `source = "shared"` → `target = "layouts/partials"`):
+
+- **`readDir` sees the physical project dir PRE-mount**: mount targets
+  are invisible at their logical path (`readDir "layouts/partials"`
+  lists only the physical entries; the mounted files absent), and
+  `os.FileExists "layouts/partials/card.html"` is likewise false — the
+  readFile fall-through documented in the gotchas is a THEME-overlay
+  mechanism, not general union resolution; arbitrary mounts don't
+  participate in `os.*` at their target paths at all.
+- **Mount SOURCE dirs stay visible/readable at their literal path**
+  (`shared/` appears in `readDir "."` and walks fine). So project-level
+  mounts are capturable IF the mapping is known — but the walk can't
+  discover it (no salient name in `shared/card.html`), so it's either
+  parsed from the project config (`layout-dirs.html` already reads it)
+  or covered by the params fallback. layoutDir and custom mounts are
+  mutually exclusive per Hugo docs, so the two mechanisms never overlap
+  on one site.
+- **Physical theme/vendor config paths are unshadowable**: mount targets
+  must begin with one of the seven component dirs, so nothing can mount
+  over `themes/<name>/hugo.toml` or `_vendor/<path>/hugo.toml`.
+  Non-vendored module imports remain uncapturable (they live only in the
+  Go module cache, unreachable via `os.*`) — `templates.Exists` will
+  report their templates present while no source is readable; a `warnf`
+  there would be kind.
+- Related verified surfaces: `site.Config` exposes only `services` +
+  `privacy` (no dir keys — upstream feature request material); the
+  default `security.funcs.getenv` allowlist is `['^HUGO_', '^CI$']`
+  (securityConfig.go) and Hugo's env binding maps `HUGO_LAYOUTDIR` →
+  `layoutdir` (allconfig/load.go: `HUGO` prefix, first rune after the
+  prefix is the delimiter) — env overrides are template-readable if the
+  params fallback ever needs a sibling.
+
+Accepted pathologies (document, don't fix): a layoutDir literally named
+`partials`; `--config` CLI flag invisible; `Exists`-true-but-unreadable
+names can't be enumerated as a failure detector (names must come from
+the walk first). When implementing: update decision 13 and the
+`hugo-custom-dirs` fixture/tests — the fixture's `layoutDir =
+"templates"` case should pass through the walk naturally and is the
+regression canary.
