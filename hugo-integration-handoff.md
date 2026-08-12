@@ -22,6 +22,21 @@ cascade build suppression (decision 11) is in. This session also wrote
 `current-page.test.ts` and discovered a hard renderer constraint
 (`os.*` template funcs see no files in the WASM).
 
+Updated 2026-08-12 (late) with the mid-session content-freshness pass (a
+gap vs. the Liquid/Eleventy runtime): CloudCannon's site-wide `change`/
+`delete` events now update content stubs live. The runtime subscribes after
+boot, filters to content files (content dir + content extensions), re-fetches
+the changed file's front matter, rewrites its stub, and runs a build-only
+rebuild via a new `rebuildHugoEditorSite` renderer export — so the dispatch
+page stays alone in its own (render) build and the single-content-write
+invariant holds. New files are loaded by the same write-then-rebuild path
+(probe-verified in the WASM — the earlier "adds via fake events are not
+guaranteed to load" note predates this mechanism); deleted files drop from
+the store unless they're a publish opt-in (home or the session target), which
+are kept so the render chain doesn't break. Covered by
+`test/unit/hugo/content-freshness.test.ts` (7 tests) using new mock site-wide
+event emitters (`emitMockApiChange`/`emitMockApiDelete`). See item 2.
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -187,7 +202,10 @@ current page via the `page` global.
   20-render burst stays fresh). This quirk is why per-render page writes
   (opt-ins/restores) were graduated to boot time. Root cause in Hugo's
   partial-rebuild rendering gates is not yet understood; don't batch content
-  writes per render until it is.
+  writes per render until it is. This is also why the mid-session freshness
+  listener (item 2) rebuilds *immediately* after each stub write: the bare
+  rebuild keeps that write its own single-write change set, so the dispatch
+  write never shares a build with a content write.
 - **No multi-line string literal exists in Hugo templates** (2026-08-12,
   probe-verified): a raw newline inside `"…"` is a parse error
   ("unterminated quoted string"), and backtick raw strings (a Go *language*
@@ -402,6 +420,42 @@ What landed:
   and props can't ride in generated template code (no multi-line literal in
   Hugo templates; `"\n"` escapes work but per-value escaping + template
   injection make it strictly worse than the front-matter channel).
+- **Mid-session freshness LANDED** (2026-08-12 late) — closing the gap
+  where the editor site served boot-time data after boot (the Liquid runtime
+  refreshes from the API per render; the Hugo runtime previously didn't).
+  `watchContentChanges()` subscribes to CloudCannon's site-wide
+  `change`/`delete` events (one listener each; `event.detail.sourcePath` is
+  the changed file) and keeps content stubs live:
+  - **Change** → `updateContentStub`: filter to content files (content dir +
+    `CONTENT_EXTENSIONS`), re-fetch `CloudCannon.file(path).data.get()`,
+    rewrite the stub via `writeHugoFiles` (re-applying the home/session
+    opt-ins through the shared `stubContents` so `build.render: always`
+    survives the rewrite), then a build-only
+    **`rebuildHugoEditorSite`** (new renderer export — `builder.build()`
+    with no dispatch write).
+  - **Why build immediately**: the render build must stay single-write. If
+    the stub write rode along to the next `renderHugoPartial`, the change set
+    would batch stub + dispatch — exactly what the multi-content-change quirk
+    forbids. A bare rebuild per update keeps every build at one content write.
+  - **New files** are loaded by the same write-then-rebuild path — verified
+    in the WASM with a real `js.Build`/hugolib incremental rebuild. The
+    handoff's older "adds via fake events are not guaranteed to load" note
+    (from the boot-loading session) does not apply here.
+  - **Delete** → `removeContentStub`: drops the page from the maps,
+    `removeHugoFiles`, rebuild. The home page and the session target are kept
+    (they're the publish opt-ins the render chain reads; deleting the target
+    is a page the editor is tearing down anyway).
+  - **Not tracked**: files outside the content dir (templates, data, static)
+    — events for them are ignored, no rebuild.
+  - **Tests**: `test/unit/hugo/content-freshness.test.ts` (7 bundle-path
+    tests, `vi.waitFor` against the real WASM): current-page edit → `page`
+    (and the stub's opt-in survives — the render only succeeds if it does);
+    another page's edit → `site.Pages`; home edit → `site.Home.Params`; a
+    brand-new file appearing; non-content events ignored; delete dropping a
+    page from collections; delete of the session target keeping its stub.
+    The mock gained site-wide listeners + `emitMockApiChange`/
+    `emitMockApiDelete` (a synchronous dispatch; async handlers resolve on
+    later microtasks, hence the polling assertions).
 - **Test suite**: `test/unit/hugo/collections.test.ts` (boot with a mocked
   current page: current-page context, the page tree + query surface
   (`collections-query.html`), steady-state freshness, and the "session

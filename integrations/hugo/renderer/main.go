@@ -12,6 +12,7 @@
 //	removeHugoFiles(json)     – ["path", ...]
 //	readHugoFiles(json)       – ["path", ...] -> {"path": "contents"}
 //	initHugoEditorSite()      – load config.json and create the site
+//	rebuildHugoEditorSite()   – run an incremental build of the editor site
 //	renderHugoPartial(json)   – {"partial": "card.html", "props": {...}}
 //	                            -> {"html": "..."} or {"error": "..."}
 package main
@@ -188,6 +189,7 @@ func main() {
 	js.Global().Set("removeHugoFiles", js.FuncOf(removeHugoFiles))
 	js.Global().Set("readHugoFiles", js.FuncOf(readHugoFiles))
 	js.Global().Set("initHugoEditorSite", js.FuncOf(initHugoEditorSite))
+	js.Global().Set("rebuildHugoEditorSite", js.FuncOf(rebuildHugoEditorSite))
 	js.Global().Set("renderHugoPartial", js.FuncOf(renderHugoPartial))
 	<-c
 }
@@ -309,6 +311,23 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	}
 	if err := builder.build(); err != nil {
 		return errorValue("initial build failed: %s", err)
+	}
+	return nil
+}
+
+// Runs an incremental build of the editor site without a render request. The
+// browser calls this after writing content stubs from CloudCannon's site-wide
+// change/delete events, so Hugo re-reads updated front matter into the store
+// (collections, site.GetPage, and the current page's `page` data all refresh)
+// before the next component render — and the dispatch write stays alone in
+// its own render build, preserving the single-content-write-per-build
+// invariant.
+func rebuildHugoEditorSite(this js.Value, args []js.Value) interface{} {
+	if builder.Sites == nil {
+		return errorValue("editor site not initialized (call initHugoEditorSite first)")
+	}
+	if err := builder.build(); err != nil {
+		return errorValue("%s", err)
 	}
 	return nil
 }

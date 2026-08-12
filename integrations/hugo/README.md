@@ -126,13 +126,15 @@ hugo build
 The WASM renderer holds a `hugolib` site over an in-memory filesystem. At
 startup it receives the snapshot (config, partials, data) plus **content
 stubs — every content file's front matter with a blank body**, loaded from
-the CloudCannon API at runtime (never baked into the snapshot). Each
-component render runs an incremental build — sub-millisecond in practice —
-and a config-level `cascade` (`build.render: "link"`) suppresses per-page
-output: only the home page and the page currently being edited are rendered.
-The runtime only fetches the WASM once the CloudCannon Visual Editor API
-announces itself, so shipping the bundle on production pages costs one small
-script, not a 16MB download.
+the CloudCannon API at runtime (never baked into the snapshot). After boot
+it subscribes to CloudCannon's site-wide file-change events, so front-matter
+edits made in the editor are pushed into the editor site as they happen (see
+"Live content edits" below). Each component render runs an incremental build
+— sub-millisecond in practice — and a config-level `cascade`
+(`build.render: "link"`) suppresses per-page output: only the home page and
+the page currently being edited are rendered. The runtime only fetches the
+WASM once the CloudCannon Visual Editor API announces itself, so shipping
+the bundle on production pages costs one small script, not a 16MB download.
 
 ## What works in editor renders
 
@@ -151,14 +153,25 @@ script, not a 16MB download.
   `.Title` / `.Date` / `.Section` over those pages reflect the site's real
   content — typed like a real Hugo build (whole numbers as ints, dates as
   `time.Time`). `.Content` stays empty until bodies are loaded.
+- **Live content edits**: the runtime listens to CloudCannon's site-wide
+  `change`/`delete` events and refreshes content in the editor site the
+  moment a file is saved — no page reload. Each content-file change
+  re-fetches that file's front matter, rewrites its stub, and runs a
+  build-only rebuild, so `page.*`, `site.Pages`, `site.GetPage`, and
+  collections reflect edits made after boot. Only files under your content
+  dir with a content extension are tracked; a brand-new content file is
+  picked up the same way, and deleting one drops it from the store (the
+  home page and the page being edited are kept — they're what the session
+  renders through). The publishing opt-ins are re-applied on every rewrite.
 - **The current page** (the page being edited, from the CloudCannon API) is
   the page the renderer renders, so components reach it through the global
   `page` function: `page.Title`, `page.Params.*`, `page.RelPermalink`, and
   page methods all work while props remain the component's context. The
   current page is captured **once at boot** and its stub is opted into
   publishing (navigating to another page in the editor reboots the runtime,
-  so the target never changes mid session); with no page in context the
-  render falls back to the home page.
+  so the target never changes mid session — though its data stays live via
+  the change listener above); with no page in context the render falls back
+  to the home page.
 - The `hugo.*` namespace: `hugo.Version`, `hugo.Generator`,
   `hugo.Environment` (`"production"` in the editor), and
   **`hugo.IsServer` is `true` in the editor site** — guard editor-only

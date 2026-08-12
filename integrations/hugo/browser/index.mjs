@@ -240,6 +240,11 @@ async function startEngine() {
 		throw new Error(`Hugo editor site failed to build: ${initError.error}`);
 	}
 
+	// Front-matter edits made after boot are pushed into the editor site by
+	// CloudCannon's site-wide change events (installed now the site exists, so
+	// boot-time writes can't race the first build).
+	watchContentChanges();
+
 	log("Hugo renderer ready");
 	groupEnd();
 }
@@ -282,11 +287,9 @@ async function loadEditorContent() {
 		if (!page) continue;
 		contentFrontMatter.set(page, frontMatter);
 		pagePathFiles.set(page, relContentFile(apiPath));
-		const optsIntoPublishing = page === "/" || page === sessionPage;
-		stubs[`${contentDir()}/${relContentFile(apiPath)}`] = serializeFrontMatter(
-			optsIntoPublishing
-				? { ...frontMatter, build: { render: "always" } }
-				: frontMatter,
+		stubs[`${contentDir()}/${relContentFile(apiPath)}`] = stubContents(
+			frontMatter,
+			page,
 		);
 	}
 	if (Object.keys(stubs).length > 0) {
@@ -295,6 +298,134 @@ async function loadEditorContent() {
 				(sessionPage === "/" ? "" : ` (editing ${sessionPage})`),
 		);
 		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(stubs));
+	}
+}
+
+/**
+ * Subscribes to CloudCannon's site-wide change/delete events and pushes
+ * front-matter edits into the editor site as they happen — the mid-session
+ * freshness the boot-time snapshot alone can't provide. `change` fires when
+ * any file is created or updated and carries `event.detail.sourcePath`; the
+ * handlers touch only content files (inside the configured content dir with a
+ * content extension). Each update is one content write followed by a
+ * `rebuildHugoEditorSite`, so the dispatch page stays alone in its own
+ * (render) build — no change set ever batches two content writes (the
+ * multi-content-change quirk).
+ */
+function watchContentChanges() {
+	if (!CloudCannon?.addEventListener) return;
+
+	CloudCannon.addEventListener("change", (event) => {
+		const apiPath = event?.detail?.sourcePath;
+		if (!isContentFile(apiPath)) return;
+		updateContentStub(apiPath).catch((err) =>
+			warn(`Failed to refresh content stub for ${apiPath}:`, err),
+		);
+	});
+
+	CloudCannon.addEventListener("delete", (event) => {
+		const apiPath = event?.detail?.sourcePath;
+		if (!isContentFile(apiPath)) return;
+		removeContentStub(apiPath).catch((err) =>
+			warn(`Failed to remove content stub for ${apiPath}:`, err),
+		);
+	});
+
+	log("Watching CloudCannon for content changes");
+}
+
+/** @param {string | undefined} apiPath */
+function isContentFile(apiPath) {
+	return (
+		Boolean(relContentFile(apiPath)) &&
+		CONTENT_EXTENSIONS.some((ext) => String(apiPath).endsWith(ext))
+	);
+}
+
+/**
+ * Re-fetches a changed content file's front matter from the API and rewrites
+ * its stub in the editor site, then rebuilds so Hugo re-reads it into the
+ * store — `page.*`, `site.Pages`, `site.GetPage`, and collection queries all
+ * refresh for the next component render.
+ *
+ * @param {string} apiPath - Root-relative source path from the event
+ */
+async function updateContentStub(apiPath) {
+	let frontMatter;
+	try {
+		frontMatter = await CloudCannon?.file?.(apiPath)?.data?.get?.();
+	} catch (error) {
+		warn(`Failed to read front matter for ${apiPath}:`, error);
+		return;
+	}
+	// A file deleted between the event and the fetch resolves to nothing.
+	if (!frontMatter || typeof frontMatter !== "object") return;
+
+	const page = toHugoPagePath(apiPath);
+	if (!page) return;
+	contentFrontMatter.set(page, frontMatter);
+	pagePathFiles.set(page, relContentFile(apiPath));
+	/** @type {any} */ (globalThis).writeHugoFiles(
+		JSON.stringify({
+			[`${contentDir()}/${relContentFile(apiPath)}`]: stubContents(
+				frontMatter,
+				page,
+			),
+		}),
+	);
+	rebuildEditorSite();
+}
+
+/**
+ * Drops a deleted content file's stub from the editor site and rebuilds so
+ * collections lose the page. The home page and the session's edit target keep
+ * their stubs — they're the publish opt-ins the whole render chain depends on,
+ * and a deleted edit target is a page the editor is already tearing down.
+ *
+ * @param {string} apiPath - Root-relative source path from the event
+ */
+async function removeContentStub(apiPath) {
+	const page = toHugoPagePath(apiPath);
+	if (!page) return;
+	if (page === "/" || page === sessionPage) {
+		log(
+			`Keeping the stub for ${apiPath} — it's a publish opt-in target ` +
+				"(the home page or the page being edited)",
+		);
+		return;
+	}
+	contentFrontMatter.delete(page);
+	pagePathFiles.delete(page);
+	/** @type {any} */ (globalThis).removeHugoFiles?.(
+		JSON.stringify([`${contentDir()}/${relContentFile(apiPath)}`]),
+	);
+	rebuildEditorSite();
+}
+
+/**
+ * Serializes a page's stub from its front matter, adding the publishing
+ * opt-in (`build.render: "always"` under the render-link cascade) for the
+ * home page and the session's edit target — the two pages that ever publish.
+ *
+ * @param {Record<string, any>} frontMatter
+ * @param {string} page
+ */
+function stubContents(frontMatter, page) {
+	return serializeFrontMatter(
+		page === "/" || page === sessionPage
+			? { ...frontMatter, build: { render: "always" } }
+			: frontMatter,
+	);
+}
+
+/** Runs an incremental build so Hugo re-reads changed stub files. */
+function rebuildEditorSite() {
+	const result = /** @type {any} */ (globalThis).rebuildHugoEditorSite?.();
+	if (result?.error) {
+		warn(
+			"Failed to rebuild the editor site after a content change:",
+			result.error,
+		);
 	}
 }
 

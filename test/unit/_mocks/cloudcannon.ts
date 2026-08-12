@@ -26,6 +26,12 @@ const state = {
 	collectionsList: null as MockCollection[] | null,
 };
 
+/** Site-wide change/delete listeners, keyed by event name. */
+const siteListeners: Record<string, Set<(event: any) => void>> = {
+	change: new Set(),
+	delete: new Set(),
+};
+
 /** A mock collection that yields items and fires change/delete events. */
 export interface MockCollection {
 	collectionKey: string;
@@ -50,6 +56,30 @@ export const resetMock = (): void => {
 	state.configuredCollections.clear();
 	state.currentFile = null;
 	state.collectionsList = null;
+	siteListeners.change.clear();
+	siteListeners.delete.clear();
+};
+
+/**
+ * Emits a site-wide `change` event with the given source path, as the real
+ * API does when any file is created or updated. Handlers run synchronously;
+ * an async handler's work completes on the next microtask, so tests should
+ * assert the effect with `vi.waitFor`.
+ */
+export const emitMockApiChange = (
+	sourcePath: string,
+	options: { isNew?: boolean } = {},
+): void => {
+	for (const handler of siteListeners.change) {
+		handler({ detail: { sourcePath, isNew: options.isNew ?? false } });
+	}
+};
+
+/** Emits a site-wide `delete` event with the given source path. */
+export const emitMockApiDelete = (sourcePath: string): void => {
+	for (const handler of siteListeners.delete) {
+		handler({ detail: { sourcePath, isNew: false } });
+	}
 };
 
 /** Sets the file returned by `CloudCannon.currentFile()`. */
@@ -94,6 +124,12 @@ export const createMockApi = (): CloudCannonVisualEditorAPIV1 =>
 		currentFile: () => state.currentFile,
 		file: (path: string) =>
 			state.files.find((f) => f.path === path || f.path === `/${path}`) ?? null,
+		addEventListener: (event: string, handler: any) => {
+			siteListeners[event]?.add(handler);
+		},
+		removeEventListener: (event: string, handler: any) => {
+			siteListeners[event]?.delete(handler);
+		},
 		// Used by EditableComponent.realizeAPIValue.
 		engage: () => Promise.resolve(),
 	}) as any;
