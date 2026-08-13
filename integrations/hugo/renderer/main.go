@@ -11,7 +11,8 @@
 //	writeHugoFiles(json)      – {"path": "contents", ...}
 //	removeHugoFiles(json)     – ["path", ...]
 //	readHugoFiles(json)       – ["path", ...] -> {"path": "contents"}
-//	initHugoEditorSite()      – load config.json and create the site
+//	initHugoEditorSite()      – learn dirs from the mirrored site config,
+//	                            prepare cc-editor.json, create the site
 //	rebuildHugoEditorSite()   – run an incremental build of the editor site
 //	renderHugoPartial(json)   – {"partial": "card.html", "props": {...},
 //	                            "target": "content/blog/one.md"}
@@ -80,22 +81,36 @@ type editorSiteBuilder struct {
 	removedFiles []string
 }
 
-// ensureHomePublishing splices the home page's publishing opt-in into the
-// browser-written config.json before allconfig reads it. The browser's config
-// suppresses all page output (build.render: link under a cascade); the editor
-// must still publish the home page — it's the render fallback and the boot
-// surface — so a cascade entry targeting the home kind is prepended. Being
-// config-level (not a content-file front-matter write) it survives every stub
-// rewrite, never adds a file write to a render build, and needs no directory
-// or page-path knowledge on the browser side.
-func (builder *editorSiteBuilder) ensureHomePublishing() error {
-	contents, err := builder.readFile("config.json")
+// configureEditorSite splices the renderer-owned editor settings into the
+// browser-written cc-editor.json before allconfig reads it:
+//
+//   - the site's real contentDir/dataDir, learned natively from the mirrored
+//     site config (learnSiteConfigDirs) and forwarded verbatim — the browser
+//     mirrors collections/datasets at their site-root-relative paths, so they
+//     land under these dirs exactly where Hugo reads them, and the render
+//     target/home guard already resolve through the compiled config;
+//   - the home page's publishing opt-in: the browser's config suppresses all
+//     page output (build.render: link under a cascade), but the editor must
+//     still publish the home page — it's the render fallback and the boot
+//     surface — so a cascade entry targeting the home kind is prepended.
+//
+// Being config-level (not a content-file front-matter write) it survives every
+// stub rewrite, never adds a file write to a render build, and needs no
+// directory or page-path knowledge on the browser side.
+func (builder *editorSiteBuilder) configureEditorSite(contentDir, dataDir string) error {
+	contents, err := builder.readFile("cc-editor.json")
 	if err != nil {
-		return fmt.Errorf("config.json not readable: %w", err)
+		return fmt.Errorf("cc-editor.json not readable: %w", err)
 	}
 	var cfg map[string]interface{}
 	if err := json.Unmarshal([]byte(contents), &cfg); err != nil {
-		return fmt.Errorf("config.json is not valid JSON: %w", err)
+		return fmt.Errorf("cc-editor.json is not valid JSON: %w", err)
+	}
+	if contentDir != "" {
+		cfg["contentDir"] = contentDir
+	}
+	if dataDir != "" {
+		cfg["dataDir"] = dataDir
 	}
 	homeCascade := map[string]interface{}{
 		"_target": map[string]interface{}{"kind": "home"},
@@ -116,17 +131,47 @@ func (builder *editorSiteBuilder) ensureHomePublishing() error {
 	}
 	encoded, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to encode config.json: %w", err)
+		return fmt.Errorf("failed to encode cc-editor.json: %w", err)
 	}
-	builder.writeFile("config.json", string(encoded))
+	builder.writeFile("cc-editor.json", string(encoded))
 	return nil
+}
+
+// learnSiteConfigDirs resolves the site's real contentDir/dataDir by loading
+// the mirrored site config (mirrorSiteConfig in the browser) with Hugo's own
+// config resolution — default-name root search, config/_default + the
+// cc-env-carried environment merged on top — so none of Hugo's precedence
+// rules are re-implemented here. The mirrored candidates are always JSON at
+// their real paths and carry no theme/module (the browser drops them), so
+// this load can't fail on resolution the editor never performs. Returns empty
+// strings when no site config was mirrored: the editor keeps its defaults.
+func (builder *editorSiteBuilder) learnSiteConfigDirs() (string, string) {
+	env := "production"
+	if contents, err := builder.readFile("cc-env"); err == nil {
+		env = strings.TrimSpace(contents)
+	}
+	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
+		Fs:          builder.Afs,
+		Flags:       config.New(),
+		ConfigDir:   "config",
+		Environment: env,
+	})
+	if err != nil {
+		return "", ""
+	}
+	// cfg.Base is the allconfig.Config — the same resolved source the editor
+	// build reads later (ContentDir/DataDir come from RootConfig.CommonDirs).
+	if cfg.Base == nil {
+		return "", ""
+	}
+	return cfg.Base.ContentDir, cfg.Base.DataDir
 }
 
 func (builder *editorSiteBuilder) loadConfig() error {
 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
 		Fs:       builder.Afs,
 		Flags:    config.New(),
-		Filename: "config.json",
+		Filename: "cc-editor.json",
 	})
 	if err != nil {
 		return err
@@ -350,19 +395,29 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // renderable page.
 //
 // The site config (written by the browser from the snapshot) carries no
-// directory keys, so loadConfig always resolves Hugo's default
-// layoutDir/contentDir ("layouts"/"content") and the dispatch layout + stubs
-// are written exactly where the canonical snapshot keys land. The home
-// opt-in lives here in the editor config (see ensureHomePublishing), not in
-// browsed/mirrored front matter, so it survives any content rewrite and
-// never adds a file write to a render build.
+// directory keys; configureEditorSite splices in the site's real
+// contentDir/dataDir (learned natively from the mirrored site config, see
+// learnSiteConfigDirs) so the dispatch layout + stubs land where Hugo reads
+// them. LayoutDir is never forwarded: the editor's templates live at the
+// canonical layouts/ root the snapshot keys them under. The home opt-in lives
+// in the editor config (see configureEditorSite), not in browsed/mirrored
+// front matter, so it survives any content rewrite and never adds a file
+// write to a render build.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
+	// Learn the site's real contentDir/dataDir first: the browser mirrors the
+	// site config at its real paths (JSON, theme/module stripped), and the
+	// probe below resolves it with Hugo's own config loading so the dirs come
+	// out exactly as the site's build resolves them. Layout dir is never
+	// forwarded — the editor's templates live at the canonical layouts/ root
+	// the snapshot keys them under.
+	siteContentDir, siteDataDir := builder.learnSiteConfigDirs()
+
 	// Load config first so the dispatch layout and stub can be written under
-	// the (default) layoutDir/contentDir. After that the original
+	// the resolved layoutDir/contentDir. After that the original
 	// write-then-create-then-build order is preserved: Hugo's first Running
 	// build only re-renders everything when the files exist before the site
 	// is created.
-	if err := builder.ensureHomePublishing(); err != nil {
+	if err := builder.configureEditorSite(siteContentDir, siteDataDir); err != nil {
 		return errorValue("failed to configure editor site: %s", err)
 	}
 	if err := builder.loadConfig(); err != nil {
@@ -382,7 +437,7 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	// The browser mirrors every content stub (front matter only) before init;
 	// the current edit target's stub carries build.render: always so it
 	// publishes under the cascade, and the home page's publishing comes from
-	// the editor config (ensureHomePublishing). Only plant a placeholder home
+	// the editor config (configureEditorSite). Only plant a placeholder home
 	// page when none arrived, so loader-provided data is never clobbered.
 	homeStub := filepath.Join(contentDir, "_index.md")
 	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {

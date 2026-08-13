@@ -83,8 +83,9 @@ export async function bootRenderer(): Promise<void> {
 }
 
 /**
- * Writes a site snapshot (config.json, partials, data files) into the
- * renderer's in-memory filesystem and boots the editor site against it.
+ * Writes a site snapshot (cc-editor.json, partials, data files, optionally
+ * mirrored site config) into the renderer's in-memory filesystem and boots
+ * the editor site against it.
  */
 export function initEditorSite(files: Record<string, string>): void {
 	renderer().writeHugoFiles(JSON.stringify(files));

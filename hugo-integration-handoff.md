@@ -32,12 +32,18 @@ memfs) lazily once the CloudCannon API appears, then:
 - **Content + data** (mirrored at boot, never snapshotted): every CloudCannon
   collection item becomes a content stub (front matter only, blank body) and
   every dataset item a data file, each written **verbatim at its source
-  path** under the editor's default `content/`/`data/` — no content-dir
-  filtering, anything a collection yields is content. Publishing is kept to
+  path** under the site's real `content/`/`data/` dirs — no content-dir
+  filtering, anything a collection yields is content. The dirs themselves
+  come from **config mirroring**: the browser mirrors the site's config files
+  as JSON at their real paths (extension renamed to `.json`, `theme`/
+  `themesDir`/`module` stripped), and the renderer resolves them at boot with
+  Hugo's own config loading (`learnSiteConfigDirs`) so the editor's compiled
+  `contentDir`/`dataDir` match the site's — relocated trees land exactly
+  where Hugo reads them. Publishing is kept to
   two pages: the boot-time current file opts its stub in with
   `build.render: always`; the home page's publishing is the **renderer's
-  config cascade** (`_target: {kind: home}` prepended to config.json's
-  link-default cascade in `ensureHomePublishing`), so it survives any stub
+  config cascade** (`_target: {kind: home}` prepended to cc-editor.json's
+  link-default cascade in `configureEditorSite`), so it survives any stub
   rewrite and never adds a file write to a render build.
 - **Freshness**: the runtime subscribes to each mirrored collection's and
   dataset's `change`/`delete` events; a change re-fetches the file, rewrites
@@ -90,22 +96,25 @@ memfs) lazily once the CloudCannon API appears, then:
     `cascade: [{build: {render: "link"}}]`. Two pages publish: the boot-time
     current file (its stub carries `build: {render: always}`) and the home
     page (the renderer prepends a `_target: {kind: home}` cascade entry —
-    `ensureHomePublishing`). Pages stay in the store
+    `configureEditorSite`). Pages stay in the store
     (collections/.Content/.RelPermalink all work) while only those two
     publish.
 12. **The page map is removed.** `window.cc_hugo_pages`/`runtimeData.pages`
     are gone — the CloudCannon API already enumerates files at runtime;
     re-add only when a concrete consumer defines what it needs.
 13. **Custom directories — SUPERSEDED (2026-08-13) by the salient walk +
-    collections/datasets model.** The old `layout-dirs.html` config probe is
-    deleted and no dir values are forwarded anywhere. The template walk is
-    layoutDir-agnostic, so relocated *layout* dirs work with zero config
-    awareness. `template_dirs` stays **override-only** (the user's call): when
-    set it replaces the walk and the dirs are walked verbatim — project-level
-    `module.mounts` remain the escape-hatch case (walk and mounts can't
-    overlap per Hugo docs). The editor site always uses Hugo's default
-    `content`/`data`; relocated *content/data* dirs stay invisible (verbatim
-    mirroring) until directory-config mirroring lands — future work.
+    collections/datasets model, extended (this branch) by config mirroring.**
+    The old `layout-dirs.html` config probe is deleted and no dir values are
+    forwarded by the templates. The template walk is layoutDir-agnostic, so
+    relocated *layout* dirs work with zero config awareness. `template_dirs`
+    stays **override-only** (the user's call): when set it replaces the walk
+    and the dirs are walked verbatim — project-level `module.mounts` remain
+    the escape-hatch case (walk and mounts can't overlap per Hugo docs).
+    Relocated *content/data* dirs are now learned at boot: the browser
+    mirrors the site's config (JSON at real paths), the renderer resolves
+    `contentDir`/`dataDir` with Hugo's own config loading, and collections/
+    datasets mirror verbatim under those dirs. `layoutDir` is still never
+    forwarded — the editor's templates live at the canonical `layouts/` root.
 
 ## Hugo gotchas (probe-verified, worth knowing)
 
@@ -177,10 +186,29 @@ memfs) lazily once the CloudCannon API appears, then:
   expands them.
 - **Data files need map roots**: a scalar-root `data/*.yaml` hard-errors the
   whole build (`unexpected data type string`); data fixtures stay map-shaped.
-- **Init ordering in the renderer**: `ensureHomePublishing()` (config.json
-  cascade splice) and `loadConfig()` must run *before* the dispatch layout +
-  stub files are written — they must exist before `createSites()` or Hugo's
-  first Running build won't re-render.
+- **Config-dir files with non-config basenames are wrapped, not merged**: a
+  file like `config/production/zz-neut.json` lands under a `zz-neut:` key and
+  **never overrides root keys** — only `config.*`/`hugo.*` (or the known
+  section names `menu.*`/`params.*`/`languages.*`/…) apply at the expected
+  place. This kills the "renderer writes a neutralization layer" idea: the
+  only robust way to keep the mirrored site config neutral in the editor is
+  to strip `theme`/`themesDir`/`module` from the mirrors themselves (probe
+  series t1–u4).
+- **Root config + config dir merge, dir wins on conflicts** (probe-verified,
+  v0.164.0): with both present, the root file loads first and
+  `config/_default` + `config/<env>` merges on top — a root-only key (e.g.
+  `disableKinds`) survives; a dir key (e.g. `contentDir`) defeats the root's.
+  Within the root slot `hugo.*` beats `config.*`, and formats resolve
+  `toml > yaml > yml > json`; within `_default`, `hugo.*` beats `config.*`.
+  The config-mirror tests pin exactly this (`config-mirror-dirs.test.ts`).
+- **The editor's config file is named `cc-editor.json`**, not `config.json`:
+  the renderer pins `Filename` to it, and the browser mirrors a site's root
+  `config.*` as root `config.json`, so a shared name would collide.
+- **Init ordering in the renderer**: `learnSiteConfigDirs()` (dirs probe over
+  the mirror), `configureEditorSite()` (cc-editor.json cascade + dirs splice)
+  and `loadConfig()` must run *before* the dispatch layout + stub files are
+  written — they must exist before `createSites()` or Hugo's first Running
+  build won't re-render.
 - **`errorf` doesn't abort template execution**: it logs the message and
   execution FALLS THROUGH to the next action, so a layout doing
   `errorf`+`errorf`-only-then-partial would still hit the partial call; and
@@ -206,16 +234,34 @@ memfs) lazily once the CloudCannon API appears, then:
   before `resources.Copy`); `resources.Copy` takes `(target, resource)`.
 - **Collections/datasets mirroring** (`browser/index.mjs`): boot calls
   `CloudCannon.collections()`/`datasets()`, mirrors items verbatim (source
-  path minus leading slash) under `content/`/`data/` before
-  `initHugoEditorSite`, then subscribes per collection/dataset. Dataset
-  contents serialize by extension: YAML via `serializeData` (bare doc, array
-  roots OK), JSON via `JSON.stringify` (float64 decoding matches Hugo's
-  native JSON data); TOML/CSV datasets fall back to YAML (known gap — the
-  API only exposes parsed data). The browser performs **no dir- or
+  path minus leading slash) under the site's real `content/`/`data/` dirs
+  before `initHugoEditorSite`, then subscribes per collection/dataset.
+  Dataset contents serialize by extension: YAML via `serializeData` (bare
+  doc, array roots OK), JSON via `JSON.stringify` (float64 decoding matches
+  Hugo's native JSON data); TOML/CSV datasets fall back to YAML (known gap —
+  the API only exposes parsed data). The browser performs **no dir- or
   path-shape logic**: no content filter (collections define content),
   `sessionFile` (verbatim current-file path) drives both the render request's
   `target` and the boot-time opt-in, and home identity lives entirely in the
-  renderer (`ensureHomePublishing` + the `removeHugoFiles` home guard).
+  renderer (`configureEditorSite` + the `removeHugoFiles` home guard).
+- **Config mirroring** (`mirrorSiteConfig` in the browser +
+  `learnSiteConfigDirs`/`configureEditorSite` in the renderer): at boot the
+  browser lists `CloudCannon.files()`, mirrors every candidate config file
+  (root `hugo.*`/`config.*`, everything under `config/_default/` and the
+  build-time environment layer from `meta.env`) as **JSON at its real path
+  with the extension renamed to `.json`** (the API parses them via
+  `data.get()`), dropping `theme`/`themesDir`/`module` — the editor never
+  resolves those, and a native load that sees them fails. A `cc-env` carrier
+  records the build environment. In `initHugoEditorSite`, `learnSiteConfigDirs`
+  re-runs Hugo's own `allconfig.LoadConfig` over the mirrors (ConfigDir
+  `config`, environment from `cc-env`) and reads `contentDir`/`dataDir` off
+  the result — no precedence rules are re-implemented. `configureEditorSite`
+  splices those dirs (and the home-publishing cascade) into the editor's
+  config, which moved from `config.json` to **`cc-editor.json`** so it can
+  never collide with a mirrored root `config.json`. Everything downstream
+  (dispatch path, home stub guard, render-target resolution) reads the
+  compiled `ContentDir`, so relocated trees just work. The editor's own
+  config is the only JSON the renderer writes.
   Deleted with this pass: `toHugoPagePath`/`urlizeSegment` (JS page-path
   computation — the renderer resolves by file path),
   `partialsPrefix`/`resolvePartialName`/`availablePartials` (browser partial
@@ -245,14 +291,26 @@ memfs) lazily once the CloudCannon API appears, then:
   snapshot + `buildEditorConfig`; remove "taxonomy"/"term" from
   `DISABLED_KINDS` (the cascade already suppresses their output); verify
   `site.Taxonomies` membership and term resolution in the WASM. Terms come
-  only from loaded stubs' front matter.
-- **Directory-config mirroring**: relocated `contentDir`/`dataDir` trees are
-  currently invisible to the editor (verbatim mirroring under default dirs).
-  Design how the runtime learns the site's dirs without resurrecting a
-  fragile config probe. The renderer side is already ready: both
-  `targetOutputPath` (`filepath.Join(Cfg.Base.ContentDir, File().Path())`)
-  and `removeHugoFiles`' home guard read the compiled config, so a forwarded
-  or mirrored `contentDir` flows through automatically.
+  only from loaded stubs' front matter. (Note: config mirroring now leaves
+  the mirrored site config in the memfs — inert for the editor build — but it
+  is not part of the editor's compiled config, so `site.Taxonomies` still
+  resolves Hugo's defaults. A future pass could read taxonomies off the
+  same native config load.)
+- **Config-mirroring gaps** (landed, with documented edges): per-language
+  `contentDir` inside `[languages.*]` is not forwarded (only the root
+  config's dirs are); config changes mid-session aren't tracked (dirs are
+  fixed at boot, mirroring the "navigating reboots the editor" model);
+  mirror candidates have their extension renamed to `.json`, so a site that
+  keeps e.g. both `config.toml` and `config.yaml` with the same basename
+  collides on one `config.json` (last mirror wins); the editor never rolls
+  a custom `configDir`; only the snapshot's build environment layer
+  (`config/<env>`) is mirrored, so a site must rebuild with its production
+  environment for the editor to see production-only dirs overrides.
+- **Dependency-walk loading (the big optimization)**. Hugo's own dependency
+  tracker (public API: `identity.WalkIdentitiesDeep` over rendered pages;
+  partials chain their managers into the caller) could drive fetching front
+  matter for exactly the files a component touched, leaving the rest
+  unloaded. Loop: render → walk deps → fetch touched files → rebuild →
 - **Dependency-walk loading (the big optimization)**. Hugo's own dependency
   tracker (public API: `identity.WalkIdentitiesDeep` over rendered pages;
   partials chain their managers into the caller) could drive fetching front

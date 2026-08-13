@@ -212,13 +212,16 @@ script, not a 16MB download.
 - **Content bodies are blank**: only front matter loads into the editor site.
   `.Content` / `.Summary` render empty until a demonstrated need pushes
   body loading.
-- **Relocated content/data dirs**: the editor site always uses Hugo's default
-  `content/`/`data/` dirs. Mirroring keeps source paths verbatim, so files
-  already under `content/`/`data/` land exactly where the editor reads them,
-  while a custom `contentDir`/`dataDir` tree (e.g. `notes/`, `custom-data/`)
-  stays invisible to the editor site — directory config mirroring is future
-  work. (Relocated *layout* dirs need no config: the salient walk discovers
-  them wherever they live.)
+- **Config mirroring**: at boot the runtime mirrors the site's config files
+  (root `hugo.*`/`config.*`, `config/_default/`, and the build-time
+  environment layer) as JSON at their real paths and resolves the site's real
+  `contentDir`/`dataDir` with Hugo's own config loading, so relocated content
+  and data trees (e.g. `notes/`, `custom-data/`) work. `theme`/`themesDir`/
+  `module` are dropped from the mirrors — the editor never resolves them.
+  Known gaps: per-language content dirs, mid-session config edits, and a site
+  that both uses a custom environment layer and builds the editor from a
+  different environment. (Relocated *layout* dirs need no config: the salient
+  walk discovers them wherever they live.)
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
 - **Non-vendored module templates**: partials from go-module imports that

@@ -45,7 +45,12 @@
   {{- $projectFiles = partial "editable-regions/walk-project.html" (dict "exts" $templateExts) -}}
 {{- end -}}
 {{- $ctx := dict
-  "meta" (dict "generator" (printf "Hugo %s" hugo.Version) "wasmUrl" $wasmUrl "verbose" ($cfg.verbose | default false))
+  "meta" (dict
+    "generator" (printf "Hugo %s" hugo.Version)
+    "wasmUrl" $wasmUrl
+    "verbose" ($cfg.verbose | default false)
+    "env" (hugo.Environment | default "production")
+  )
   "files" (merge $moduleFiles $projectFiles)
   "config" (partial "editable-regions/site-config.html")
 -}}

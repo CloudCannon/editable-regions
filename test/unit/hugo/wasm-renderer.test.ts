@@ -26,7 +26,7 @@ import {
 
 /** The snapshot the browser runtime would feed the renderer at startup. */
 const siteFiles = {
-	"config.json": JSON.stringify({
+	"cc-editor.json": JSON.stringify({
 		baseURL: "/",
 		title: "Renderer unit test",
 		disableKinds: ["taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"],

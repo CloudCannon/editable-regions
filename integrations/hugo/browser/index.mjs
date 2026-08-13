@@ -174,7 +174,12 @@ async function startEngine() {
 	}
 
 	const files = {
-		"config.json": JSON.stringify(buildEditorConfig(runtimeData.config)),
+		// The editor's own config, named so it can never collide with a
+		// mirrored site config file (site root configs mirror as hugo.json /
+		// config.json; see mirrorSiteConfig). The renderer pins loadConfig to
+		// this filename, so the mirrored site config files are inert during
+		// the editor build — they exist only for the pre-init dirs probe.
+		"cc-editor.json": JSON.stringify(buildEditorConfig(runtimeData.config)),
 		...runtimeData.files,
 	};
 	/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
@@ -206,11 +211,12 @@ async function startEngine() {
  * only, blank bodies — decision 10) and datasets become data files, each
  * keyed verbatim at its site-root-relative path under the editor's default
  * content/ and data/ dirs — so standard trees land exactly where Hugo reads
- * them; relocated trees keep their segments until config mirroring lands (a
- * documented first-pass gap). Everything a CloudCannon collection yields is
- * mirrored as content, verbatim — no content-dir filtering. The session
- * target's stub carries build.render: "always" so it publishes under the
- * cascade; the home page's publishing is the renderer's config cascade.
+ * them; relocated trees resolve because the mirrored site config (see
+ * mirrorSiteConfig) makes the editor's contentDir/dataDir match the real
+ * site's. Everything a CloudCannon collection yields is mirrored as content,
+ * verbatim — no content-dir filtering. The session target's stub carries
+ * build.render: "always" so it publishes under the cascade; the home page's
+ * publishing is the renderer's config cascade.
  */
 async function loadEditorCollectionData() {
 	if (!CloudCannon) return;
@@ -224,6 +230,13 @@ async function loadEditorCollectionData() {
 	const files = /** @type {Record<string, string>} */ ({});
 	editorCollections = [];
 	editorDatasets = [];
+
+	// The site's real config files must be in place before the editor site is
+	// created: the renderer probes them (mirrored as JSON at their real paths)
+	// to learn the site's contentDir/dataDir, then splices them into the
+	// editor config before any stub depends on the dirs. Collections and
+	// datasets mirror under those dirs, so config lands first.
+	await mirrorSiteConfig(files);
 
 	if (typeof CloudCannon.collections === "function") {
 		let collections;
@@ -299,6 +312,83 @@ async function loadEditorCollectionData() {
 		);
 		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 	}
+}
+
+/**
+ * Config-dir roots the editor's config probe (learnSiteConfigDirs in the
+ * renderer) reads. Root candidates are exactly the names Hugo's default-name
+ * search accepts; config-dir candidates cover every supported format file
+ * under config/_default or the build-time environment layer, since Hugo
+ * merges all of them (menu.toml, params.toml and friends belong to a real
+ * config). Only that one environment layer is mirrored — the renderer loads
+ * the config with meta.env as the active environment, so mirroring any other
+ * layer would change what Hugo resolves.
+ */
+const CONFIG_EXT_RE = /\.(?:toml|yaml|yml|json)$/i;
+
+/**
+ * @param {string} rel - Site-root-relative source path (no leading slash)
+ * @param {string} env - Build-time environment from the snapshot
+ * @returns {boolean}
+ */
+function isConfigCandidate(rel, env) {
+	if (!CONFIG_EXT_RE.test(rel)) return false;
+	if (!rel.includes("/")) {
+		const base = rel.slice(0, rel.lastIndexOf(".")).toLowerCase();
+		return base === "hugo" || base === "config";
+	}
+	return rel.startsWith("config/_default/") || rel.startsWith(`config/${env}/`);
+}
+
+/**
+ * Mirrors the site's config files into the editor site at their real paths,
+ * so the renderer can learn the site's directories through Hugo's own config
+ * resolution instead of re-implementing precedence. The CloudCannon API
+ * already parses config files to objects (data.get()), so each candidate is
+ * re-serialized as JSON with the extension changed to .json (a mirrored
+ * hugo.toml becomes hugo.json) — the renderer's probe then only ever decodes
+ * JSON. theme/themesDir/module are dropped from every candidate: the editor
+ * never resolves themes or modules, and a native load that sees them would
+ * try (and fail) to fetch them in the WASM renderer. Also writes the
+ * cc-env carrier the renderer reads to pick the active environment.
+ *
+ * @param {Record<string, string>} files - Memfs write map being built for boot
+ */
+async function mirrorSiteConfig(files) {
+	if (!CloudCannon || typeof CloudCannon.files !== "function") return;
+	// Only reachable after initHugoLiveEditing, which sets runtimeData.
+	const env =
+		/** @type {HugoRuntimeData} */ (runtimeData).meta.env ?? "production";
+
+	let siteFiles;
+	try {
+		siteFiles = await CloudCannon.files();
+	} catch (error) {
+		warn("Failed to list files for config mirroring:", error);
+		return;
+	}
+
+	for (const file of siteFiles ?? []) {
+		const rel = rootRelativePath(file?.path);
+		if (!rel || !isConfigCandidate(rel, env)) continue;
+		let data;
+		try {
+			data = await file?.data?.get?.();
+		} catch (error) {
+			warn(`Failed to read site config ${rel}:`, error);
+			continue;
+		}
+		if (!data || typeof data !== "object" || Array.isArray(data)) continue;
+		// The editor never runs the site's themes or modules; without this the
+		// renderer's native config probe would fail resolving them.
+		const configData = /** @type {Record<string, any>} */ (data);
+		delete configData.theme;
+		delete configData.themesDir;
+		delete configData.module;
+		files[rel.replace(/\.(?:toml|yaml|yml)$/i, ".json")] = JSON.stringify(data);
+	}
+
+	files["cc-env"] = env;
 }
 
 /**
