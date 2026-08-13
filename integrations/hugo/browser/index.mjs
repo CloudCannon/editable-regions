@@ -23,18 +23,12 @@ const DISABLED_KINDS = [
 	"404",
 ];
 
-/** Partials prefix in the snapshot: the editor site always uses the default layoutDir. */
-function partialsPrefix() {
-	return "layouts/partials/";
-}
-
 /**
  * Memfs key for a mirrored file: the API's site-root-relative source path
  * with the leading slash removed ("/content/blog/one.md" ->
- * "content/blog/one.md"). The editor site uses Hugo's default dirs, so
- * verbatim mirroring lands the standard content/data trees exactly where
- * Hugo reads them; relocated trees keep their segments (a documented
- * first-pass gap until config mirroring lands).
+ * "content/blog/one.md"). Verbatim mirroring — the same string the renderer
+ * matches against each built page's file path to resolve the render target,
+ * so no page-path computation happens on either side.
  * @param {string} apiPath
  * @returns {string}
  */
@@ -45,13 +39,16 @@ function rootRelativePath(apiPath) {
 }
 
 /**
- * The page being edited, captured once at boot from the CloudCannon API.
- * Navigating to another page reboots the editor (a fresh page load), so the
- * target never changes mid session — the renderer reads this page's output
- * and this page's stub was opted into publishing when content loaded.
+ * The file being edited, captured once at boot from the CloudCannon API as a
+ * verbatim site-root-relative path ("" when no file is current). Navigating
+ * to another page reboots the editor (a fresh page load), so the target
+ * never changes mid session: the renderer resolves the built page whose file
+ * path matches, and this file's stub carries the build.render opt-in that
+ * publishes it meanwhile. The home page's publishing is the renderer's own
+ * (config cascade); the browser never knows the home path.
  * @type {string}
  */
-let sessionPage = "/";
+let sessionFile = "";
 
 /**
  * The collections and datasets mirrored at boot. Each is subscribed to
@@ -64,49 +61,6 @@ let editorCollections = [];
 
 /** @type {any[]} */
 let editorDatasets = [];
-
-/**
- * Maps a CloudCannon API file path ("/content/blog/one.md") to its Hugo page
- * path ("/blog/one/"). `_index`/`index` files become their parent page (or
- * "/"), and each segment is slugified like Hugo's `urlize` (lowercased,
- * non-alphanumerics collapsed to "-"). Exotic filenames (unicode, spaces in
- * the source tree) may diverge from Hugo's urls — first-pass limitation.
- * Mirrored files keyed verbatim under the editor's default content dir, so
- * the page path is the path relative to "content/" (matching how a standard
- * site's content maps to pages). Files outside content/ resolve to null —
- * the editor doesn't render them until config mirroring lands.
- *
- * @param {string | undefined} apiPath
- * @returns {string | null} The Hugo page path, or null when not under the default content dir
- */
-function toHugoPagePath(apiPath) {
-	const rel = String(apiPath ?? "")
-		.replace(/^\/+/, "")
-		.replace(/\\/g, "/");
-	const prefix = "content/";
-	if (!rel.startsWith(prefix)) return null;
-	let file = rel
-		.slice(prefix.length)
-		.replace(/\.(md|markdown|mdown|html|htm)$/i, "");
-	if (file === "_index" || file === "index") return "/";
-	if (file.endsWith("/_index") || file.endsWith("/index")) {
-		file = file.slice(0, file.lastIndexOf("/"));
-	} else if (file.startsWith("_index/") || file.startsWith("index/")) {
-		file = file.slice("_index".length);
-	}
-	const slugged = file.split("/").map(urlizeSegment).filter(Boolean).join("/");
-	if (!slugged) return "/";
-	return `/${slugged}/`;
-}
-
-/** @param {string} segment */
-function urlizeSegment(segment) {
-	return segment
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-}
 
 /**
  * @typedef {Object} HugoRuntimeData
@@ -253,16 +207,19 @@ async function startEngine() {
  * keyed verbatim at its site-root-relative path under the editor's default
  * content/ and data/ dirs — so standard trees land exactly where Hugo reads
  * them; relocated trees keep their segments until config mirroring lands (a
- * documented first-pass gap). The home page's stub also carries
- * build.render: "always" so it keeps publishing under the cascade.
+ * documented first-pass gap). Everything a CloudCannon collection yields is
+ * mirrored as content, verbatim — no content-dir filtering. The session
+ * target's stub carries build.render: "always" so it publishes under the
+ * cascade; the home page's publishing is the renderer's config cascade.
  */
 async function loadEditorCollectionData() {
 	if (!CloudCannon) return;
-	// The page being edited is fixed for the session (navigation reboots the
-	// editor and re-runs this), so capture it once at boot: the loader opts
-	// that page's stub into publishing. The home page is always opted in —
-	// it's the boot surface and the fallback target when no page is current.
-	sessionPage = toHugoPagePath(CloudCannon.currentFile?.()?.path) ?? "/";
+	// The file being edited is fixed for the session (navigation reboots the
+	// editor and re-runs this), so capture its verbatim path once at boot:
+	// the loader opts that file's stub into publishing and sends it as the
+	// render target. With no current file there is no session target — the
+	// renderer falls back to the home page.
+	sessionFile = rootRelativePath(CloudCannon.currentFile?.()?.path);
 
 	const files = /** @type {Record<string, string>} */ ({});
 	editorCollections = [];
@@ -285,8 +242,7 @@ async function loadEditorCollectionData() {
 			}
 			for (const file of items ?? []) {
 				const apiPath = file?.path;
-				const page = toHugoPagePath(apiPath);
-				if (!apiPath || !page) continue;
+				if (!apiPath) continue;
 				let frontMatter;
 				try {
 					frontMatter = await file?.data?.get?.();
@@ -295,7 +251,10 @@ async function loadEditorCollectionData() {
 					continue;
 				}
 				if (!frontMatter || typeof frontMatter !== "object") continue;
-				files[rootRelativePath(apiPath)] = stubContents(frontMatter, page);
+				files[rootRelativePath(apiPath)] = stubContents(
+					frontMatter,
+					rootRelativePath(apiPath),
+				);
 			}
 			editorCollections.push(collection);
 		}
@@ -336,7 +295,7 @@ async function loadEditorCollectionData() {
 	if (Object.keys(files).length > 0) {
 		log(
 			`Loading editor content: ${Object.keys(files).length} files` +
-				(sessionPage === "/" ? "" : ` (editing ${sessionPage})`),
+				(sessionFile ? ` (editing ${sessionFile})` : ""),
 		);
 		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 	}
@@ -434,12 +393,10 @@ async function updateContentStub(apiPath) {
 	// A file deleted between the event and the fetch resolves to nothing.
 	if (!frontMatter || typeof frontMatter !== "object") return;
 
-	const page = toHugoPagePath(apiPath);
-	if (!page) return;
+	const filePath = rootRelativePath(apiPath);
+	if (!filePath) return;
 	/** @type {any} */ (globalThis).writeHugoFiles(
-		JSON.stringify({
-			[rootRelativePath(apiPath)]: stubContents(frontMatter, page),
-		}),
+		JSON.stringify({ [filePath]: stubContents(frontMatter, filePath) }),
 	);
 	rebuildEditorSite();
 }
@@ -470,25 +427,24 @@ async function updateDatasetFile(apiPath) {
 
 /**
  * Drops a deleted content file's stub from the editor site and rebuilds so
- * collections lose the page. The home page and the session's edit target keep
- * their stubs — they're the publish opt-ins the whole render chain depends on,
- * and a deleted edit target is a page the editor is already tearing down.
+ * collections lose the page. The session's edit target keeps its stub — its
+ * opt-in is what the render chain reads, and a deleted edit target is a page
+ * the editor is already tearing down. The home page is protected by the
+ * renderer itself (removeHugoFiles refuses the home file).
  *
  * @param {string} apiPath - Root-relative source path from the event
  */
 async function removeContentStub(apiPath) {
-	const page = toHugoPagePath(apiPath);
-	if (!page) return;
-	if (page === "/" || page === sessionPage) {
+	const filePath = rootRelativePath(apiPath);
+	if (!filePath) return;
+	if (filePath === sessionFile) {
 		log(
-			`Keeping the stub for ${apiPath} — it's a publish opt-in target ` +
-				"(the home page or the page being edited)",
+			`Keeping the stub for ${apiPath} — it's the page being edited ` +
+				"(the session render target)",
 		);
 		return;
 	}
-	/** @type {any} */ (globalThis).removeHugoFiles?.(
-		JSON.stringify([rootRelativePath(apiPath)]),
-	);
+	/** @type {any} */ (globalThis).removeHugoFiles?.(JSON.stringify([filePath]));
 	rebuildEditorSite();
 }
 
@@ -524,16 +480,17 @@ function serializeDataset(data, apiPath) {
 }
 
 /**
- * Serializes a page's stub from its front matter, adding the publishing
- * opt-in (`build.render: "always"` under the render-link cascade) for the
- * home page and the session's edit target — the two pages that ever publish.
+ * Serializes a page's stub from its front matter, adding the session
+ * target's publishing opt-in (`build.render: "always"` under the render-link
+ * cascade). The home page's publishing is the renderer's config cascade, so
+ * the browser only ever opts in the file being edited.
  *
  * @param {Record<string, any>} frontMatter
- * @param {string} page
+ * @param {string} filePath
  */
-function stubContents(frontMatter, page) {
+function stubContents(frontMatter, filePath) {
 	return serializeFrontMatter(
-		page === "/" || page === sessionPage
+		filePath === sessionFile
 			? { ...frontMatter, build: { render: "always" } }
 			: frontMatter,
 	);
@@ -584,64 +541,49 @@ function buildEditorConfig(emitted) {
 }
 
 /**
- * Resolves a component key to a partial name (the path Hugo's `partial`
- * function expects, relative to layouts/partials). Keys map 1:1 onto partial
- * paths, extension optional: "card" and "card.html" both resolve
- * layouts/partials/card.html; "cards/hero" resolves nested paths.
- *
- * @param {string} key
- * @returns {string | null}
- */
-export function resolvePartialName(key) {
-	const files = runtimeData?.files ?? {};
-	const prefix = partialsPrefix();
-	const candidates = [key, `${key}.html`, `${key}.htm`];
-	for (const candidate of candidates) {
-		if (`${prefix}${candidate}` in files) {
-			return candidate;
-		}
-	}
-	return null;
-}
-
-/** @returns {string[]} Partial names available in the snapshot. */
-function availablePartials() {
-	const prefix = partialsPrefix();
-	return Object.keys(runtimeData?.files ?? {})
-		.filter((path) => path.startsWith(prefix))
-		.map((path) => path.slice(prefix.length));
-}
-
-/**
  * Builds the `(props) => HTMLElement` renderer the shared core calls.
  *
- * @param {string} key - Component key from `data-component`
+ * @param {string} key - Component key from `data-component` (or an explicit
+ * partial name when pinned via registerHugoComponent)
  * @returns {(props: Record<string, any>) => Promise<HTMLElement>}
  */
 function createComponentRenderer(key) {
 	return async (props) => {
 		await ensureEngine();
 
-		const partial = resolvePartialName(key);
-		if (!partial) {
-			throw missingComponentError(key, availablePartials());
-		}
+		// The render request carries the key as the partial name; Hugo's own
+		// lookup resolves it (extension optional, nested paths included), and
+		// a missing partial errors inside the dispatch layout's
+		// templates.Exists check with a clean message.
+		const partial = key;
 
 		group(`Rendering Hugo component: ${key}`);
 		log("Partial:", partial, "Props:", props);
 
-		// Every render targets the session page captured at boot (navigating
+		// Every render targets the session file captured at boot (navigating
 		// to another page reboots the editor). Its stub was opted into
 		// publishing at boot, so writing the dispatch page is the only thing
 		// that needs to happen per render — the current page re-renders via
-		// its dependency on the dispatch page.
+		// its dependency on the dispatch page, and the renderer reads the
+		// built page whose file path matches the target.
 		const result = /** @type {any} */ (globalThis).renderHugoPartial(
 			JSON.stringify({
 				partial,
 				props: props ?? {},
-				page: sessionPage,
+				target: sessionFile,
 			}),
 		);
+
+		// The dispatch layout renders a missing-partial marker element when
+		// its templates.Exists check finds no such name — turn it into the
+		// clean component error.
+		const missing = result?.html?.match(
+			/<cc-missing-partial data-name="([^"]*)"/,
+		);
+		if (missing) {
+			groupEnd();
+			throw missingComponentError(missing[1] || key);
+		}
 
 		if (result?.error || typeof result?.html !== "string") {
 			log("Render error:", result?.error);
@@ -672,9 +614,9 @@ export function registerHugoComponent(key, partialName) {
 }
 
 /**
- * Wraps `window.cc_components` in a Proxy that resolves any component name
- * on demand against the partial snapshot. Explicitly registered names take
- * precedence.
+ * Wraps `window.cc_components` in a Proxy that manufactures a renderer for
+ * any component name on demand; partial existence is decided by the Hugo
+ * renderer at render time. Explicitly registered names take precedence.
  */
 export function initComponentProxy() {
 	const win = /** @type {any} */ (window);

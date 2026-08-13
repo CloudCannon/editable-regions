@@ -31,15 +31,9 @@ declare module "@cloudcannon/editable-regions/hugo/browser" {
 	): void;
 
 	/**
-	 * Resolves a component key to a partial name against the bundled
-	 * template snapshot, or `null` when no template matches.
-	 */
-	export function resolvePartialName(key: string): string | null;
-
-	/**
-	 * Wraps `window.cc_components` in a Proxy resolving any component name
-	 * on demand against the partial snapshot. Called by
-	 * `initHugoLiveEditing`.
+	 * Wraps `window.cc_components` in a Proxy manufacturing a renderer for
+	 * any component name on demand; partial existence is decided by the Hugo
+	 * renderer at render time. Called by `initHugoLiveEditing`.
 	 */
 	export function initComponentProxy(): void;
 }

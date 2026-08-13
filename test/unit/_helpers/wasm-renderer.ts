@@ -94,10 +94,15 @@ export function initEditorSite(files: Record<string, string>): void {
 	}
 }
 
-/** Renders a partial with props, mirroring the browser runtime's call. */
+/** Renders a partial with props and an optional render target (verbatim file
+ * path), mirroring the browser runtime's call. */
 export function render(
 	partial: string,
 	props: unknown = {},
+	target = "",
 ): { html?: string; error?: string } {
-	return renderer().renderHugoPartial(JSON.stringify({ partial, props })) ?? {};
+	return (
+		renderer().renderHugoPartial(JSON.stringify({ partial, props, target })) ??
+		{}
+	);
 }

@@ -35,16 +35,18 @@ export function enhanceHugoError(message, componentKey) {
 }
 
 /**
+ * Error for a component whose partial isn't in the editor's template bundle.
+ * Raised by the runtime when the dispatch layout's templates.Exists check
+ * (rendered as a missing-partial marker) reports that the name doesn't
+ * resolve.
  * @param {string} componentKey
- * @param {string[]} availablePartials
  * @returns {Error}
  */
-export function missingComponentError(componentKey, availablePartials) {
-	const shortlist = availablePartials.slice(0, 15).join(", ");
+export function missingComponentError(componentKey) {
 	return new Error(
-		`No Hugo partial found for component "${componentKey}". Expected a ` +
-			`template at layouts/partials/${componentKey}` +
-			(componentKey.endsWith(".html") ? "" : `[.html]`) +
-			`. Bundled partials include: ${shortlist}${availablePartials.length > 15 ? ", …" : ""}`,
+		`No Hugo partial found for component "${componentKey}". This partial ` +
+			`isn't captured in the editor's template bundle. Make sure it's a ` +
+			`partial, shortcode, or render hook under your layout tree and ` +
+			`rebuild the site.`,
 	);
 }

@@ -44,6 +44,8 @@ const siteFiles = {
 	"layouts/partials/wrapper.html": '{{ partial "card.html" . }}',
 	"layouts/partials/nav.html":
 		'<nav>{{ range site.Data.nav.links }}<a href="{{ .url }}">{{ .label }}</a>{{ end }}</nav>',
+	"layouts/partials/pageprobe.html":
+		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
 };
@@ -98,6 +100,39 @@ test("a 20-render burst stays fresh on the incremental path", () => {
 	}
 }, 30_000);
 
+// --- Render target resolution ---------------------------------------------
+
+test("with no target, renders read the home page's output", () => {
+	const { html, error } = render("pageprobe.html");
+	expect(error).toBeUndefined();
+	// The placeholder home stub (front matter: cc_initialized) is the fallback
+	// target; its publishing opt-in comes from the renderer's config cascade.
+	expect(html).toContain("|true|/");
+});
+
+test("a target file path resolves to that page's built output", () => {
+	// Mirrored verbatim like the browser would, with the editing page opted
+	// into publishing. The write-then-rebuild path inside the render picks the
+	// new page up, and the renderer looks it up by File().Path(), not by any
+	// computed page path.
+	renderer().writeHugoFiles(
+		JSON.stringify({
+			"content/notes/one.md":
+				"---\ntitle: Target One\nauthor: alice\nbuild:\n  render: always\n---\n",
+		}),
+	);
+	const { html, error } = render("pageprobe.html", {}, "content/notes/one.md");
+	expect(error).toBeUndefined();
+	expect(html).toContain("Target One|x|/notes/one/");
+});
+
+test("an unmatched target falls back to the home page", () => {
+	// A non-content file (e.g. a data file) matches no page — render reads home.
+	const { html, error } = render("pageprobe.html", {}, "data/nav.yaml");
+	expect(error).toBeUndefined();
+	expect(html).toContain("|true|/");
+});
+
 // --- File surface --------------------------------------------------------
 
 test("readHugoFiles returns written contents and skips missing paths", () => {
@@ -116,10 +151,13 @@ test("removeHugoFiles deletes a file", () => {
 
 // --- Errors --------------------------------------------------------------
 
-test("a missing partial reports an error", () => {
+test("a missing partial renders the marker instead of a raw Hugo error", () => {
+	// The dispatch layout's templates.Exists check emits a marker element the
+	// runtime turns into the clean component error — the build itself stays
+	// green so no internal template-execution trace leaks through.
 	const { html, error } = render("does-not-exist.html");
-	expect(html).toBeUndefined();
-	expect(error).toEqual(expect.any(String));
+	expect(error).toBeUndefined();
+	expect(html).toMatch(/<cc-missing-partial data-name="does-not-exist\.html"/);
 });
 
 test("renders recover after an error", () => {

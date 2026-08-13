@@ -37,13 +37,12 @@ test("nested partial composition resolves (parent → child → grandchild)", as
 });
 
 test("an unknown component key rejects with an enhanced error", async () => {
+	// The missing partial is detected inside the dispatch layout
+	// (templates.Exists) and surfaced through the enhanced-error wrapper.
 	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
 		/No Hugo partial found for component "missing-include"/,
 	);
-	// The enhanced error names a shortlist of the bundled partials — sorted,
-	// capped at 15, and truncated with "…" — so match a head member and the
-	// truncation marker rather than any exact member set.
 	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
-		/Bundled partials include: .*card\.html.*…/,
+		/isn't captured in the editor's template bundle/,
 	);
 });

@@ -13,7 +13,8 @@
 //	readHugoFiles(json)       – ["path", ...] -> {"path": "contents"}
 //	initHugoEditorSite()      – load config.json and create the site
 //	rebuildHugoEditorSite()   – run an incremental build of the editor site
-//	renderHugoPartial(json)   – {"partial": "card.html", "props": {...}}
+//	renderHugoPartial(json)   – {"partial": "card.html", "props": {...},
+//	                            "target": "content/blog/one.md"}
 //	                            -> {"html": "..."} or {"error": "..."}
 package main
 
@@ -47,7 +48,28 @@ import (
 // but resolvable via site.GetPage, and they render no output of their own.
 // No template filesystem access is needed, so this works in the WASM
 // renderer where os.ReadFile sees no files.
-const editorLayout = `{{ with site.GetPage "/cc-dispatch/" }}{{ if .Params.cc_partial }}{{ partial .Params.cc_partial .Params.cc_props }}{{ end }}{{ end }}`
+// Existence of the requested partial is checked in-template with
+// templates.Exists — the same authoritative namespace query the build-time
+// walk uses — so a missing component renders a distinct marker element
+// instead of dying inside Hugo's raw "partial not found" trace. The runtime
+// detects the marker and turns it into a clean error message. (errorf can't
+// carry the message reliably: Hugo logs it and the build only reports
+// "logged N errors".) Candidates mirror the naming a component author may
+// use (extension optional), matching what the partial call below resolves.
+const editorLayout = `{{- $dispatch := site.GetPage "/cc-dispatch/" -}}
+{{- if $dispatch -}}
+  {{- if $dispatch.Params.cc_partial -}}
+    {{- $partial := $dispatch.Params.cc_partial -}}
+    {{- $found := templates.Exists (printf "partials/%s" $partial) -}}
+    {{- $found = or $found (templates.Exists (printf "partials/%s.html" $partial)) -}}
+    {{- $found = or $found (templates.Exists (printf "partials/%s.htm" $partial)) -}}
+    {{- if not $found -}}
+      <cc-missing-partial data-name="{{ $partial }}"></cc-missing-partial>
+    {{- else -}}
+      {{- partial $partial $dispatch.Params.cc_props -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}`
 
 type editorSiteBuilder struct {
 	Cfg          *allconfig.Configs
@@ -56,6 +78,48 @@ type editorSiteBuilder struct {
 	Sites        *hugolib.HugoSites
 	changedFiles []string
 	removedFiles []string
+}
+
+// ensureHomePublishing splices the home page's publishing opt-in into the
+// browser-written config.json before allconfig reads it. The browser's config
+// suppresses all page output (build.render: link under a cascade); the editor
+// must still publish the home page — it's the render fallback and the boot
+// surface — so a cascade entry targeting the home kind is prepended. Being
+// config-level (not a content-file front-matter write) it survives every stub
+// rewrite, never adds a file write to a render build, and needs no directory
+// or page-path knowledge on the browser side.
+func (builder *editorSiteBuilder) ensureHomePublishing() error {
+	contents, err := builder.readFile("config.json")
+	if err != nil {
+		return fmt.Errorf("config.json not readable: %w", err)
+	}
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(contents), &cfg); err != nil {
+		return fmt.Errorf("config.json is not valid JSON: %w", err)
+	}
+	homeCascade := map[string]interface{}{
+		"_target": map[string]interface{}{"kind": "home"},
+		"build":   map[string]interface{}{"render": "always"},
+	}
+	// Preserve the browser's suppression cascade by placing the home rule in
+	// front of it (cascade entries are first-match-wins per page).
+	switch existing := cfg["cascade"].(type) {
+	case []interface{}:
+		cfg["cascade"] = append([]interface{}{homeCascade}, existing...)
+	case map[string]interface{}:
+		cfg["cascade"] = []interface{}{homeCascade, existing}
+	default:
+		cfg["cascade"] = []interface{}{
+			homeCascade,
+			map[string]interface{}{"build": map[string]interface{}{"render": "link"}},
+		}
+	}
+	encoded, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to encode config.json: %w", err)
+	}
+	builder.writeFile("config.json", string(encoded))
+	return nil
 }
 
 func (builder *editorSiteBuilder) loadConfig() error {
@@ -245,7 +309,19 @@ func removeHugoFiles(this js.Value, args []js.Value) interface{} {
 		return errorValue("bad removeHugoFiles payload: %s", err)
 	}
 
+	// The home stub is the render fallback and the boot surface — it stays
+	// whatever the CloudCannon delete events say (its publishing comes from
+	// the config cascade, but the home page itself must exist). Home identity
+	// is a renderer concern: the browser never knows the content dir. Before
+	// init no config is loaded, so only the post-init path is guarded.
+	homeStub := ""
+	if builder.Cfg != nil {
+		homeStub = filepath.Join(builder.Cfg.Base.ContentDir, "_index.md")
+	}
 	for _, fileName := range removeFiles {
+		if homeStub != "" && filepath.Clean(fileName) == filepath.Clean(homeStub) {
+			continue
+		}
 		builder.removeFile(fileName)
 	}
 	return nil
@@ -276,13 +352,19 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // The site config (written by the browser from the snapshot) carries no
 // directory keys, so loadConfig always resolves Hugo's default
 // layoutDir/contentDir ("layouts"/"content") and the dispatch layout + stubs
-// are written exactly where the canonical snapshot keys land.
+// are written exactly where the canonical snapshot keys land. The home
+// opt-in lives here in the editor config (see ensureHomePublishing), not in
+// browsed/mirrored front matter, so it survives any content rewrite and
+// never adds a file write to a render build.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	// Load config first so the dispatch layout and stub can be written under
 	// the (default) layoutDir/contentDir. After that the original
 	// write-then-create-then-build order is preserved: Hugo's first Running
 	// build only re-renders everything when the files exist before the site
 	// is created.
+	if err := builder.ensureHomePublishing(); err != nil {
+		return errorValue("failed to configure editor site: %s", err)
+	}
 	if err := builder.loadConfig(); err != nil {
 		return errorValue("failed to load config: %s", err)
 	}
@@ -297,14 +379,14 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	// file is where each render request writes the partial + props.
 	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\nheadless: true\ncc_partial: \"\"\n---\n")
 
-	// The browser writes every content stub (including the home page's real
-	// front matter and the current edit target's opt-in, both with
-	// build.render: always so they publish under the cascade) before init.
-	// Only plant a placeholder home page when none arrived, so loader-provided
-	// data is never clobbered.
+	// The browser mirrors every content stub (front matter only) before init;
+	// the current edit target's stub carries build.render: always so it
+	// publishes under the cascade, and the home page's publishing comes from
+	// the editor config (ensureHomePublishing). Only plant a placeholder home
+	// page when none arrived, so loader-provided data is never clobbered.
 	homeStub := filepath.Join(contentDir, "_index.md")
 	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {
-		builder.writeFile(homeStub, "---\ncc_initialized: true\nbuild:\n  render: always\n---\n")
+		builder.writeFile(homeStub, "---\ncc_initialized: true\n---\n")
 	}
 
 	if err := builder.createSites(); err != nil {
@@ -336,24 +418,50 @@ func rebuildHugoEditorSite(this js.Value, args []js.Value) interface{} {
 type renderRequest struct {
 	Partial string          `json:"partial"`
 	Props   json.RawMessage `json:"props"`
-	// The Hugo path of the page being edited ("/", "/blog/one/"); the render
-	// reads that page's output, so the dispatch layout runs with the page as
-	// its Page. The target is fixed at boot (the page the user is editing);
-	// navigating in the editor causes a full reboot, so it never changes mid
-	// session and no per-render page write is needed — the target was opted
-	// into publishing when its stub was loaded.
-	Page string `json:"page"`
+	// The verbatim site-root-relative source file of the page being edited
+	// ("content/blog/one.md") — the same string the browser mirrored it
+	// as. After the build the renderer finds the built page whose
+	// content-relative File().Path() matches (joined with the editor's
+	// contentDir), so the render reads exactly the page Hugo built for the
+	// edit target — no page-path approximation on either side. Empty or
+	// unmatched falls back to the home page. The target is fixed at boot
+	// (navigating reboots the editor) and never changes mid session.
+	Target string `json:"target"`
 }
 
-// Where the built site writes the page at the given editor path: "/" is the
+// Where the built site writes the page at the given permalink: "/" is the
 // home page (public/index.html); "/blog/one/" renders to
 // public/blog/one/index.html.
-func renderOutputPath(page string) string {
-	rel := strings.Trim(page, "/")
+func renderOutputPath(permalink string) string {
+	rel := strings.Trim(permalink, "/")
 	if rel == "" {
 		return "public/index.html"
 	}
 	return "public/" + rel + "/index.html"
+}
+
+// Resolves the built output to read for a render: the page whose source file
+// path matches target, or the home page when target is empty or matches no
+// page (a non-content file, or a file outside the content tree). Matching by
+// file path (not page identity) is exact — Hugo's own file->page mapping —
+// and unambiguous even when real content front matter opts extra pages into
+// publishing.
+func (builder *editorSiteBuilder) targetOutputPath(target string) (string, error) {
+	if target != "" && builder.Sites != nil {
+		for _, s := range builder.Sites.Sites {
+			for _, p := range s.Pages() {
+				f := p.File()
+				if f == nil {
+					continue
+				}
+				if filepath.Join(builder.Cfg.Base.ContentDir, f.Path()) != target {
+					continue
+				}
+				return renderOutputPath(p.RelPermalink()), nil
+			}
+		}
+	}
+	return renderOutputPath("/"), nil
 }
 
 func renderHugoPartial(this js.Value, args []js.Value) interface{} {
@@ -370,10 +478,6 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		if err := json.Unmarshal(req.Props, &props); err != nil {
 			return errorValue("bad props for %s: %s", req.Partial, err)
 		}
-	}
-
-	if req.Page == "" {
-		req.Page = "/"
 	}
 
 	contentDir := builder.Cfg.Base.ContentDir
@@ -394,7 +498,6 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		"headless":   true,
 		"cc_partial": req.Partial,
 		"cc_props":   integralizeNumbers(props),
-		"cc_page":    req.Page,
 	})
 	if err != nil {
 		return errorValue("failed to encode request for %s: %s", req.Partial, err)
@@ -405,7 +508,10 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		return errorValue("%s", err)
 	}
 
-	outputPath := renderOutputPath(req.Page)
+	outputPath, err := builder.targetOutputPath(req.Target)
+	if err != nil {
+		return errorValue("%s", err)
+	}
 	html, err := builder.readFile(outputPath)
 	if err != nil {
 		return errorValue("build produced no output at %s for %s: %s", outputPath, req.Partial, err)
