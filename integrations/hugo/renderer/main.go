@@ -273,12 +273,13 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // a stub content file are installed here so the first build always has a
 // renderable page.
 //
-// The site config (written by the browser from the snapshot) carries the
-// site's configured layoutDir/contentDir, so the dispatch layout and stub go
-// where Hugo will actually look for them — not always "layouts"/"content".
+// The site config (written by the browser from the snapshot) carries no
+// directory keys, so loadConfig always resolves Hugo's default
+// layoutDir/contentDir ("layouts"/"content") and the dispatch layout + stubs
+// are written exactly where the canonical snapshot keys land.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	// Load config first so the dispatch layout and stub can be written under
-	// the site's configured layoutDir/contentDir. After that the original
+	// the (default) layoutDir/contentDir. After that the original
 	// write-then-create-then-build order is preserved: Hugo's first Running
 	// build only re-renders everything when the files exist before the site
 	// is created.

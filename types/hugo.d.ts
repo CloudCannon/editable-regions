@@ -1,9 +1,7 @@
 declare module "@cloudcannon/editable-regions/hugo/browser" {
 	export interface HugoRuntimeData {
-		/** Template snapshot: project-relative path → source. */
+		/** Template snapshot: canonical layouts/ path → source. */
 		files: Record<string, string>;
-		/** Data file snapshot: project-relative path → source. */
-		data: Record<string, string>;
 		/** Normalized site config (baseURL, title, params, menus). */
 		config: Record<string, any>;
 		/** Emitter metadata: { generator, wasmUrl, verbose }. */
@@ -51,11 +49,9 @@ declare global {
 	interface Window {
 		/** Emitter metadata: generator, wasmUrl, verbose. */
 		cc_hugo?: Record<string, any>;
-		/** Template snapshot keyed by project-relative path. */
+		/** Template snapshot keyed by canonical layouts/ path. */
 		cc_hugo_files?: Record<string, string>;
-		/** Data file snapshot keyed by project-relative path. */
-		cc_hugo_data?: Record<string, string>;
-		/** Normalized site config. */
+		/** Normalized site config (no directory keys; dirs are defaulted). */
 		cc_hugo_config?: Record<string, any>;
 	}
 }
