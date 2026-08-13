@@ -32,10 +32,13 @@ memfs) lazily once the CloudCannon API appears, then:
 - **Content + data** (mirrored at boot, never snapshotted): every CloudCannon
   collection item becomes a content stub (front matter only, blank body) and
   every dataset item a data file, each written **verbatim at its source
-  path** under the editor's default `content/`/`data/`. The home page and the
-  boot-time current page (fixed for the session) opt into publishing with
-  `build.render: always` under the editor config's `cascade: build.render:
-  "link"` — the only pages that ever emit output.
+  path** under the editor's default `content/`/`data/` — no content-dir
+  filtering, anything a collection yields is content. Publishing is kept to
+  two pages: the boot-time current file opts its stub in with
+  `build.render: always`; the home page's publishing is the **renderer's
+  config cascade** (`_target: {kind: home}` prepended to config.json's
+  link-default cascade in `ensureHomePublishing`), so it survives any stub
+  rewrite and never adds a file write to a render build.
 - **Freshness**: the runtime subscribes to each mirrored collection's and
   dataset's `change`/`delete` events; a change re-fetches the file, rewrites
   its stub/data file, and runs a build-only rebuild — one write per build,
@@ -43,7 +46,14 @@ memfs) lazily once the CloudCannon API appears, then:
 - **Rendering**: each component render rewrites only the headless `cc-dispatch`
   request page (`partial` + props via goccy YAML front matter) and runs an
   incremental build; the current page re-renders through its dependency on
-  the dispatch page, so components see `page` bound to the edit target.
+  the dispatch page, so components see `page` bound to the edit target. The
+  renderer then resolves the built page whose `File().Path()` matches the
+  request's **verbatim target file path** (joined with `Cfg.Base.ContentDir`)
+  and reads that page's `.RelPermalink` output — Hugo's own file→page
+  mapping, so neither side computes page paths; unmatched/no target falls
+  back to home. A missing partial is caught **in the dispatch layout** via
+  `templates.Exists` (name candidates `partials/<key>[.html|.htm]`) and
+  rendered as a marker the runtime turns into the clean component error.
 
 ## Decisions made (with rationale)
 
@@ -77,9 +87,11 @@ memfs) lazily once the CloudCannon API appears, then:
     refinement is still future.
 11. **Full-site rendering is suppressed with build options, not
     `disableKinds`** (probe-verified): editor config gets
-    `cascade: [{build: {render: "link"}}]`; home + the boot-time current page
-    opt in with `build: {render: always}`. Pages stay in the store
-    (collections/.Content/.RelPermalink all work) while only opted-in pages
+    `cascade: [{build: {render: "link"}}]`. Two pages publish: the boot-time
+    current file (its stub carries `build: {render: always}`) and the home
+    page (the renderer prepends a `_target: {kind: home}` cascade entry —
+    `ensureHomePublishing`). Pages stay in the store
+    (collections/.Content/.RelPermalink all work) while only those two
     publish.
 12. **The page map is removed.** `window.cc_hugo_pages`/`runtimeData.pages`
     are gone — the CloudCannon API already enumerates files at runtime;
@@ -165,9 +177,18 @@ memfs) lazily once the CloudCannon API appears, then:
   expands them.
 - **Data files need map roots**: a scalar-root `data/*.yaml` hard-errors the
   whole build (`unexpected data type string`); data fixtures stay map-shaped.
-- **Init ordering in the renderer**: `loadConfig()` must run *before* the
-  dispatch layout + stub files are written — they must exist before
-  `createSites()` or Hugo's first Running build won't re-render.
+- **Init ordering in the renderer**: `ensureHomePublishing()` (config.json
+  cascade splice) and `loadConfig()` must run *before* the dispatch layout +
+  stub files are written — they must exist before `createSites()` or Hugo's
+  first Running build won't re-render.
+- **`errorf` doesn't abort template execution**: it logs the message and
+  execution FALLS THROUGH to the next action, so a layout doing
+  `errorf`+`errorf`-only-then-partial would still hit the partial call; and
+  the build then surfaces only the aggregate "logged N errors" (Hugo exposes
+  `NumLogErrors()` but no accessor for the error text). Hence the
+  missing-partial **marker** approach: the check happens in-template with
+  `templates.Exists` but renders a `<cc-missing-partial>` element the runtime
+  turns into the clean error — the build stays green.
 
 ## Landed features (reference, in one place)
 
@@ -190,9 +211,16 @@ memfs) lazily once the CloudCannon API appears, then:
   contents serialize by extension: YAML via `serializeData` (bare doc, array
   roots OK), JSON via `JSON.stringify` (float64 decoding matches Hugo's
   native JSON data); TOML/CSV datasets fall back to YAML (known gap — the
-  API only exposes parsed data). `contentDir()`/`relContentFile`/
-  `CONTENT_EXTENSIONS`/the old page maps are gone; `partialsPrefix()` is the
-  fixed `layouts/partials/`.
+  API only exposes parsed data). The browser performs **no dir- or
+  path-shape logic**: no content filter (collections define content),
+  `sessionFile` (verbatim current-file path) drives both the render request's
+  `target` and the boot-time opt-in, and home identity lives entirely in the
+  renderer (`ensureHomePublishing` + the `removeHugoFiles` home guard).
+  Deleted with this pass: `toHugoPagePath`/`urlizeSegment` (JS page-path
+  computation — the renderer resolves by file path),
+  `partialsPrefix`/`resolvePartialName`/`availablePartials` (browser partial
+  resolution — the dispatch layout's `templates.Exists` check handles
+  existence), and `renderOutputPath`-by-request-page.
 - **Theme + vendored-module capture** (`walk-modules.html` +
   `module-templates.html`): themes are `hugo.Deps` entries whose physical
   `themes/<Path>` exists; vendored modules are `Vendor=true` deps walked
@@ -221,7 +249,10 @@ memfs) lazily once the CloudCannon API appears, then:
 - **Directory-config mirroring**: relocated `contentDir`/`dataDir` trees are
   currently invisible to the editor (verbatim mirroring under default dirs).
   Design how the runtime learns the site's dirs without resurrecting a
-  fragile config probe.
+  fragile config probe. The renderer side is already ready: both
+  `targetOutputPath` (`filepath.Join(Cfg.Base.ContentDir, File().Path())`)
+  and `removeHugoFiles`' home guard read the compiled config, so a forwarded
+  or mirrored `contentDir` flows through automatically.
 - **Dependency-walk loading (the big optimization)**. Hugo's own dependency
   tracker (public API: `identity.WalkIdentitiesDeep` over rendered pages;
   partials chain their managers into the caller) could drive fetching front
@@ -232,9 +263,6 @@ memfs) lazily once the CloudCannon API appears, then:
   nothing. Empirically confirmed: the home page re-renders on dispatch-page
   changes through exactly this chain. (A fault-and-settle afero wrapper was
   evaluated and superseded by this.)
-- **Exotic filenames**: the JS slugifier approximates Hugo's `urlize`;
-  unicode/spacey source paths may diverge page paths. Revisit if a consumer
-  hits it.
 - **Bodies remain blank** until a demonstrated need (decision 10).
 - **Small**: WASM startup readiness is a `setTimeout(10ms)` poll for
   `globalThis.renderHugoPartial` — the Go side could signal explicitly.

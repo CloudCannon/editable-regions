@@ -171,18 +171,27 @@ script, not a 16MB download.
   build-only rebuild; a dataset change rewrites the data file the same way,
   so `page.*`, `site.Pages`, `site.GetPage`, collections, and `site.Data`
   all reflect edits made after boot. A brand-new file rides its collection's
-  `change` event; deleting one drops it from the store (the home page and
-  the page being edited are kept — they're what the session renders
-  through). The publishing opt-ins are re-applied on every rewrite.
+  `change` event; deleting one drops it from the store (the page being
+  edited is kept — it's the session render target — and the home page is
+  protected by the renderer itself). The session target's publishing opt-in
+  is re-applied on every rewrite.
 - **The current page** (the page being edited, from the CloudCannon API) is
   the page the renderer renders, so components reach it through the global
   `page` function: `page.Title`, `page.Params.*`, `page.RelPermalink`, and
   page methods all work while props remain the component's context. The
-  current page is captured **once at boot** and its stub is opted into
-  publishing (navigating to another page in the editor reboots the runtime,
-  so the target never changes mid session — though its data stays live via
-  the change listener above); with no page in context the render falls back
-  to the home page.
+  editor's renderer resolves which built page to read by matching the edit
+  target's **verbatim file path** against each built page's file (Hugo's own
+  mapping — no page-path approximation on either side), and its `build: {
+  render: always }` opt-in is applied to the target's stub at boot
+  (navigating to another page in the editor reboots the runtime, so the
+  target never changes mid session — though its data stays live via the
+  change listener above). With no page in context the render falls back to
+  the home page, whose publishing the renderer guarantees through a
+  home-targeted config cascade rather than front matter.
+- **Missing components**: a component key with no matching partial renders a
+  distinguishing marker (the dispatch layout's `templates.Exists` check) that
+  the runtime turns into a clean "No Hugo partial found for component …"
+  error — no raw Hugo template-execution trace on the error card.
 - The `hugo.*` namespace: `hugo.Version`, `hugo.Generator`,
   `hugo.Environment` (`"production"` in the editor), and
   **`hugo.IsServer` is `true` in the editor site** — guard editor-only
