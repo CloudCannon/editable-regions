@@ -67,7 +67,7 @@ export interface MockDataset {
 export const makeMockCollection = (
 	key: string,
 	files: MockFile[],
-): MockCollection => {
+): MockCollection & Required<Pick<MockCollection, "emit">> => {
 	const listeners: Record<string, Set<(event: any) => void>> = {
 		change: new Set(),
 		delete: new Set(),
@@ -93,7 +93,7 @@ export const makeMockCollection = (
 export const makeMockDataset = (
 	key: string,
 	fileOrFiles: MockFile | MockFile[],
-): MockDataset => {
+): MockDataset & Required<Pick<MockDataset, "emit">> => {
 	const listeners: Record<string, Set<(event: any) => void>> = {
 		change: new Set(),
 		delete: new Set(),

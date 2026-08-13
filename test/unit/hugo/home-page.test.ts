@@ -10,7 +10,12 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
 import type { MockFile } from "../_mocks/cloudcannon";
-import { setMockCurrentFile, setMockFiles } from "../_mocks/cloudcannon";
+import {
+	makeMockCollection,
+	setMockCollectionsList,
+	setMockCurrentFile,
+	setMockFiles,
+} from "../_mocks/cloudcannon";
 
 /** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
@@ -38,7 +43,9 @@ const two = mkFile("/content/blog/two.md", {
 	date: "2025-02-20",
 });
 
-setMockFiles([home, one, two]);
+const bootFiles = [home, one, two];
+setMockFiles(bootFiles);
+setMockCollectionsList([makeMockCollection("content", bootFiles)]);
 // No current file: the runtime falls back to the home page as the target.
 setMockCurrentFile(null);
 

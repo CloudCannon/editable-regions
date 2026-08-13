@@ -17,6 +17,40 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
+import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	makeMockDataset,
+	setMockDatasetsList,
+	setMockFiles,
+} from "../_mocks/cloudcannon";
+
+/** Builds a mock API file whose data.get() resolves the dataset's data. */
+function mkFile(path: string, data: Record<string, any>): MockFile {
+	return {
+		path,
+		data: { get: () => Promise.resolve(data) },
+		get: () => Promise.resolve(""),
+		content: { get: () => Promise.resolve("") },
+	};
+}
+
+// The fixture's data/ files, mirrored at boot as datasets (data files are no
+// longer part of the template snapshot — datasets are the data source).
+const navFile = mkFile("/data/nav.yaml", {
+	links: [
+		{ label: "Home", url: "/" },
+		{ label: "Blog", url: "/blog/" },
+	],
+});
+const socialFile = mkFile("/data/social.json", {
+	twitter: "https://twitter.com/cloudcannon",
+});
+
+setMockFiles([navFile, socialFile]);
+setMockDatasetsList([
+	makeMockDataset("nav", navFile),
+	makeMockDataset("social", socialFile),
+]);
 
 // Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
@@ -64,7 +98,7 @@ test("site.BaseURL and relURL resolve relative URLs", async () => {
 
 // --- data --------------------------------------------------------------------
 
-test("the fixture's data files are accessible as site data (yaml + json)", async () => {
+test("the dataset files (a yaml + a json) are accessible as site data", async () => {
 	const el = await window.cc_components?.["globals-data"]({});
 
 	expect(lines(el)).toBe(

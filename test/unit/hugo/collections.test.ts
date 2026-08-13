@@ -13,9 +13,10 @@
  * carries the component request; the current page re-renders through its
  * dependency on it.
  *
- * These use the existing CloudCannon API mock: `setMockFiles` supplies the
- * content listing the runtime loads at boot, and `setMockCurrentFile` (set at
- * module scope, before `beforeAll(loadHugoBundle)`) is the page being edited.
+ * These use the existing CloudCannon API mock: `setMockCollectionsList`
+ * supplies one collection whose items the runtime mirrors as content at
+ * boot, and `setMockCurrentFile` (set at module scope, before
+ * `beforeAll(loadHugoBundle)`) is the page being edited.
  *
  * The fixture's real content files (test/unit/_fixtures/hugo/content/) mirror
  * this listing; the bundle itself never snapshots content files.
@@ -25,7 +26,12 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
 import type { MockFile } from "../_mocks/cloudcannon";
-import { setMockCurrentFile, setMockFiles } from "../_mocks/cloudcannon";
+import {
+	makeMockCollection,
+	setMockCollectionsList,
+	setMockCurrentFile,
+	setMockFiles,
+} from "../_mocks/cloudcannon";
 
 /** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
@@ -75,7 +81,12 @@ const about = mkFile("/content/about.md", {
 	extra: { region: "oceania", active: true },
 });
 
-setMockFiles([home, blogIndex, one, two, about]);
+const bootFiles = [home, blogIndex, one, two, about];
+setMockFiles(bootFiles);
+// One collection mirrors every boot content file as a stub (verbatim source
+// paths under the editor's default content dir) — the runtime no longer
+// reads CloudCannon.files().
+setMockCollectionsList([makeMockCollection("content", bootFiles)]);
 // The page being edited for this whole boot — captured by the runtime once,
 // before the engine starts (home-page fallback is covered by home-page.test.ts).
 setMockCurrentFile(one);

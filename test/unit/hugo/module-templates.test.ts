@@ -14,7 +14,10 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
 import type { MockFile } from "../_mocks/cloudcannon";
-import { setMockCurrentFile, setMockFiles } from "../_mocks/cloudcannon";
+import {
+	makeMockCollection,
+	setMockCollectionsList,
+} from "../_mocks/cloudcannon";
 
 /** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
@@ -36,10 +39,9 @@ const one = mkFile("/content/blog/one.md", {
 	date: "2025-01-15",
 });
 
-setMockFiles([home, one]);
-// No current file: the session target is the home page (theme/vendor
-// components don't care which page they render through).
-setMockCurrentFile(null);
+// Content is mirrored from collections at boot (these templates-only tests
+// don't assert on pages; the home stub renders the probes through).
+setMockCollectionsList([makeMockCollection("content", [home, one])]);
 
 // Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);

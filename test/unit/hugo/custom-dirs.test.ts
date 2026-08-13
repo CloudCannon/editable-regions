@@ -2,16 +2,20 @@
  * Bundle-path tests for sites that configure custom directories. The fixture
  * (test/unit/_fixtures/hugo-custom-dirs) moves layoutDir to "templates",
  * dataDir to "custom-data", and contentDir to "notes" — like a real site
- * with non-default layout — and the integration must:
+ * with non-default layout. The salient-folder walk (walk-project.html) is
+ * layoutDir-agnostic, so it must discover the relocated template trees, key
+ * them under the canonical layouts/ root the editor reads, and:
  *
- * - snapshot the template trees from the configured layout dir (partials,
- *   render hooks under _default/_markup, and shortcodes) by default;
+ * - snapshot partials, render hooks under _default/_markup, and shortcodes;
  * - NOT snapshot kind layouts like _default/index.html (they'd shadow the
  *   renderer's dispatch layout);
- * - carry layoutDir/dataDir/contentDir in the config snapshot so the
- *   renderer resolves everything in the editor wasm site;
- * - still render components, shortcodes, render hooks, and site.Data from
- *   those relocated trees through the real WASM renderer.
+ * - no longer forward layoutDir/dataDir/contentDir in the config snapshot
+ *   (the editor always uses Hugo's defaults; content/data are mirrored from
+ *   CloudCannon collections/datasets under the default dirs — relocated
+ *   trees keep their segments until config mirroring lands, a documented
+ *   first-pass gap);
+ * - still render components, shortcodes, and render hooks from the relocated
+ *   tree through the real WASM renderer.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -33,47 +37,38 @@ function snapshotFiles(): Record<string, string> {
 	return (window as any).cc_hugo_files ?? {};
 }
 
-/** The snapshot's data files, as shipped on cc_hugo_data. */
-function snapshotData(): Record<string, string> {
-	return (window as any).cc_hugo_data ?? {};
-}
-
 /** The snapshot's normalized site config on cc_hugo_config. */
 function snapshotConfig(): Record<string, any> {
 	return (window as any).cc_hugo_config ?? {};
 }
 
-// --- config passthrough ---
+// --- config churn ----------------------------------------------------------
 
-test("the config snapshot carries the site's configured directories", () => {
+test("the config snapshot no longer forwards directory keys", () => {
 	const config = snapshotConfig();
-	expect(config.layoutDir).toBe("templates");
-	expect(config.dataDir).toBe("custom-data");
-	expect(config.contentDir).toBe("notes");
+	expect(config.layoutDir).toBeUndefined();
+	expect(config.dataDir).toBeUndefined();
+	expect(config.contentDir).toBeUndefined();
 });
 
-// --- default walk of the configured layout dir ---
+// --- default walk of the configured layout dir -----------------------------
 
-test("partials, render hooks, and shortcodes under the layout dir are snapshotted by default", () => {
+test("templates under the relocated layout dir are snapshotted under canonical layouts/ keys", () => {
 	const files = snapshotFiles();
-	expect(files["templates/partials/custom-static.html"]).toBeDefined();
-	expect(files["templates/partials/custom-rich.html"]).toBeDefined();
-	expect(files["templates/_default/_markup/render-link.html"]).toBeDefined();
-	expect(files["templates/shortcodes/custom-shout.html"]).toBeDefined();
-});
-
-test("data from the configured data dir is snapshotted as site data", () => {
-	expect(snapshotData()["custom-data/site_brand.yaml"]).toBeDefined();
+	expect(files["layouts/partials/custom-static.html"]).toBeDefined();
+	expect(files["layouts/partials/custom-rich.html"]).toBeDefined();
+	expect(files["layouts/_default/_markup/render-link.html"]).toBeDefined();
+	expect(files["layouts/shortcodes/custom-shout.html"]).toBeDefined();
 });
 
 test("kind layouts are not snapshotted (they would shadow the dispatch layout)", () => {
-	// The production home template lives in the layout dir but must NOT be
-	// bundled: the renderer installs its own `<layoutDir>/all.html` dispatch
-	// layout, and any kind-specific layout would win the home lookup instead.
-	expect(snapshotFiles()["templates/_default/index.html"]).toBeUndefined();
+	// The production home template lives in the relocated layout dir but must
+	// NOT be bundled: the renderer installs its own `<layoutDir>/all.html`
+	// dispatch layout, and any kind-specific layout would win the home lookup.
+	expect(snapshotFiles()["layouts/_default/index.html"]).toBeUndefined();
 });
 
-// --- rendering through the relocated trees ---
+// --- rendering through the relocated trees ---------------------------------
 
 test("a component from the custom layout dir renders", async () => {
 	const el = await window.cc_components?.["custom-static"]({});
@@ -98,13 +93,5 @@ test("a render hook from the custom _markup dir applies to component markdownify
 
 	expect(el?.querySelector(".rich .link")?.textContent).toBe(
 		"HOOK:[docs → https://example.com/]",
-	);
-});
-
-test("hugo.Data resolves from the custom data dir", async () => {
-	const el = await window.cc_components?.["custom-rich"]({});
-
-	expect(el?.querySelector(".rich .brand")?.textContent).toBe(
-		"Custom Data Brand",
 	);
 });
