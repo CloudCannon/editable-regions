@@ -58,6 +58,28 @@ configs (only `[module]` mounts). Covered by
 theme + a hand-vendored `example.com/cc-fixture-vendor` module in `_vendor/`).
 See the gotchas and item 2's notes.
 
+Updated 2026-08-13 with item 6 LANDED and two supersessions that reshape the
+runtime content/data model. The salient-folder project walk (item 6) is in,
+replacing `layout-dirs.html`'s config probe entirely: templates are discovered
+by walking the physical project tree for salient folders and validating with
+`templates.Exists`, keyed canonically under `layouts/`. On the content side
+the user's chosen model landed: **content and data now mirror from
+CloudCannon collections/datasets**, not from `CloudCannon.files()` filtered by
+content dir + extensions. Every collection item becomes a content stub and
+every dataset item a data file, written **verbatim at its source path** under
+the editor's default `content/`/`data/`, and freshness subscribes to each
+mirrored collection's and dataset's change/delete events. Consequences:
+`contentDir`/`dataDir`/`layoutDir` are no longer forwarded anywhere (decision
+13's renderer-side behavior is superseded — the editor always uses Hugo's
+defaults; relocated content/data dirs are invisible until config mirroring
+lands, relocated *layout* dirs work because the walk is layoutDir-agnostic);
+`cc_hugo_data` is gone (datasets are the data source); `index.mjs` dropped
+`relContentFile`/`CONTENT_EXTENSIONS`/the dead page maps; the `data_dirs`
+param and most of the old config-probe section of the README's options are
+gone (probe was `templates.Exists`-verified: kind layouts pass Exists, so the
+prefix capture filter stays; `readDir`/`fileExists` are physical/pre-mount, so
+the walk can't capture the module's own mounted partials).
+
 ## Current shape (committed)
 
 - `8ce7a77` — teammate's initial working version (Go WASM renderer, output
@@ -90,6 +112,21 @@ See the gotchas and item 2's notes.
   aware per module, project-wins on clash; content/data from those layers
   stay uncaptured. Also fixed the latent `os.*`-union config-probe bug in
   `layout-dirs.html`. See item 2's capture notes.
+- *(then)* — **salient-folder template walk + collections/datasets
+  mirroring** (2026-08-13): `walk-project.html` replaces the config probe —
+  recursive walk of the physical project tree for salient folder names
+  (`partials`, `shortcodes`, `_default`, `_markup`), candidate template name
+  derived from the first salient component and validated with
+  `templates.Exists`, prefix capture filter (`partials/`,
+  `shortcodes/`, `_default/_markup/`) keeps kind layouts out, everything keyed
+  under the canonical `layouts/` root; prunes `.git`/`node_modules`/`public`/
+  `resources` and `themes/`+`_vendor/` at the root. `layout-dirs.html`
+  deleted, `site-config.html` no longer forwards dirs, `cc_hugo_data` removed.
+  Runtime mirrors **collections → content stubs** and **datasets → data
+  files** verbatim (source path, minus leading slash) under the default
+  `content/`/`data/`, and subscribes per collection/dataset for freshness
+  (item 2's content-loading model + decision 13's dir forwarding are
+  superseded). See item 6 and the runtime notes.
 
 Architecture in one paragraph: the consuming site adds
 `[[module.imports]] path = "github.com/cloudcannon/editables"` and
@@ -97,20 +134,25 @@ Architecture in one paragraph: the consuming site adds
 `hugo.toml` mounts `hugo-module/{layouts,assets}`, `integrations/hugo/browser`,
 and `helpers/` into the virtual FS (at repo-relative paths, so import
 specifiers inside the sources resolve identically when mounted).
-`editable-regions/resources.html` builds a snapshot context (walk-files,
-site-config partials + fingerprinted WASM URL), renders the entry
-asset `browser/entry.js` with it via `resources.ExecuteAsTemplate`, bundles
-with `js.Build` (minify off under `hugo.IsDevelopment`), fingerprints, and
-`editable-regions.html` emits the single `<script>` (SRI + defer). In the
-browser the runtime boots real Hugo (GOOS=js WASM, hugolib over afero memfs)
-lazily once the CloudCannon API appears; the runtime then loads every
-content file's front matter as stubs (dirs resolved from the site config,
-decision 13; defaults `layouts`/`data`/`content`), opting the home page and
-the boot-time current page into publishing under the config's
-`cascade: build.render: "link"`, and each component render rewrites only the
-headless `cc-dispatch` request page and runs an incremental build — the
-current page re-renders through its dependency on it, so components see the
-current page via the `page` global.
+`editable-regions/resources.html` builds a snapshot context
+(walk-project.html salient walk + walk-modules.html for
+themes/vendored + site-config partial + fingerprinted WASM URL), renders the
+entry asset `browser/entry.js` with it via `resources.ExecuteAsTemplate`,
+bundles with `js.Build` (minify off under `hugo.IsDevelopment`),
+fingerprints, and `editable-regions.html` emits the single `<script>` (SRI +
+defer). In the browser the runtime boots real Hugo (GOOS=js WASM, hugolib
+over afero memfs) lazily once the CloudCannon API appears; the runtime then
+mirrors every collection item as a content stub (front matter, blank body)
+and every dataset item as a data file — each written verbatim at its source
+path under the editor's default `content`/`data` (no dirs forwarded from the
+site config; relocated content/data trees stay invisible until directory-
+config mirroring lands) — opting the home page and the boot-time current
+page into publishing under the config's `cascade: build.render: "link"`,
+subscribing to each mirrored collection's and dataset's change/delete events
+for live freshness, and each component render rewrites only the headless
+`cc-dispatch` request page and runs an incremental build — the current page
+re-renders through its dependency on it, so components see the current page
+via the `page` global.
 
 ## Decisions made (with rationale)
 
@@ -174,7 +216,19 @@ current page via the `page` global.
     emission, `runtimeData.pages`, and the `page-map.html` partial get
     deleted. The CloudCannon API already enumerates files at runtime;
     re-add a map only when a concrete consumer defines what it needs.
-13. **Custom `layoutDir`/`dataDir`/`contentDir` are respected end-to-end**
+13. **Custom `layoutDir`/`dataDir`/`contentDir` — SUPERSEDED 2026-08-13 in
+    part, replaced by the collections/datasets model + item 6.** The
+    `layout-dirs.html` config probe is GONE and no directory values are
+    forwarded anywhere. Templates are discovered layoutDir-agnostically by
+    the salient-folder walk and keyed canonically under `layouts/`, so
+    relocated *layout* dirs work with zero config awareness. The editor site
+    always uses Hugo's default `content`/`data`; content/data come from
+    CloudCannon collections/datasets mirrored verbatim at their source
+    paths, so a relocated `contentDir`/`dataDir` tree is (currently)
+    invisible to the editor — directory-config mirroring is future work.
+    The renderer's own `loadConfig()`/`Cfg.Base.LayoutDir`/`ContentDir`
+    mechanics below still apply, now always resolving to defaults. History
+    of the superseded approach:
     (2026-08-12). Sites configuring these previously broke silently: the
     default snapshot walked literal `layouts/`+`data/` and the renderer
     installed its dispatch layout + stub at literal `layouts/`+`content/`
@@ -402,7 +456,21 @@ importing the module from GitHub previously hit the `errorf` in
   variant — tags are immutable, so it couldn't work without a pre-tag commit
   dance, which `hugo.Deps` made unnecessary.)
 
-### 2. Content loading — FIRST PASS LANDED (2026-08-12 evening)
+### 2. Content loading — FIRST PASS LANDED (2026-08-12 evening); SUPERSEDED 2026-08-13 by the collections/datasets model
+
+The boot-loading mechanism below (enumerate `CloudCannon.files()`, filter by
+content dir + extensions) was replaced by the user's chosen model: the
+runtime now calls `CloudCannon.collections()`/`CloudCannon.datasets()`,
+mirrors every item verbatim at its source path under the editor's default
+`content/`/`data/`, and subscribes to each mirrored collection's/dataset's
+change/delete events for freshness. `contentDir()`/`relContentFile`/
+`CONTENT_EXTENSIONS`/`isContentFile` are gone from `index.mjs`; stubs key on
+the raw source path minus its leading slash. The published content is the
+same (front matter only, blank bodies; the home page and the boot-time
+current page keep `build.render: always` under the cascade), and the
+single-write-per-build invariant is preserved per event. The sections below
+describe the superseded mechanism and the parts that survive (stub format is
+unchanged; dependency-walk still future).
 
 Goal (unchanged): components that touch collections (`site.GetPage`, page
 ranges, current-page data) render real data in the editor. The first pass
@@ -758,17 +826,54 @@ hurts: wasmexport reactor model (Go 1.24+) + vendored
   under `custom-data/` proves `hugo.Data` resolves from the configured
   data dir.
 
-### 6. Replace the config-file probe with a salient-folder template walk — DESIGNED (2026-08-12), not implemented
+### 6. Replace the config-file probe with a salient-folder template walk — DONE (2026-08-13)
 
-Supersedes the `layout-dirs.html` half of decision 13. Motivation: the
-probe re-implements Hugo's config loader in a template and silently
-misses real configurations — environment-specific config dirs
-(`config/production/`, `config/development/`), per-key merging of
-`config/_default/` over a root file, `HUGO_*` env overrides, the
-`--config` flag, and union-fs shadowing (a *theme* shipping `params` in
-its root `hugo.toml` passes the site-level fingerprint and the
+Landed as `walk-project.html`; `layout-dirs.html` is deleted. The walk
+supersedes the `layout-dirs.html` half of decision 13. Motivation for the
+change stays as designed: the probe re-implements Hugo's config loader in a
+template and silently misses real configurations — environment-specific
+config dirs (`config/production/`, `config/development/`), per-key merging
+of `config/_default/` over a root file, `HUGO_*` env overrides, the
+`--config` flag, and union-fs shadowing (a *theme* shipping `params` in its
+root `hugo.toml` passes the site-level fingerprint and the
 first-found-wins `break` then skips the project's real file). The
-replacement design agreed this session:
+replacement design agreed this session, as landed:
+
+- **Primary discovery is a recursive walk of the project tree** looking for
+  salient folder names (`partials`, `shortcodes`, `_default`, `_markup`).
+  Candidate template name = path from the FIRST salient component onward
+  (`templates/partials/card.html` → `partials/card.html`); nested salient
+  dirs inside a rooted tree keep continuing the suffix, they don't re-root.
+  Physical trees are keyed under the **canonical `layouts/` root** — the
+  editor's layoutDir is always the default, so the memfs paths match. This
+  makes discovery layoutDir-agnostic with no config parsing at all.
+- **`templates.Exists` is the authoritative filter**, probe-reconfirmed on
+  v0.164.0 while building: names are namespace-relative and prefix-required
+  (`partials/card.html` true; bare `card.html` false); **kind layouts pass**
+  (`_default/index.html`/`single.html` true, `baseof.html` false), so the
+  **prefix capture filter stays** (`partials/`, `shortcodes/`,
+  `_default/_markup/`) — this is what keeps the dispatch-layout shadowing
+  rule (tested). A cheap `.html`/`.htm` extension prefilter keeps the walk
+  from calling Exists on every file.
+- **Pruning**: `.git`, `node_modules`, `public`, `resources`; `themes/` +
+  `_vendor/` at the project root (handled separately via hugo.Deps,
+  unchanged).
+- **Module-capture stays as-is** (project-side Exists filter only): the
+  walk runs on the physical project tree, and `os.*` directory listings are
+  pre-mount physical (probe-confirmed: `readDir "."` shows no mounted trees
+  and `os.FileExists` on a mounted path is false) — the walk cannot sweep
+  up the module's own `editable-regions/*` partials, verified against the
+  built fixture snapshot.
+- **`template_dirs` stays override-only** (the user's call): when set, the
+  walk is bypassed and the dirs are walked verbatim and keyed at their given
+  paths; project-level `module.mounts` remain the escape-hatch case (walk
+  and mounts can't overlap per Hugo docs — a layoutDir site never mounts).
+  NO additive fallback was added.
+- **The `dataDirs`/`contentDir` halves are gone with the probe**: the snack
+  no longer captures `data/` at build time (`cc_hugo_data` removed), and
+  `site-config.html` stops forwarding layoutDir/dataDir/contentDir. Runtime
+  content/data come from collections/datasets (see the runtime notes in
+  item 2 — item 2's content-loading model is superseded).
 
 - **Primary discovery is a recursive walk of the project tree** looking
   for salient folder names (`partials`, `shortcodes`, `_default`,

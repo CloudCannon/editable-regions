@@ -11,9 +11,9 @@ module that does its work with two first-party mechanisms:
 
 1. **Partials + the asset pipeline**: a single partial in the site's `<head>`
    builds the live-editing bundle through Hugo Pipes — the runtime's entry
-   asset is rendered with the site snapshot (template sources, data files,
-   and normalized site config) via `resources.ExecuteAsTemplate`, bundled
-   from source by `js.Build` (Hugo's
+   asset is rendered with the site snapshot (template sources and normalized
+   site config; content and data are *not* snapshotted — see below) via
+   `resources.ExecuteAsTemplate`, bundled from source by `js.Build` (Hugo's
    embedded esbuild), fingerprinted, and emitted as one `<script>` tag with
    SRI.
 2. **Module mounts**: the module is this repository's root; its `hugo.toml`
@@ -83,11 +83,13 @@ editable-component region:
 
 ```toml
 [params.editable_regions]
-  # Dirs snapshotted for the renderer. Defaults derive from your configured
-  # layoutDir: its partials, render hooks (_default/_markup), and shortcodes.
-  # Only set these to override the default dirs.
+  # Template discovery is a recursive walk of the project tree for "salient"
+  # folders (partials, shortcodes, _default/_markup), validated with
+  # templates.Exists — layoutDir-agnostic, no config parsing needed. Only set
+  # template_dirs to REPLACE the walk entirely: the dirs are walked verbatim
+  # and keyed at their given paths (typically logical layouts/... paths,
+  # including project-level module.mounts the walk can't see).
   template_dirs = []
-  data_dirs = []                        # default: your configured dataDir
   template_extensions = [".html", ".htm"]
   wasm_url = ""                         # full override of the renderer WASM URL
   # Optional version override. Normally the version is auto-detected from
@@ -109,13 +111,11 @@ hugo build
   │           └── /cc-editable-regions/live-editing.<hash>.js
   │                 entry.js (module asset) rendered with the site snapshot,
   │                 then bundled from source by js.Build:
-  │                   window.cc_hugo_files  <- template tree snapshot: the
-  │                       partials, render hooks and shortcodes of your
-  │                       configured layout dir (default layouts/**)
-  │                   window.cc_hugo_data   <- data dir snapshot (default data/**)
-  │                   window.cc_hugo_config <- baseURL, title, params, menus,
-  │                       plus layoutDir/dataDir/contentDir so the renderer
-  │                       finds everything in the editor
+  │                   window.cc_hugo_files  <- template tree snapshot: partials,
+  │                       render hooks and shortcodes discovered by the salient
+  │                       walk (any layoutDir), keyed canonically under layouts/
+  │                   window.cc_hugo_config <- baseURL, title, params, menus
+  │                       (no directory keys — the editor uses Hugo's defaults)
   │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
   │                   + the browser runtime (integrations/hugo/browser)
   └── /_cloudcannon/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
@@ -124,17 +124,20 @@ hugo build
 ```
 
 The WASM renderer holds a `hugolib` site over an in-memory filesystem. At
-startup it receives the snapshot (config, partials, data) plus **content
-stubs — every content file's front matter with a blank body**, loaded from
-the CloudCannon API at runtime (never baked into the snapshot). After boot
-it subscribes to CloudCannon's site-wide file-change events, so front-matter
-edits made in the editor are pushed into the editor site as they happen (see
-"Live content edits" below). Each component render runs an incremental build
-— sub-millisecond in practice — and a config-level `cascade`
-(`build.render: "link"`) suppresses per-page output: only the home page and
-the page currently being edited are rendered. The runtime only fetches the
-WASM once the CloudCannon Visual Editor API announces itself, so shipping
-the bundle on production pages costs one small script, not a 16MB download.
+startup it receives the snapshot (config, templates) and then mirrors
+**the site's CloudCannon collections and datasets**: every collection file
+becomes a content stub (front matter with a blank body) and every dataset
+file becomes a data file, each written verbatim at its source path under the
+editor's default `content/` and `data/` dirs (never baked into the
+snapshot). After boot it subscribes to each mirrored collection's and
+dataset's change events, so edits made in the editor are pushed into the
+editor site as they happen (see "Live content edits" below). Each component
+render runs an incremental build — sub-millisecond in practice — and a
+config-level `cascade` (`build.render: "link"`) suppresses per-page output:
+only the home page and the page currently being edited are rendered. The
+runtime only fetches the WASM once the CloudCannon Visual Editor API
+announces itself, so shipping the bundle on production pages costs one small
+script, not a 16MB download.
 
 ## What works in editor renders
 
@@ -153,24 +156,24 @@ the bundle on production pages costs one small script, not a 16MB download.
   not `.Site.*`): `site.Params` (dotted paths, nested maps, arrays),
   `site.Title`, `site.Menus`, `site.Language` (`.Lang`, `.Locale` —
   `site.LanguageCode` is deprecated but still resolves), `site.BaseURL`,
-  `site.Data`, and `site.Param "key"` — from the emitted config/data
-  snapshots.
-- **Real page data**: the editor site holds every content file as a
+  `site.Data`, and `site.Param "key"` — from the emitted config plus the
+  runtime-mirrored datasets.
+- **Real page data**: the editor site holds every collection file as a
   front-matter stub (blank bodies). Page collections (`site.Pages`,
   `site.RegularPages`, `site.Sections`), `site.GetPage`, and `.Params` /
   `.Title` / `.Date` / `.Section` over those pages reflect the site's real
   content — typed like a real Hugo build (whole numbers as ints, dates as
   `time.Time`). `.Content` stays empty until bodies are loaded.
-- **Live content edits**: the runtime listens to CloudCannon's site-wide
-  `change`/`delete` events and refreshes content in the editor site the
-  moment a file is saved — no page reload. Each content-file change
+- **Live content and data edits**: the runtime listens to each mirrored
+  collection's and dataset's `change`/`delete` events and refreshes the
+  editor site the moment a file is saved — no page reload. A content change
   re-fetches that file's front matter, rewrites its stub, and runs a
-  build-only rebuild, so `page.*`, `site.Pages`, `site.GetPage`, and
-  collections reflect edits made after boot. Only files under your content
-  dir with a content extension are tracked; a brand-new content file is
-  picked up the same way, and deleting one drops it from the store (the
-  home page and the page being edited are kept — they're what the session
-  renders through). The publishing opt-ins are re-applied on every rewrite.
+  build-only rebuild; a dataset change rewrites the data file the same way,
+  so `page.*`, `site.Pages`, `site.GetPage`, collections, and `site.Data`
+  all reflect edits made after boot. A brand-new file rides its collection's
+  `change` event; deleting one drops it from the store (the home page and
+  the page being edited are kept — they're what the session renders
+  through). The publishing opt-ins are re-applied on every rewrite.
 - **The current page** (the page being edited, from the CloudCannon API) is
   the page the renderer renders, so components reach it through the global
   `page` function: `page.Title`, `page.Params.*`, `page.RelPermalink`, and
@@ -200,17 +203,27 @@ the bundle on production pages costs one small script, not a 16MB download.
 - **Content bodies are blank**: only front matter loads into the editor site.
   `.Content` / `.Summary` render empty until a demonstrated need pushes
   body loading.
+- **Relocated content/data dirs**: the editor site always uses Hugo's default
+  `content/`/`data/` dirs. Mirroring keeps source paths verbatim, so files
+  already under `content/`/`data/` land exactly where the editor reads them,
+  while a custom `contentDir`/`dataDir` tree (e.g. `notes/`, `custom-data/`)
+  stays invisible to the editor site — directory config mirroring is future
+  work. (Relocated *layout* dirs need no config: the salient walk discovers
+  them wherever they live.)
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
-- **Shortcodes** aren't processed inside `markdownify`.
 - **Non-vendored module templates**: partials from go-module imports that
   aren't vendored live in the go module cache, which templates can't reach —
   `hugo mod vendor` them, or point `template_dirs` at their physical source
   or a local copy. Themes and vendored modules are captured automatically.
 - **Project-level `module.mounts`**: a site mounting its own extra dirs into
   the layout tree (e.g. `source = "shared"` → `target = "layouts/partials"`)
-  still needs those sources in `template_dirs` — the snapshot doesn't read
-  the site config's mounts section.
+  isn't discovered by the salient walk — mount sources like `shared/` carry
+  no salient folder name, and `os.*` directory listings are pre-mount, so the
+  walk can't see them. `template_dirs` remains the escape hatch: it replaces
+  the walk, and entries are walked verbatim and keyed at their given paths
+  (listing `layouts/partials`, `layouts/_default/_markup`,
+  `layouts/shortcodes` reproduces the defaults).
 - **Version skew**: the WASM renderer pins its own Hugo version, which may
   differ from the site's. Template behavior is stable across versions for
   the component-scoped surface above, but brand-new template functions may
