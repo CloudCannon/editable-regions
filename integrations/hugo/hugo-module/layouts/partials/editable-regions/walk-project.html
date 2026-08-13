@@ -1,0 +1,74 @@
+ {{- /*
+  Discovers the project's templates with a recursive walk of the physical
+  project tree, replacing the old config-file probe (layout-dirs.html). No
+  config parsing: any directory tree rooted at a "salient" folder
+  (partials, shortcodes, _default, _markup) is a template tree, wherever it
+  lives physically — so sites with a relocated layoutDir (decision 13) are
+  discovered the same way as default-layout sites.
+
+  For each candidate file the walk derives the template name from the FIRST
+  salient component onward (templates/partials/card.html -> partials/card.html)
+  and asks templates.Exists — the authoritative namespace filter (a point
+  query; it validates walk-derived candidates but can't enumerate). Names that
+  pass are captured under the canonical layouts/ root, which the editor site
+  reads (its layoutDir is always the default), regardless of the physical
+  tree. The capture filter stays prefix-based on top of Exists: kind layouts
+  (_default/index.html etc.) also pass Exists and must not shadow the
+  renderer's dispatch layout (decision 13, tested).
+
+  Expects: (dict "exts" (slice ".html" ".htm")). Recursion carries
+  (dict "dir" "." "name" "" "rooted" false "depth" 0); the default values
+  bootstrap the walk, callers always pass only "exts".
+
+  Pruned during the walk: .git, node_modules, public, resources (build
+  noise), and themes/ + _vendor/ at the project root (those are captured
+  separately by walk-modules.html, unchanged).
+ */ -}}
+{{- $exts := .exts -}}
+{{- $dir := .dir | default "." -}}
+{{- $name := .name | default "" -}}
+{{- $rooted := .rooted | default false -}}
+{{- $depth := .depth | default 0 -}}
+{{- $files := dict -}}
+{{- $salient := slice "partials" "shortcodes" "_default" "_markup" -}}
+{{- $prune := slice ".git" "node_modules" "public" "resources" -}}
+{{- if os.FileExists $dir -}}
+  {{- range $entry := readDir $dir -}}
+    {{- if $entry.IsDir -}}
+      {{- $skip := in $prune $entry.Name -}}
+      {{- if and (eq $depth 0) (or (eq $entry.Name "themes") (eq $entry.Name "_vendor")) -}}
+        {{- $skip = true -}}
+      {{- end -}}
+      {{- if not $skip -}}
+        {{- $childName := $name -}}
+        {{- $childRooted := $rooted -}}
+        {{- if $rooted -}}
+          {{- $childName = printf "%s/%s" $name $entry.Name -}}
+        {{- else if in $salient $entry.Name -}}
+          {{- /* First salient component found: this dir is the template root. */ -}}
+          {{- $childRooted = true -}}
+          {{- $childName = $entry.Name -}}
+        {{- end -}}
+        {{- $files = merge $files (partial "editable-regions/walk-project.html" (dict
+          "dir" (printf "%s/%s" $dir $entry.Name)
+          "name" $childName
+          "rooted" $childRooted
+          "depth" (add $depth 1)
+          "exts" $exts
+        )) -}}
+      {{- end -}}
+    {{- else if $rooted -}}
+      {{- if in $exts (path.Ext $entry.Name | lower) -}}
+        {{- $templateName := printf "%s/%s" $name $entry.Name -}}
+        {{- $capturable := or (strings.HasPrefix $templateName "partials/") (strings.HasPrefix $templateName "shortcodes/") (strings.HasPrefix $templateName "_default/_markup/") -}}
+        {{- if and $capturable (templates.Exists $templateName) -}}
+          {{- $files = merge $files (dict
+            (printf "layouts/%s" $templateName)
+            (readFile (printf "%s/%s" $dir $entry.Name))
+          ) -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- return $files -}}

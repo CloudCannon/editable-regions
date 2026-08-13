@@ -26,6 +26,27 @@ export function serializeFrontMatter(data) {
 }
 
 /**
+ * Serializes a data file's contents to a bare YAML document (no front-matter
+ * delimiters), for dataset files mirrored from the CloudCannon API into the
+ * editor site's data dir. Object and array roots are supported; scalars pass
+ * through (Hugo rejects scalar-root data files natively too, so the mirror
+ * behaves like the real build).
+ * @param {Record<string, any> | any[] | any} data
+ * @returns {string}
+ */
+export function serializeData(data) {
+	if (Array.isArray(data)) {
+		if (data.length === 0) return "[]\n";
+		return `${yamlArrayItems(data, 0, []).join("\n")}\n`;
+	}
+	if (data && typeof data === "object" && !(data instanceof Date)) {
+		if (Object.keys(data).length === 0) return "{}\n";
+		return `${yamlObject(data, 0, []).join("\n")}\n`;
+	}
+	return `${yamlScalar(data)}\n`;
+}
+
+/**
  * Quotes a map key when it could be parsed as something else or contains
  * characters outside YAML's safe key set.
  * @param {string} key
@@ -101,42 +122,53 @@ function yamlLine(prefix, value, indent) {
  * @returns {string[]}
  */
 function yamlArrayEntry(prefix, arr, indent) {
-	const out = [];
 	if (arr.length === 0) {
 		return [`${prefix}: []`];
 	}
-	out.push(`${prefix}:`);
+	return [`${prefix}:`, ...yamlArrayItems(arr, indent + 1, [])];
+}
+
+/**
+ * Emits the `- item` lines of a block sequence, each at `indent`. Used both
+ * for sequences nested under a key (via yamlArrayEntry) and for array-root
+ * data documents (via serializeData).
+ * @param {any[]} arr
+ * @param {number} indent
+ * @param {string[]} out
+ * @returns {string[]}
+ */
+function yamlArrayItems(arr, indent, out) {
 	for (const item of arr) {
 		if (item && typeof item === "object" && !(item instanceof Date)) {
 			if (Array.isArray(item)) {
-				out.push(`${"  ".repeat(indent + 1)}-`);
-				out.push(
-					...yamlArrayEntry(`${"  ".repeat(indent + 2)}-`, item, indent + 2),
-				);
+				// Nested sequence: the dash stands alone and sub-items align
+				// one level deeper.
+				out.push(`${"  ".repeat(indent)}-`);
+				out.push(...yamlArrayItems(item, indent + 1, []));
 			} else if (Object.keys(item).length === 0) {
-				out.push(`${"  ".repeat(indent + 1)}- {}`);
+				out.push(`${"  ".repeat(indent)}- {}`);
 			} else {
 				const entries = Object.entries(item);
 				const [firstKey, firstValue] = entries[0];
 				out.push(
 					...yamlLine(
-						`${"  ".repeat(indent + 1)}- ${yamlKey(/** @type {string} */ (firstKey))}`,
+						`${"  ".repeat(indent)}- ${yamlKey(/** @type {string} */ (firstKey))}`,
 						firstValue,
-						indent + 1,
+						indent,
 					),
 				);
 				for (const [key, value] of entries.slice(1)) {
 					out.push(
 						...yamlLine(
-							`${"  ".repeat(indent + 2)}${yamlKey(key)}`,
+							`${"  ".repeat(indent + 1)}${yamlKey(key)}`,
 							value,
-							indent + 2,
+							indent + 1,
 						),
 					);
 				}
 			}
 		} else {
-			out.push(`${"  ".repeat(indent + 1)}- ${yamlScalar(item)}`);
+			out.push(`${"  ".repeat(indent)}- ${yamlScalar(item)}`);
 		}
 	}
 	return out;

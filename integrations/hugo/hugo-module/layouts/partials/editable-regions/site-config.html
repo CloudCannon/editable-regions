@@ -2,10 +2,12 @@
   Serializes the browser-relevant slice of the site configuration. The
   runtime writes this (plus editor overrides) as the WASM site's config, so
   component partials can use `site.Params`, `site.Title`, and `site.Menus`.
-  Expects the directory map from editable-regions/layout-dirs.html (the
-  site's configured layoutDir/dataDir/contentDir): those are forwarded so the
-  renderer looks for templates, data, and the dispatch layout in the right
-  places. Provisioned by editable-regions/resources.html.
+
+  No directory keys are forwarded: the editor site always uses Hugo's default
+  layoutDir/dataDir/contentDir. The template snapshot is keyed under the
+  canonical layouts/ root (walk-project.html), and content/data are mirrored
+  from CloudCannon collections/datasets under content//data/ at runtime (see
+  the runtime). Provisioned by editable-regions/resources.html.
 */ -}}
 {{- $menus := dict -}}
 {{- range $name, $entries := site.Menus -}}
@@ -21,7 +23,4 @@
   "locale" (site.LanguageCode | default "")
   "params" site.Params
   "menus" $menus
-  "layoutDir" (.layoutDir | default "layouts")
-  "dataDir" (.dataDir | default "data")
-  "contentDir" (.contentDir | default "content")
 ) -}}

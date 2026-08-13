@@ -27,9 +27,9 @@
 {{- $exts := .exts -}}
 {{- $files := dict -}}
 {{- $subdirs := slice "partials" "_default/_markup" "shortcodes" -}}
-{{- /* A module's mounts are read from its own config file, the same probe
-  pattern as layout-dirs.html. Only hugo.* names are supported (modules
-  aren't legacy-config sites). */ -}}
+ {{- /* A module's mounts are read from its own config file (the layout-dirs
+  probe is gone; this per-module config read is the only one that remains).
+  Only hugo.* names are supported (modules aren't legacy-config sites). */ -}}
 {{- $conf := dict -}}
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" -}}
   {{- $cfgPath := path.Join $root $candidate -}}

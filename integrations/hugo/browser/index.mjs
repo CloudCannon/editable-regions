@@ -11,7 +11,7 @@ import {
 } from "../../../helpers/cloudcannon.mjs";
 import { enhanceHugoError, missingComponentError } from "./errors.mjs";
 import { group, groupEnd, log, setVerbose, warn } from "./logger.mjs";
-import { serializeFrontMatter } from "./serialize-yaml.mjs";
+import { serializeData, serializeFrontMatter } from "./serialize-yaml.mjs";
 
 /** Kinds the editor site never renders; disabling them trims every rebuild. */
 const DISABLED_KINDS = [
@@ -23,29 +23,26 @@ const DISABLED_KINDS = [
 	"404",
 ];
 
-/** Partials prefix relative to the snapshot: the site's layoutDir + partials. */
+/** Partials prefix in the snapshot: the editor site always uses the default layoutDir. */
 function partialsPrefix() {
-	return `${runtimeData?.config?.layoutDir ?? "layouts"}/partials/`;
+	return "layouts/partials/";
 }
-
-/** The site's configured content directory ("content" by default). */
-function contentDir() {
-	return runtimeData?.config?.contentDir ?? "content";
-}
-
-/** Content file extensions Hugo recognizes; everything else is ignored when loading editor content. */
-const CONTENT_EXTENSIONS = [".md", ".markdown", ".mdown", ".html", ".htm"];
 
 /**
- * Parsed front matter for every content file loaded from the CloudCannon
- * API at boot, keyed by the Hugo page path ("/blog/one/"). The parallel map
- * resolves a page path back to its project-relative source file
- * ("blog/one.md") so the runtime can rewrite stubs for the edit target.
+ * Memfs key for a mirrored file: the API's site-root-relative source path
+ * with the leading slash removed ("/content/blog/one.md" ->
+ * "content/blog/one.md"). The editor site uses Hugo's default dirs, so
+ * verbatim mirroring lands the standard content/data trees exactly where
+ * Hugo reads them; relocated trees keep their segments (a documented
+ * first-pass gap until config mirroring lands).
+ * @param {string} apiPath
+ * @returns {string}
  */
-const contentFrontMatter = new Map();
-
-/** Hugo page path -> project-relative content file ("blog/one.md"). */
-const pagePathFiles = new Map();
+function rootRelativePath(apiPath) {
+	return String(apiPath ?? "")
+		.replace(/^\/+/, "")
+		.replace(/\\/g, "/");
+}
 
 /**
  * The page being edited, captured once at boot from the CloudCannon API.
@@ -57,20 +54,36 @@ const pagePathFiles = new Map();
 let sessionPage = "/";
 
 /**
+ * The collections and datasets mirrored at boot. Each is subscribed to
+ * change/delete events after the editor site exists (so boot-time writes
+ * can't race the first build); the handlers rewrite the affected stub/data
+ * file and rebuild.
+ * @type {any[]}
+ */
+let editorCollections = [];
+
+/** @type {any[]} */
+let editorDatasets = [];
+
+/**
  * Maps a CloudCannon API file path ("/content/blog/one.md") to its Hugo page
  * path ("/blog/one/"). `_index`/`index` files become their parent page (or
  * "/"), and each segment is slugified like Hugo's `urlize` (lowercased,
  * non-alphanumerics collapsed to "-"). Exotic filenames (unicode, spaces in
  * the source tree) may diverge from Hugo's urls — first-pass limitation.
+ * Mirrored files keyed verbatim under the editor's default content dir, so
+ * the page path is the path relative to "content/" (matching how a standard
+ * site's content maps to pages). Files outside content/ resolve to null —
+ * the editor doesn't render them until config mirroring lands.
  *
  * @param {string | undefined} apiPath
- * @returns {string | null} The Hugo page path, or null when not under contentDir
+ * @returns {string | null} The Hugo page path, or null when not under the default content dir
  */
 function toHugoPagePath(apiPath) {
 	const rel = String(apiPath ?? "")
 		.replace(/^\/+/, "")
 		.replace(/\\/g, "/");
-	const prefix = `${contentDir()}/`;
+	const prefix = "content/";
 	if (!rel.startsWith(prefix)) return null;
 	let file = rel
 		.slice(prefix.length)
@@ -96,23 +109,8 @@ function urlizeSegment(segment) {
 }
 
 /**
- * Project-relative source file ("blog/one.md") for an API path, or null when
- * not under contentDir.
- * @param {string | undefined} apiPath
- */
-function relContentFile(apiPath) {
-	const rel = String(apiPath ?? "")
-		.replace(/^\/+/, "")
-		.replace(/\\/g, "/");
-	const prefix = `${contentDir()}/`;
-	if (!rel.startsWith(prefix)) return null;
-	return rel.slice(prefix.length);
-}
-
-/**
  * @typedef {Object} HugoRuntimeData
- * @property {Record<string, string>} files - Template snapshot, project-relative paths
- * @property {Record<string, string>} data - Data file snapshot, project-relative paths
+ * @property {Record<string, string>} files - Template snapshot, canonical layouts/ paths
  * @property {Record<string, any>} config - Normalized site config (baseURL, title, params, menus)
  * @property {Record<string, any>} meta - {generator, wasmUrl, verbose}
  */
@@ -135,7 +133,6 @@ export function initHugoLiveEditing(options = {}) {
 	const win = /** @type {any} */ (window);
 	runtimeData = {
 		files: options.files ?? win.cc_hugo_files ?? {},
-		data: options.data ?? win.cc_hugo_data ?? {},
 		config: options.config ?? win.cc_hugo_config ?? {},
 		meta: { ...(win.cc_hugo ?? {}), ...options },
 	};
@@ -225,14 +222,14 @@ async function startEngine() {
 	const files = {
 		"config.json": JSON.stringify(buildEditorConfig(runtimeData.config)),
 		...runtimeData.files,
-		...runtimeData.data,
 	};
 	/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 
-	// Content stubs (front matter only, blank bodies) land on the filesystem
-	// before the site is created, so the editor site is built with the full
-	// page tree present from the start — no incremental content-add path.
-	await loadEditorContent();
+	// Content stubs (front matter only, blank bodies) and dataset data files
+	// land on the filesystem before the site is created, so the editor site
+	// is built with the full page tree present from the start — no
+	// incremental content-add path.
+	await loadEditorCollectionData();
 
 	const initError = /** @type {any} */ (globalThis).initHugoEditorSite();
 	if (initError?.error) {
@@ -240,9 +237,9 @@ async function startEngine() {
 		throw new Error(`Hugo editor site failed to build: ${initError.error}`);
 	}
 
-	// Front-matter edits made after boot are pushed into the editor site by
-	// CloudCannon's site-wide change events (installed now the site exists, so
-	// boot-time writes can't race the first build).
+	// Edits made after boot are pushed into the editor site by each mirrored
+	// collection's and dataset's change/delete events (installed now the site
+	// exists, so boot-time writes can't race the first build).
 	watchContentChanges();
 
 	log("Hugo renderer ready");
@@ -250,96 +247,172 @@ async function startEngine() {
 }
 
 /**
- * Loads the front matter of every content file from the CloudCannon API and
- * writes it as a stub content file with a blank body — the first-pass content
- * model: real page data, no bodies (decision 10). The home page's stub also
- * carries build.render: "always" so it keeps publishing under the cascade.
+ * Mirrors the site's CloudCannon collections and datasets into the editor
+ * site before it's built. Collections become content stubs (front matter
+ * only, blank bodies — decision 10) and datasets become data files, each
+ * keyed verbatim at its site-root-relative path under the editor's default
+ * content/ and data/ dirs — so standard trees land exactly where Hugo reads
+ * them; relocated trees keep their segments until config mirroring lands (a
+ * documented first-pass gap). The home page's stub also carries
+ * build.render: "always" so it keeps publishing under the cascade.
  */
-async function loadEditorContent() {
-	if (!CloudCannon?.files) return;
+async function loadEditorCollectionData() {
+	if (!CloudCannon) return;
 	// The page being edited is fixed for the session (navigation reboots the
 	// editor and re-runs this), so capture it once at boot: the loader opts
 	// that page's stub into publishing. The home page is always opted in —
 	// it's the boot surface and the fallback target when no page is current.
 	sessionPage = toHugoPagePath(CloudCannon.currentFile?.()?.path) ?? "/";
-	let listing;
-	try {
-		listing = await CloudCannon.files();
-	} catch (error) {
-		warn("Failed to list editor files, content will be unavailable:", error);
-		return;
-	}
-	const stubs = /** @type {Record<string, string>} */ ({});
-	for (const file of listing ?? []) {
-		const apiPath = file?.path;
-		if (!relContentFile(apiPath)) continue;
-		if (!CONTENT_EXTENSIONS.some((ext) => String(apiPath).endsWith(ext)))
-			continue;
-		let frontMatter;
+
+	const files = /** @type {Record<string, string>} */ ({});
+	editorCollections = [];
+	editorDatasets = [];
+
+	if (typeof CloudCannon.collections === "function") {
+		let collections;
 		try {
-			frontMatter = await file?.data?.get?.();
+			collections = await CloudCannon.collections();
 		} catch (error) {
-			warn(`Failed to read front matter for ${apiPath}:`, error);
-			continue;
+			warn("Failed to list collections, content will be unavailable:", error);
 		}
-		if (!frontMatter || typeof frontMatter !== "object") continue;
-		const page = toHugoPagePath(apiPath);
-		if (!page) continue;
-		contentFrontMatter.set(page, frontMatter);
-		pagePathFiles.set(page, relContentFile(apiPath));
-		stubs[`${contentDir()}/${relContentFile(apiPath)}`] = stubContents(
-			frontMatter,
-			page,
-		);
+		for (const collection of collections ?? []) {
+			let items;
+			try {
+				items = await collection?.items?.();
+			} catch (error) {
+				warn(`Failed to list ${collection?.collectionKey}:`, error);
+				continue;
+			}
+			for (const file of items ?? []) {
+				const apiPath = file?.path;
+				const page = toHugoPagePath(apiPath);
+				if (!apiPath || !page) continue;
+				let frontMatter;
+				try {
+					frontMatter = await file?.data?.get?.();
+				} catch (error) {
+					warn(`Failed to read front matter for ${apiPath}:`, error);
+					continue;
+				}
+				if (!frontMatter || typeof frontMatter !== "object") continue;
+				files[rootRelativePath(apiPath)] = stubContents(frontMatter, page);
+			}
+			editorCollections.push(collection);
+		}
 	}
-	if (Object.keys(stubs).length > 0) {
+
+	if (typeof CloudCannon.datasets === "function") {
+		let datasets;
+		try {
+			datasets = await CloudCannon.datasets();
+		} catch (error) {
+			warn("Failed to list datasets, site data will be unavailable:", error);
+		}
+		for (const dataset of datasets ?? []) {
+			let result;
+			try {
+				result = await dataset?.items?.();
+			} catch (error) {
+				warn(`Failed to list ${dataset?.datasetKey}:`, error);
+				continue;
+			}
+			// A Dataset's items() resolves to a single File or an array.
+			for (const file of Array.isArray(result) ? result : [result]) {
+				if (!file?.path) continue;
+				let data;
+				try {
+					data = await file?.data?.get?.();
+				} catch (error) {
+					warn(`Failed to read dataset file ${file.path}:`, error);
+					continue;
+				}
+				if (data === undefined || data === null) continue;
+				files[rootRelativePath(file.path)] = serializeDataset(data, file.path);
+			}
+			editorDatasets.push(dataset);
+		}
+	}
+
+	if (Object.keys(files).length > 0) {
 		log(
-			`Loading editor content: ${Object.keys(stubs).length} content files` +
+			`Loading editor content: ${Object.keys(files).length} files` +
 				(sessionPage === "/" ? "" : ` (editing ${sessionPage})`),
 		);
-		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(stubs));
+		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 	}
 }
 
 /**
- * Subscribes to CloudCannon's site-wide change/delete events and pushes
- * front-matter edits into the editor site as they happen — the mid-session
- * freshness the boot-time snapshot alone can't provide. `change` fires when
- * any file is created or updated and carries `event.detail.sourcePath`; the
- * handlers touch only content files (inside the configured content dir with a
- * content extension). Each update is one content write followed by a
+ * Subscribes to each mirrored collection's and dataset's change/delete
+ * events and pushes edits into the editor site as they happen — the
+ * mid-session freshness the boot-time mirror alone can't provide. A
+ * collection `change` fires when any of its files is created or updated and
+ * carries `event.detail.sourcePath` (new files ride the same event). Each
+ * handler performs exactly one write followed by a
  * `rebuildHugoEditorSite`, so the dispatch page stays alone in its own
- * (render) build — no change set ever batches two content writes (the
+ * (render) build — no change set ever batches two writes (the
  * multi-content-change quirk).
  */
 function watchContentChanges() {
-	if (!CloudCannon?.addEventListener) return;
+	for (const collection of editorCollections) {
+		/** @param {any} event */
+		const onChange = (event) => {
+			handleCollectionEvent(event, "change");
+		};
+		/** @param {any} event */
+		const onDelete = (event) => {
+			handleCollectionEvent(event, "delete");
+		};
+		collection.addEventListener?.("change", onChange);
+		collection.addEventListener?.("delete", onDelete);
+	}
 
-	CloudCannon.addEventListener("change", (event) => {
-		const apiPath = event?.detail?.sourcePath;
-		if (!isContentFile(apiPath)) return;
-		updateContentStub(apiPath).catch((err) =>
-			warn(`Failed to refresh content stub for ${apiPath}:`, err),
-		);
-	});
+	for (const dataset of editorDatasets) {
+		/** @param {any} event */
+		const onChange = (event) => {
+			handleDatasetEvent(event, "change");
+		};
+		/** @param {any} event */
+		const onDelete = (event) => {
+			handleDatasetEvent(event, "delete");
+		};
+		dataset.addEventListener?.("change", onChange);
+		dataset.addEventListener?.("delete", onDelete);
+	}
 
-	CloudCannon.addEventListener("delete", (event) => {
-		const apiPath = event?.detail?.sourcePath;
-		if (!isContentFile(apiPath)) return;
+	log(
+		`Watching ${editorCollections.length} collections and ${editorDatasets.length} datasets`,
+	);
+}
+
+/** @param {any} event @param {"change" | "delete"} kind */
+function handleCollectionEvent(event, kind) {
+	const apiPath = event?.detail?.sourcePath;
+	if (!apiPath) return;
+	if (kind === "delete") {
 		removeContentStub(apiPath).catch((err) =>
 			warn(`Failed to remove content stub for ${apiPath}:`, err),
 		);
-	});
-
-	log("Watching CloudCannon for content changes");
+	} else {
+		updateContentStub(apiPath).catch((err) =>
+			warn(`Failed to refresh content stub for ${apiPath}:`, err),
+		);
+	}
 }
 
-/** @param {string | undefined} apiPath */
-function isContentFile(apiPath) {
-	return (
-		Boolean(relContentFile(apiPath)) &&
-		CONTENT_EXTENSIONS.some((ext) => String(apiPath).endsWith(ext))
-	);
+/** @param {any} event @param {"change" | "delete"} kind */
+function handleDatasetEvent(event, kind) {
+	const apiPath = event?.detail?.sourcePath;
+	if (!apiPath) return;
+	if (kind === "delete") {
+		removeDatasetFile(apiPath).catch((err) =>
+			warn(`Failed to remove dataset file ${apiPath}:`, err),
+		);
+	} else {
+		updateDatasetFile(apiPath).catch((err) =>
+			warn(`Failed to refresh dataset file ${apiPath}:`, err),
+		);
+	}
 }
 
 /**
@@ -363,14 +436,33 @@ async function updateContentStub(apiPath) {
 
 	const page = toHugoPagePath(apiPath);
 	if (!page) return;
-	contentFrontMatter.set(page, frontMatter);
-	pagePathFiles.set(page, relContentFile(apiPath));
 	/** @type {any} */ (globalThis).writeHugoFiles(
 		JSON.stringify({
-			[`${contentDir()}/${relContentFile(apiPath)}`]: stubContents(
-				frontMatter,
-				page,
-			),
+			[rootRelativePath(apiPath)]: stubContents(frontMatter, page),
+		}),
+	);
+	rebuildEditorSite();
+}
+
+/**
+ * Re-fetches a changed dataset file from the API and rewrites it in the data
+ * dir, then rebuilds so `site.Data`/`hugo.Data` reflect the edit for the next
+ * component render.
+ *
+ * @param {string} apiPath - Root-relative source path from the event
+ */
+async function updateDatasetFile(apiPath) {
+	let data;
+	try {
+		data = await CloudCannon?.file?.(apiPath)?.data?.get?.();
+	} catch (error) {
+		warn(`Failed to read dataset file ${apiPath}:`, error);
+		return;
+	}
+	if (data === undefined || data === null) return;
+	/** @type {any} */ (globalThis).writeHugoFiles(
+		JSON.stringify({
+			[rootRelativePath(apiPath)]: serializeDataset(data, apiPath),
 		}),
 	);
 	rebuildEditorSite();
@@ -394,12 +486,41 @@ async function removeContentStub(apiPath) {
 		);
 		return;
 	}
-	contentFrontMatter.delete(page);
-	pagePathFiles.delete(page);
 	/** @type {any} */ (globalThis).removeHugoFiles?.(
-		JSON.stringify([`${contentDir()}/${relContentFile(apiPath)}`]),
+		JSON.stringify([rootRelativePath(apiPath)]),
 	);
 	rebuildEditorSite();
+}
+
+/**
+ * Drops a deleted dataset file from the data dir and rebuilds so site data
+ * loses it.
+ *
+ * @param {string} apiPath - Root-relative source path from the event
+ */
+async function removeDatasetFile(apiPath) {
+	/** @type {any} */ (globalThis).removeHugoFiles?.(
+		JSON.stringify([rootRelativePath(apiPath)]),
+	);
+	rebuildEditorSite();
+}
+
+/**
+ * Serializes a dataset file's contents for the data dir by extension. YAML
+ * files become the runtime's typed YAML; JSON files stay JSON (numbers
+ * decode to float64 there, matching Hugo's native JSON data decoding). Other
+ * extensions fall back to YAML — a documented first-pass gap, since the API
+ * only exposes parsed data (original formatting is unrecoverable).
+ *
+ * @param {Record<string, any> | any[]} data
+ * @param {string} apiPath
+ * @returns {string}
+ */
+function serializeDataset(data, apiPath) {
+	if (String(apiPath).endsWith(".json")) {
+		return `${JSON.stringify(data, null, 2)}\n`;
+	}
+	return serializeData(data);
 }
 
 /**
