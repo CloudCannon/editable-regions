@@ -46,28 +46,7 @@ const socialFile = mkFile("/data/social.json", {
 	twitter: "https://twitter.com/cloudcannon",
 });
 
-// The site's config mirrors from the CloudCannon API (mirrorSiteConfig): the
-// fixture's config.toml parsed to an object, carrying the site title,
-// language, params, and menus the globals probes read back through `site.*`.
-const configFile = mkFile("/config.toml", {
-	baseURL: "/",
-	title: "Hugo Unit Fixture",
-	languageCode: "en-AU",
-	params: {
-		brand: "Fixture Brand",
-		tags: ["one", "two"],
-		extra: { region: "apac" },
-	},
-	menus: {
-		main: [
-			{ name: "Home", url: "/", weight: 1 },
-			{ name: "Blog", url: "/blog/", weight: 2 },
-		],
-		footer: [{ name: "Privacy", url: "/privacy/", weight: 1 }],
-	},
-});
-
-setMockFiles([configFile, navFile, socialFile]);
+setMockFiles([navFile, socialFile]);
 setMockDatasetsList([
 	makeMockDataset("nav", navFile),
 	makeMockDataset("social", socialFile),
@@ -138,12 +117,8 @@ test("site data can be queried with where, index, and default", async () => {
 test("page collections are safe and empty-ish in the editor site", async () => {
 	const el = await window.cc_components?.["globals-collections"]({});
 
-	// regularPages/sections stay empty; the page count is the home page plus
-	// the still-enabled kind nodes (RSS/sitemap), which revert to 1 once the
-	// editor's disableKinds override is re-applied on the renderer side (the
-	// config override comes back with the Go-side config work).
 	expect(lines(el)).toBe(
-		"regularPages=0\npages=3\nsections=0\nhomeTitle=\nhomeRegularPages=0",
+		"regularPages=0\npages=1\nsections=0\nhomeTitle=\nhomeRegularPages=0",
 	);
 });
 

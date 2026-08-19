@@ -11,8 +11,8 @@
 //	writeHugoFiles(json)      – {"path": "contents", ...}
 //	removeHugoFiles(json)     – ["path", ...]
 //	readHugoFiles(json)       – ["path", ...] -> {"path": "contents"}
-//	initHugoEditorSite()      – learn dirs from the mirrored site config,
-//	                            prepare cc-editor.json, create the site
+//	initHugoEditorSite()      – load the site config (with editor overrides)
+//	                            and create the site
 //	rebuildHugoEditorSite()   – run an incremental build of the editor site
 //	renderHugoPartial(json)   – {"partial": "card.html", "props": {...},
 //	                            "target": "content/blog/one.md"}
@@ -81,118 +81,31 @@ type editorSiteBuilder struct {
 	removedFiles []string
 }
 
-// configureEditorSite splices the renderer-owned editor settings into the
-// browser-written cc-editor.json before allconfig reads it:
+// editorFlags builds the renderer-owned config overrides the editor site
+// applies on top of the site's own config (which loadConfig reads through
+// Hugo's default-name search). Flags override any config-file setting:
 //
-//   - the site's real contentDir/dataDir, learned natively from the mirrored
-//     site config (learnSiteConfigDirs) and forwarded verbatim — the browser
-//     mirrors collections/datasets at their site-root-relative paths, so they
-//     land under these dirs exactly where Hugo reads them, and the render
-//     target/home guard already resolve through the compiled config;
-//   - the home page's publishing opt-in: the browser's config suppresses all
-//     page output (build.render: link under a cascade), but the editor must
-//     still publish the home page — it's the render fallback and the boot
-//     surface — so a cascade entry targeting the home kind is prepended.
-//
-// Being config-level (not a content-file front-matter write) it survives every
-// stub rewrite, never adds a file write to a render build, and needs no
-// directory or page-path knowledge on the browser side.
-func (builder *editorSiteBuilder) configureEditorSite(contentDir, dataDir string) error {
-	// contents, err := builder.readFile("cc-editor.json")
-	// if err != nil {
-	// 	return fmt.Errorf("cc-editor.json not readable: %w", err)
-	// }
-	// var cfg map[string]interface{}
-	// if err := json.Unmarshal([]byte(contents), &cfg); err != nil {
-	// 	return fmt.Errorf("cc-editor.json is not valid JSON: %w", err)
-	// }
-	// if contentDir != "" {
-	// 	cfg["contentDir"] = contentDir
-	// }
-	// if dataDir != "" {
-	// 	cfg["dataDir"] = dataDir
-	// }
-	// homeCascade := map[string]interface{}{
-	// 	"_target": map[string]interface{}{"kind": "home"},
-	// 	"build":   map[string]interface{}{"render": "always"},
-	// }
-	// // Preserve the browser's suppression cascade by placing the home rule in
-	// // front of it (cascade entries are first-match-wins per page).
-	// switch existing := cfg["cascade"].(type) {
-	// case []interface{}:
-	// 	cfg["cascade"] = append([]interface{}{homeCascade}, existing...)
-	// case map[string]interface{}:
-	// 	cfg["cascade"] = []interface{}{homeCascade, existing}
-	// default:
-	// 	cfg["cascade"] = []interface{}{
-	// 		homeCascade,
-	// 		map[string]interface{}{"build": map[string]interface{}{"render": "link"}},
-	// 	}
-	// }
-	// encoded, err := json.Marshal(cfg)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to encode cc-editor.json: %w", err)
-	// }
-	// builder.writeFile("cc-editor.json", string(encoded))
-	return nil
-}
-
-// learnSiteConfigDirs resolves the site's real contentDir/dataDir by loading
-// the mirrored site config (mirrorSiteConfig in the browser) with Hugo's own
-// config resolution — default-name root search, config/_default + the
-// cc-env-carried environment merged on top — so none of Hugo's precedence
-// rules are re-implemented here. The mirrored candidates are always JSON at
-// their real paths and carry no theme/module (the browser drops them), so
-// this load can't fail on resolution the editor never performs. Returns empty
-// strings when no site config was mirrored: the editor keeps its defaults.
-func (builder *editorSiteBuilder) learnSiteConfigDirs() (string, string) {
-	env := "production"
-	if contents, err := builder.readFile("cc-env"); err == nil {
-		env = strings.TrimSpace(contents)
-	}
-	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
-		Fs:          builder.Afs,
-		Flags:       config.New(),
-		ConfigDir:   "config",
-		Environment: env,
+//   - disableKinds: taxonomy/term/RSS/sitemap/robotsTXT/404 never render in
+//     the editor, trimming every rebuild to content pages only;
+//   - cascade: suppress per-page output (build.render: link) so pages stay in
+//     the store (site.Pages, .GetPage, .RelPermalink, .Content all keep
+//     working) while only opted-in pages emit HTML — the home page (the render
+//     fallback and boot surface) opts back in via the first, home-targeting
+//     entry, and the current edit target opts in via front matter;
+func editorFlags() config.Provider {
+	flags := config.New()
+	flags.Set("disableKinds", []string{"taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"})
+	flags.Set("cascade", []interface{}{
+		map[string]interface{}{
+			"_target": map[string]interface{}{"kind": "home"},
+			"build":   map[string]interface{}{"render": "always"},
+		},
+		map[string]interface{}{
+			"build": map[string]interface{}{"render": "link"},
+		},
 	})
-	if err != nil {
-		return "", ""
-	}
-	// cfg.Base is the allconfig.Config — the same resolved source the editor
-	// build reads later (ContentDir/DataDir come from RootConfig.CommonDirs).
-	if cfg.Base == nil {
-		return "", ""
-	}
-	return cfg.Base.ContentDir, cfg.Base.DataDir
+	return flags
 }
-
-// func (builder *editorSiteBuilder) loadConfig() error {
-// 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
-// 		Fs:       builder.Afs,
-// 		Flags:    config.New(),
-// 		Filename: "cc-editor.json",
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// The editor runs "rebuilds" rather than fresh builds; Running/Watch
-// 	// enable Hugo's incremental change-event pipeline. hugoInfo (the `hugo.*`
-// 	// template namespace, e.g. `hugo.IsServer`) reads these from the
-// 	// per-language configs, so propagate the flags beyond the root config.
-// 	cfg.Base.WorkingDir = ""
-// 	cfg.Base.Internal.Running = true
-// 	cfg.Base.Internal.Watch = true
-// 	for _, languageConfig := range cfg.LanguageConfigMap {
-// 		languageConfig.Internal.Running = true
-// 		languageConfig.Internal.Watch = true
-// 	}
-// 	builder.Cfg = cfg
-// 	builder.Fs = hugofs.NewFrom(builder.Afs, cfg.GetFirstLanguageConfig().BaseConfig())
-
-// 	return nil
-// }
 
 func (builder *editorSiteBuilder) loadConfig() error {
 	env := "production"
@@ -201,9 +114,14 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	}
 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
 		Fs:          builder.Afs,
-		Flags:       config.New(),
+		Flags:       editorFlags(),
 		ConfigDir:   "config",
 		Environment: env,
+		// The editor can only resolve what's mirrored (the theme and vendored
+		// modules); any other import — most notably the editable-regions module
+		// itself, whose replacement points at the repo on disk — can't resolve
+		// in the in-memory filesystem, so skip it rather than fail the load.
+		IgnoreModuleDoesNotExist: true,
 	})
 	if err != nil {
 		return err
@@ -465,32 +383,20 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // a stub content file are installed here so the first build always has a
 // renderable page.
 //
-// The site config (written by the browser from the snapshot) carries no
-// directory keys; configureEditorSite splices in the site's real
-// contentDir/dataDir (learned natively from the mirrored site config, see
-// learnSiteConfigDirs) so the dispatch layout + stubs land where Hugo reads
-// them. LayoutDir is never forwarded: the editor's templates live at the
-// canonical layouts/ root the snapshot keys them under. The home opt-in lives
-// in the editor config (see configureEditorSite), not in browsed/mirrored
-// front matter, so it survives any content rewrite and never adds a file
-// write to a render build.
+// The site config is loaded through Hugo's own resolution (default-name root
+// search + the config/ dir), so contentDir/dataDir/layoutDir/theme/module all
+// come straight from the site's real config — the browser mirrors content
+// stubs and templates at their site-root-relative paths, which land exactly
+// where Hugo reads them. The renderer-owned overrides (disableKinds/cascade/
+// markup) ride on top via editorFlags, and the home-page publishing opt-in is
+// the cascade's home entry (not a front-matter write), so both survive any
+// content rewrite without adding a file write to a render build.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
-	// Learn the site's real contentDir/dataDir first: the browser mirrors the
-	// site config at its real paths (JSON, theme/module stripped), and the
-	// probe below resolves it with Hugo's own config loading so the dirs come
-	// out exactly as the site's build resolves them. Layout dir is never
-	// forwarded — the editor's templates live at the canonical layouts/ root
-	// the snapshot keys them under.
-	siteContentDir, siteDataDir := builder.learnSiteConfigDirs()
-
 	// Load config first so the dispatch layout and stub can be written under
 	// the resolved layoutDir/contentDir. After that the original
 	// write-then-create-then-build order is preserved: Hugo's first Running
 	// build only re-renders everything when the files exist before the site
 	// is created.
-	if err := builder.configureEditorSite(siteContentDir, siteDataDir); err != nil {
-		return errorValue("failed to configure editor site: %s", err)
-	}
 	if err := builder.loadConfig(); err != nil {
 		return errorValue("failed to load config: %s", err)
 	}
@@ -508,7 +414,7 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	// The browser mirrors every content stub (front matter only) before init;
 	// the current edit target's stub carries build.render: always so it
 	// publishes under the cascade, and the home page's publishing comes from
-	// the editor config (configureEditorSite). Only plant a placeholder home
+	// the cascade's home entry (editorFlags). Only plant a placeholder home
 	// page when none arrived, so loader-provided data is never clobbered.
 	homeStub := filepath.Join(contentDir, "_index.md")
 	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {

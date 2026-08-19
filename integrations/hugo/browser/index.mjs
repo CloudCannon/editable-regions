@@ -13,16 +13,6 @@ import { enhanceHugoError, missingComponentError } from "./errors.mjs";
 import { group, groupEnd, log, setVerbose, warn } from "./logger.mjs";
 import { serializeData, serializeFrontMatter } from "./serialize-yaml.mjs";
 
-/** Kinds the editor site never renders; disabling them trims every rebuild. */
-const DISABLED_KINDS = [
-	"taxonomy",
-	"term",
-	"RSS",
-	"sitemap",
-	"robotsTXT",
-	"404",
-];
-
 /**
  * Memfs key for a mirrored file: the API's site-root-relative source path
  * with the leading slash removed ("/content/blog/one.md" ->
@@ -64,8 +54,7 @@ let editorDatasets = [];
 
 /**
  * @typedef {Object} HugoRuntimeData
- * @property {Record<string, string>} files - Template snapshot, canonical layouts/ paths
- * @property {Record<string, any>} config - Normalized site config (baseURL, title, params, menus)
+ * @property {Record<string, string>} files - Snapshot: templates and config files at their physical paths
  * @property {Record<string, any>} meta - {generator, wasmUrl, verbose}
  */
 
@@ -87,7 +76,6 @@ export function initHugoLiveEditing(options = {}) {
 	const win = /** @type {any} */ (window);
 	runtimeData = {
 		files: options.files ?? win.cc_hugo_files ?? {},
-		config: options.config ?? win.cc_hugo_config ?? {},
 		meta: { ...(win.cc_hugo ?? {}), ...options },
 	};
 
@@ -174,13 +162,10 @@ async function startEngine() {
 	}
 
 	const files = {
-		// The editor's own config, named so it can never collide with a
-		// mirrored site config file (site root configs mirror as hugo.json /
-		// config.json; see mirrorSiteConfig). The renderer pins loadConfig to
-		// this filename, so the mirrored site config files are inert during
-		// the editor build — they exist only for the pre-init dirs probe.
-		"cc-editor.json": JSON.stringify(buildEditorConfig(runtimeData.config)),
 		...runtimeData.files,
+		// The build-time environment the renderer uses to pick the config/
+		// environment layer (read as the cc-env carrier in loadConfig).
+		"cc-env": runtimeData.meta.env ?? "production",
 	};
 	/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 
@@ -211,12 +196,12 @@ async function startEngine() {
  * only, blank bodies — decision 10) and datasets become data files, each
  * keyed verbatim at its site-root-relative path under the editor's default
  * content/ and data/ dirs — so standard trees land exactly where Hugo reads
- * them; relocated trees resolve because the mirrored site config (see
- * mirrorSiteConfig) makes the editor's contentDir/dataDir match the real
- * site's. Everything a CloudCannon collection yields is mirrored as content,
- * verbatim — no content-dir filtering. The session target's stub carries
- * build.render: "always" so it publishes under the cascade; the home page's
- * publishing is the renderer's config cascade.
+ * them; relocated trees resolve because the site's real config (captured at
+ * build time and loaded by the renderer) sets contentDir/dataDir to match the
+ * real site's. Everything a CloudCannon collection yields is mirrored as
+ * content, verbatim — no content-dir filtering. The session target's stub
+ * carries build.render: "always" so it publishes under the cascade; the home
+ * page's publishing is the renderer's config cascade.
  */
 async function loadEditorCollectionData() {
 	if (!CloudCannon) return;
@@ -230,13 +215,6 @@ async function loadEditorCollectionData() {
 	const files = /** @type {Record<string, string>} */ ({});
 	editorCollections = [];
 	editorDatasets = [];
-
-	// The site's real config files must be in place before the editor site is
-	// created: the renderer probes them (mirrored as JSON at their real paths)
-	// to learn the site's contentDir/dataDir, config, theme, and module
-	// imports, then builds the editor config around them. Collections and
-	// datasets mirror under those dirs, so config lands first.
-	await mirrorSiteConfig(files);
 
 	if (typeof CloudCannon.collections === "function") {
 		let collections;
@@ -312,110 +290,6 @@ async function loadEditorCollectionData() {
 		);
 		/** @type {any} */ (globalThis).writeHugoFiles(JSON.stringify(files));
 	}
-}
-
-/**
- * Config files the editor's config load (allconfig.LoadConfig default-name
- * search in the renderer) reads. Root candidates are exactly the names Hugo's
- * default-name search accepts; config-dir candidates cover every supported
- * format file under a config/ directory (Hugo merges config/_default plus the
- * active environment layer — menu.toml, params.toml and friends belong to a
- * real config).
- */
-const CONFIG_EXT_RE = /\.(?:toml|yaml|yml|json)$/i;
-
-/**
- * @param {string} rel - Site-root-relative source path (no leading slash)
- * @returns {boolean}
- */
-function isConfigCandidate(rel) {
-	if (!CONFIG_EXT_RE.test(rel)) return false;
-	if (!rel.includes("/")) {
-		const base = rel.slice(0, rel.lastIndexOf(".")).toLowerCase();
-		return base === "hugo" || base === "config";
-	}
-	return rel.startsWith("config/");
-}
-
-/**
- * The editable-regions module's own import path. Any site using this
- * integration imports it (with a local filesystem replacement), and the
- * editor can never resolve it: its replacement points at the repo on disk,
- * which doesn't exist in the WASM renderer's in-memory filesystem. Its
- * templates are already mirrored, so the import is dropped from the config
- * the editor loads — everything else (theme, vendored module imports) must
- * survive.
- */
-const SELF_MODULE = "github.com/cloudcannon/editables";
-
-/**
- * Removes the self-import (and module replacements generally) from a parsed
- * config object so the editor's config load never tries to resolve anything
- * it cannot. `theme`, vendored imports, params, menus, and everything else
- * are left intact so the renderer resolves the site the way its real build
- * does.
- *
- * @param {Record<string, any>} configData - Parsed config object, mutated in place
- */
-function stripSelfImport(configData) {
-	const mod = configData.module;
-	if (!mod || typeof mod !== "object") return;
-	if (Array.isArray(mod.imports)) {
-		mod.imports = mod.imports.filter(
-			(/** @type {any} */ imp) => !imp || imp.path !== SELF_MODULE,
-		);
-		if (mod.imports.length === 0) delete mod.imports;
-	}
-	if (mod.replacements !== undefined) delete mod.replacements;
-	if (Object.keys(mod).length === 0) delete configData.module;
-}
-
-/**
- * Mirrors the site's config files into the editor site at their real paths,
- * so the renderer can load the site's config, directories, theme, and module
- * imports through Hugo's own config resolution instead of re-implementing
- * precedence. The CloudCannon API already parses config files to objects
- * (data.get()), so each candidate is re-serialized as JSON with the extension
- * changed to .json (a mirrored hugo.toml becomes hugo.json) — the renderer
- * then only decodes JSON. Only the self-import is stripped (stripSelfImport):
- * theme and vendored module imports are preserved so the renderer mounts
- * themes/ and _vendor/ templates the way the real site does. Also writes the
- * cc-env carrier the renderer reads to pick the active environment.
- *
- * @param {Record<string, string>} files - Memfs write map being built for boot
- */
-async function mirrorSiteConfig(files) {
-	if (!CloudCannon || typeof CloudCannon.files !== "function") return;
-	// Only reachable after initHugoLiveEditing, which sets runtimeData.
-	const env =
-		/** @type {HugoRuntimeData} */ (runtimeData).meta.env ?? "production";
-
-	let siteFiles;
-	try {
-		siteFiles = await CloudCannon.files();
-	} catch (error) {
-		warn("Failed to list files for config mirroring:", error);
-		return;
-	}
-
-	for (const file of siteFiles ?? []) {
-		const rel = rootRelativePath(file?.path);
-		if (!rel || !isConfigCandidate(rel)) continue;
-		let data;
-		try {
-			data = await file?.data?.get?.();
-		} catch (error) {
-			warn(`Failed to read site config ${rel}:`, error);
-			continue;
-		}
-		if (!data || typeof data !== "object" || Array.isArray(data)) continue;
-		const configData = /** @type {Record<string, any>} */ (data);
-		stripSelfImport(configData);
-		files[rel.replace(/\.(?:toml|yaml|yml)$/i, ".json")] =
-			JSON.stringify(configData);
-	}
-
-	files["cc-env"] = env;
 }
 
 /**
@@ -622,39 +496,6 @@ function rebuildEditorSite() {
 			result.error,
 		);
 	}
-}
-
-/**
- * The emitted site config plus the overrides the editor site needs. Values
- * the emitter provides win over our fallbacks; the editor overrides win over
- * everything.
- *
- * @param {Record<string, any>} emitted
- */
-function buildEditorConfig(emitted) {
-	return {
-		baseURL: "/",
-		...emitted,
-		disableKinds: DISABLED_KINDS,
-		// Suppress per-page output: pages stay in the store (site.Pages, .GetPage,
-		// .RelPermalink and .Content all keep working) but only pages opted back
-		// in with build.render: always — the home page and the current edit
-		// target — emit HTML. Rendering N stubs per rebuild is what this cascade
-		// avoids, and the renderer only reads the target's output.
-		cascade: {
-			build: { render: "link" },
-		},
-		markup: {
-			...(emitted.markup ?? {}),
-			goldmark: {
-				...(emitted.markup?.goldmark ?? {}),
-				renderer: {
-					...(emitted.markup?.goldmark?.renderer ?? {}),
-					unsafe: true,
-				},
-			},
-		},
-	};
 }
 
 /**

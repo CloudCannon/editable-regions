@@ -2,20 +2,18 @@
  * Bundle-path tests for sites that configure custom directories. The fixture
  * (test/unit/_fixtures/hugo-custom-dirs) moves layoutDir to "templates",
  * dataDir to "custom-data", and contentDir to "notes" — like a real site
- * with non-default layout. The salient-folder walk (walk-project.html) is
- * layoutDir-agnostic, so it must discover the relocated template trees, key
- * them under the canonical layouts/ root the editor reads, and:
+ * with non-default layout. Templates are snapshotted at their physical paths
+ * and the site's hugo.toml is captured at build time, so:
  *
- * - snapshot partials, render hooks under _default/_markup, and shortcodes;
- * - NOT snapshot kind layouts like _default/index.html (they'd shadow the
- *   renderer's dispatch layout);
- * - no longer forward layoutDir/dataDir/contentDir in the config snapshot;
- * - mirror the site's hugo.toml as JSON at its real path (now that config
- *   mirroring has landed), so the renderer learns contentDir=notes and
- *   dataDir=custom-data natively and the relocated collections/datasets
- *   resolve through them;
- * - still render components, shortcodes, and render hooks from the relocated
- *   tree through the real WASM renderer.
+ * - partials, render hooks under _default/_markup, and shortcodes are
+ *   snapshotted at their relocated physical paths (templates/...);
+ * - kind layouts like templates/_default/index.html are NOT snapshotted (they
+ *   would shadow the renderer's dispatch layout);
+ * - the renderer loads the snapshotted hugo.toml natively, so contentDir=notes
+ *   and dataDir=custom-data resolve and the relocated collections/datasets
+ *   land where Hugo reads them;
+ * - components, shortcodes, and render hooks render from the relocated tree
+ *   through the real WASM renderer.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -32,38 +30,10 @@ import {
 	setMockCollectionsList,
 	setMockCurrentFile,
 	setMockDatasetsList,
-	setMockFiles,
 } from "../_mocks/cloudcannon";
 
 // Built fixture bundle — run `npm run test:build-hugo-custom-dirs` first.
 useHugoFixture("hugo-custom-dirs");
-
-/**
- * The fixture's hugo.toml as the CloudCannon API would parse it: baseURL,
- * titles, locale and the relocated directories are present, and its module
- * block is stripped by the runtime's config mirroring (the editor never
- * resolves modules). Mirrored as hugo.json at the site root; the renderer
- * reads contentDir/dataDir straight off Hugo's own resolution of it.
- */
-const fixtureConfig = {
-	baseURL: "/",
-	title: "Hugo Custom Dirs Fixture",
-	languageCode: "en-AU",
-	layoutDir: "templates",
-	dataDir: "custom-data",
-	contentDir: "notes",
-	theme: "", // stripped by the mirror regardless
-	module: { imports: [] }, // stripped by the mirror regardless
-	params: { brand: "Custom Dirs Brand" },
-};
-
-/** @type {MockFile} */
-const configFile = {
-	path: "/hugo.toml",
-	data: { get: () => Promise.resolve(fixtureConfig) },
-	get: () => Promise.resolve(""),
-	content: { get: () => Promise.resolve("") },
-};
 
 const home = { title: "Custom Dirs Fixture", date: "2024-01-01" };
 const hello = { title: "Hello Notes", date: "2025-06-01" };
@@ -81,7 +51,6 @@ const notesFiles = [
 	content: { get: () => Promise.resolve("") },
 }));
 
-setMockFiles([configFile, ...notesFiles]);
 setMockCollectionsList([makeMockCollection("notes", notesFiles)]);
 setMockDatasetsList([
 	makeMockDataset("site_brand", {
@@ -104,35 +73,21 @@ function snapshotFiles(): Record<string, string> {
 	return (window as any).cc_hugo_files ?? {};
 }
 
-/** The snapshot's normalized site config on cc_hugo_config. */
-function snapshotConfig(): Record<string, any> {
-	return (window as any).cc_hugo_config ?? {};
-}
+// --- walk of the relocated layout dir --------------------------------------
 
-// --- config churn ----------------------------------------------------------
-
-test("the config snapshot no longer forwards directory keys", () => {
-	const config = snapshotConfig();
-	expect(config.layoutDir).toBeUndefined();
-	expect(config.dataDir).toBeUndefined();
-	expect(config.contentDir).toBeUndefined();
-});
-
-// --- default walk of the configured layout dir -----------------------------
-
-test("templates under the relocated layout dir are snapshotted under canonical layouts/ keys", () => {
+test("templates under the relocated layout dir are snapshotted at their physical paths", () => {
 	const files = snapshotFiles();
-	expect(files["layouts/partials/custom-static.html"]).toBeDefined();
-	expect(files["layouts/partials/custom-rich.html"]).toBeDefined();
-	expect(files["layouts/_default/_markup/render-link.html"]).toBeDefined();
-	expect(files["layouts/shortcodes/custom-shout.html"]).toBeDefined();
+	expect(files["templates/partials/custom-static.html"]).toBeDefined();
+	expect(files["templates/partials/custom-rich.html"]).toBeDefined();
+	expect(files["templates/_default/_markup/render-link.html"]).toBeDefined();
+	expect(files["templates/shortcodes/custom-shout.html"]).toBeDefined();
 });
 
 test("kind layouts are not snapshotted (they would shadow the dispatch layout)", () => {
 	// The production home template lives in the relocated layout dir but must
 	// NOT be bundled: the renderer installs its own `<layoutDir>/all.html`
 	// dispatch layout, and any kind-specific layout would win the home lookup.
-	expect(snapshotFiles()["layouts/_default/index.html"]).toBeUndefined();
+	expect(snapshotFiles()["templates/_default/index.html"]).toBeUndefined();
 });
 
 // --- rendering through the relocated trees ---------------------------------
@@ -163,16 +118,16 @@ test("a render hook from the custom _markup dir applies to component markdownify
 	);
 });
 
-// --- config mirroring through the relocated trees --------------------------
+// --- relocated trees resolved through the snapshotted config ---------------
 
-test("the snapshot carries the build-time environment for config mirroring", () => {
+test("the snapshot carries the build-time environment", () => {
 	expect((window as any).cc_hugo?.env).toBe("production");
 });
 
-test("the mirrored site config relocates the editor's content dir", async () => {
-	// contentDir=notes was learned from the mirrored hugo.json, so this
-	// notes post is a real page in the editor tree and the render target
-	// resolves to it — the session file is this exact path.
+test("the site config relocates the editor's content dir", async () => {
+	// contentDir=notes comes from the snapshotted hugo.toml, so this notes
+	// post is a real page in the editor tree and the render target resolves
+	// to it — the session file is this exact path.
 	const el = await window.cc_components?.["custom-page"]({});
 
 	expect(el?.querySelector(".custom-page")?.textContent).toBe(
@@ -180,8 +135,8 @@ test("the mirrored site config relocates the editor's content dir", async () => 
 	);
 });
 
-test("datasets under the learned data dir resolve via the relocated tree", async () => {
-	// dataDir=custom-data was learned from the mirrored hugo.json, so the
+test("datasets under the relocated data dir resolve via the relocated tree", async () => {
+	// dataDir=custom-data comes from the snapshotted hugo.toml, so the
 	// mirrored dataset file at custom-data/site_brand.yaml is read as site
 	// data. custom-rich renders hugo.Data.site_brand.site_brand.
 	const el = await window.cc_components?.["custom-rich"]({});

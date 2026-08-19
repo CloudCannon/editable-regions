@@ -50,8 +50,9 @@ test("the emitted snapshot carries templates, config, and the wasm url", () => {
 	expect(files?.["layouts/partials/static.html"]).toContain("hello from hugo");
 	expect(files?.["layouts/partials/nested/deep.html"]).toBeDefined();
 
-	const config = window.cc_hugo_config as Record<string, any> | undefined;
-	expect(config?.params?.brand).toBe("Fixture Brand");
+	// The site's config is snapshotted as its real file (config.toml), which
+	// the renderer loads through Hugo's own config resolution.
+	expect(files?.["config.toml"]).toContain("Fixture Brand");
 
 	const meta = window.cc_hugo as Record<string, any> | undefined;
 	expect(meta?.wasmUrl).toMatch(/hugo_renderer\.wasm\.[a-f0-9]+\.gz$/);

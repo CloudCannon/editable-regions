@@ -25,15 +25,13 @@ import {
 } from "../_helpers/wasm-renderer";
 
 /** The snapshot the browser runtime would feed the renderer at startup. The
- * config is the site's own, loadable by Hugo's default-name search (the
- * renderer no longer reads a separate editor config file). */
+ * config is the site's own, loadable by Hugo's default-name search; the
+ * renderer layers its own overrides (disableKinds/cascade/markup) on top. */
 const siteFiles = {
 	"config.json": JSON.stringify({
 		baseURL: "/",
 		title: "Renderer unit test",
-		disableKinds: ["taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"],
 		params: { brand: "Fixture Brand" },
-		markup: { goldmark: { renderer: { unsafe: true } } },
 	}),
 	"layouts/partials/card.html": [
 		'<div class="card">',

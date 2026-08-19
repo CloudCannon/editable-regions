@@ -22,6 +22,11 @@
   {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
 {{- end -}}
 
+{{- /* The site's own config files, captured at build time so the editor loads
+  the real config (theme, module imports, params, menus, …) through Hugo's own
+  config resolution. */ -}}
+{{- $configFiles := partial "editable-regions/find-config-files.html" -}}
+
 {{- $ctx := dict
   "meta" (dict
     "generator" (printf "Hugo %s" hugo.Version)
@@ -29,8 +34,7 @@
     "verbose" ($cfg.verbose | default false)
     "env" (hugo.Environment | default "production")
   )
-  "files" $templateFiles
-  "config" (partial "editable-regions/site-config.html")
+  "files" (merge $templateFiles $configFiles)
 -}}
 {{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}
 {{- if not $entry -}}

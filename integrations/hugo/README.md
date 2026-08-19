@@ -112,10 +112,9 @@ hugo build
   │                 entry.js (module asset) rendered with the site snapshot,
   │                 then bundled from source by js.Build:
   │                   window.cc_hugo_files  <- template tree snapshot: partials,
-  │                       render hooks and shortcodes discovered by the salient
-  │                       walk (any layoutDir), keyed canonically under layouts/
-  │                   window.cc_hugo_config <- baseURL, title, params, menus
-  │                       (no directory keys — the editor uses Hugo's defaults)
+  │                       render hooks and shortcodes (theme + vendored module
+  │                       trees too), keyed at their physical paths, plus the
+  │                       site's own config files and _vendor/modules.txt
   │                   window.cc_hugo        <- meta incl. fingerprinted WASM URL
   │                   + the browser runtime (integrations/hugo/browser)
   └── /_cloudcannon/hugo_renderer.wasm.<hash>.gz   <- real Hugo, in the browser
@@ -156,8 +155,8 @@ script, not a 16MB download.
   not `.Site.*`): `site.Params` (dotted paths, nested maps, arrays),
   `site.Title`, `site.Menus`, `site.Language` (`.Lang`, `.Locale` —
   `site.LanguageCode` is deprecated but still resolves), `site.BaseURL`,
-  `site.Data`, and `site.Param "key"` — from the emitted config plus the
-  runtime-mirrored datasets.
+  `site.Data`, and `site.Param "key"` — from the site's real config (the
+  snapshot carries its config files) plus the runtime-mirrored datasets.
 - **Real page data**: the editor site holds every collection file as a
   front-matter stub (blank bodies). Page collections (`site.Pages`,
   `site.RegularPages`, `site.Sections`), `site.GetPage`, and `.Params` /
@@ -212,16 +211,17 @@ script, not a 16MB download.
 - **Content bodies are blank**: only front matter loads into the editor site.
   `.Content` / `.Summary` render empty until a demonstrated need pushes
   body loading.
-- **Config mirroring**: at boot the runtime mirrors the site's config files
-  (root `hugo.*`/`config.*`, `config/_default/`, and the build-time
-  environment layer) as JSON at their real paths and resolves the site's real
-  `contentDir`/`dataDir` with Hugo's own config loading, so relocated content
-  and data trees (e.g. `notes/`, `custom-data/`) work. `theme`/`themesDir`/
-  `module` are dropped from the mirrors — the editor never resolves them.
-  Known gaps: per-language content dirs, mid-session config edits, and a site
-  that both uses a custom environment layer and builds the editor from a
-  different environment. (Relocated *layout* dirs need no config: the salient
-  walk discovers them wherever they live.)
+- **Config**: the site's own config files (root `hugo.*`/`config.*` plus a
+  `config/` dir) are snapshotted at build time and the renderer loads them
+  through Hugo's own config resolution, so `theme`, vendored module imports,
+  `params`, `menus`, and relocated `contentDir`/`dataDir` all work. The
+  editable-regions self-import can't resolve in the editor (its replacement
+  points at the repo on disk) and is skipped via
+  `IgnoreModuleDoesNotExist`. Known gaps: per-language content dirs,
+  mid-session config edits, and a site that both uses a custom environment
+  layer and builds the editor from a different environment. (Relocated
+  *layout* dirs need no config: the salient walk discovers them wherever they
+  live.)
 - **Assets**: `resources.*` image processing and `resources.GetRemote` have
   no asset pipeline in the editor. Emit final URLs into props instead.
 - **Non-vendored module templates**: partials from go-module imports that

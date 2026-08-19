@@ -7,8 +7,6 @@
 // program order, so the runtime reads a fully populated snapshot.
 window.cc_hugo = {{ .meta | jsonify }};
 window.cc_hugo_files = {{ .files | jsonify }};
-window.cc_hugo_data = {{ .data | jsonify }};
-window.cc_hugo_config = {{ .config | jsonify }};
 
 import { initHugoLiveEditing } from "./index.mjs";
 
