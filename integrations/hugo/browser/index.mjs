@@ -236,7 +236,7 @@ async function loadEditorCollectionData() {
 	// to learn the site's contentDir/dataDir, then splices them into the
 	// editor config before any stub depends on the dirs. Collections and
 	// datasets mirror under those dirs, so config lands first.
-	await mirrorSiteConfig(files);
+	// await mirrorSiteConfig(files);
 
 	if (typeof CloudCannon.collections === "function") {
 		let collections;

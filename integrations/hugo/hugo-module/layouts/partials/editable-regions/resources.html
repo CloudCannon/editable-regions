@@ -1,28 +1,6 @@
-  {{- /*
-  Builds the single live-editing bundle: the runtime entry asset, rendered
-  with the site's snapshot (template sources, site config) via
-  resources.ExecuteAsTemplate, bundled by js.Build and fingerprinted for
-  cache-busting. Returns the resource. The editable-regions.html partial is
-  the batteries-included wrapper; call this directly if you need control over
-  the script tag (conditional loading, your own pipeline, etc.).
-
-  Templates are discovered by walking the physical project tree for salient
-  folders (partials/shortcodes/_default/_markup) and validating candidates
-  against templates.Exists (walk-project.html) — layoutDir-agnostic, no
-  config parsing. Override the project walk entirely with template_dirs (the
-  dirs walked verbatim, keyed at their given paths — typically logical
-  layouts/... paths). Templates from the site's themes and vendored modules
-  are captured on top (walk-modules.html) and merged under the project's
-  files, so a component including a theme/vendored partial resolves in the
-  editor.
-
-  Data and content are NOT snapshotted: at runtime the browser mirrors
-  CloudCannon collections as content stubs and datasets as data files
-  (verbatim source paths under the editor's default content/ and data/
-  dirs), keeping the editor in sync via collection/dataset change events.
-*/ -}}
 {{- $cfg := site.Params.editable_regions | default dict -}}
 {{- $templateExts := $cfg.template_extensions | default (slice ".html" ".htm") -}}
+
 {{- $wasmUrl := $cfg.wasm_url -}}
 {{- if not $wasmUrl -}}
   {{- $wasmUrl = partialCached "editable-regions/wasm-url.html" (dict
@@ -30,20 +8,29 @@
     "base_url" ($cfg.wasm_base_url | default "https://github.com/CloudCannon/editable-regions/releases/download")
   ) -}}
 {{- end -}}
-{{- $moduleFiles := partial "editable-regions/walk-modules.html" (dict
-  "themesDir" "themes"
-  "layoutDir" "layouts"
-  "exts" $templateExts
+
+{{- $deps := partial "editable-regions/load-deps.html" -}}
+{{- fmt.Warnf "Got deps: %s" (debug.Dump $deps) -}}
+
+{{- $templateDirs := partial "editable-regions/find-template-dirs.html" (dict
+  "deps" $deps
 ) -}}
-{{- $projectFiles := dict -}}
-{{- if $cfg.template_dirs -}}
-  {{- $projectFiles = partial "editable-regions/walk-files.html" (dict
-    "dirs" $cfg.template_dirs
+
+{{- fmt.Warnf "Got template dirs: %s" (debug.Dump $templateDirs) -}}
+
+{{- $templateFiles := partial "editable-regions/find-templates.html" (dict
+    "templateDirs" $templateDirs
     "exts" $templateExts
-  ) -}}
-{{- else -}}
-  {{- $projectFiles = partial "editable-regions/walk-project.html" (dict "exts" $templateExts) -}}
-{{- end -}}
+) -}}
+
+{{- fmt.Warnf "Got template files: %s" (debug.Dump $templateFiles) -}}
+
+{{- $configFiles := partial "editable-regions/find-config-files.html" (dict
+    "deps" $deps
+) -}}
+
+{{- fmt.Warnf "Got config files: %s" (debug.Dump $configFiles) -}}
+
 {{- $ctx := dict
   "meta" (dict
     "generator" (printf "Hugo %s" hugo.Version)
@@ -51,7 +38,7 @@
     "verbose" ($cfg.verbose | default false)
     "env" (hugo.Environment | default "production")
   )
-  "files" (merge $moduleFiles $projectFiles)
+  "files" (merge $templateFiles $configFiles)
   "config" (partial "editable-regions/site-config.html")
 -}}
 {{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}

@@ -1,0 +1,59 @@
+{{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+{{- $dir := .dir -}}
+
+{{- $conf := dict -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}}
+    {{- $conf = os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $mounts := slice -}}
+{{- with $conf.module -}}
+  {{- with .mounts -}}
+    {{- $mounts = . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $templateDirs := slice -}}
+{{- if eq (len $mounts) 0 -}}
+    {{- range $subDir := $subDirs -}}
+        {{- $path := path.Join $dir "layouts" $subDir -}}
+        {{- if os.FileExists $path -}}
+            {{- $templateDirs = $templateDirs | append $path -}}
+        {{- end -}}
+    {{- end -}}
+
+{{- else -}}
+
+  {{- range $mount := $mounts -}}
+    {{- $target := $mount.target | default "" -}}
+    {{- $source := $mount.source | default "" -}}
+    {{- if eq $source "." -}}
+      {{- $source = "" -}}
+    {{- end -}}
+
+    {{- if eq $target "layouts" -}}
+      {{- range $subDir := $subDirs -}}
+        {{- $path := path.Join $dir $source $subDir -}}
+        {{- if os.FileExists $path -}}
+            {{- $templateDirs = $templateDirs | append $path -}}
+        {{- end -}}
+      {{- end -}}
+    {{- else if strings.HasPrefix $target "layouts/" -}}
+        {{- $target = strings.TrimPrefix "layouts/" $target -}}
+        {{- range $subDir := $subDirs -}}
+            {{- if strings.HasPrefix $target $subDir -}}
+                {{- $path := path.Join $dir $source -}}
+                {{- $templateDirs = $templateDirs | append $path -}}
+                {{- break -}}
+            {{- end -}}
+        {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return $templateDirs -}}

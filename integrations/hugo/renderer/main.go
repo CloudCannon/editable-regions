@@ -61,14 +61,7 @@ const editorLayout = `{{- $dispatch := site.GetPage "/cc-dispatch/" -}}
 {{- if $dispatch -}}
   {{- if $dispatch.Params.cc_partial -}}
     {{- $partial := $dispatch.Params.cc_partial -}}
-    {{- $found := templates.Exists (printf "partials/%s" $partial) -}}
-    {{- $found = or $found (templates.Exists (printf "partials/%s.html" $partial)) -}}
-    {{- $found = or $found (templates.Exists (printf "partials/%s.htm" $partial)) -}}
-    {{- if not $found -}}
-      <cc-missing-partial data-name="{{ $partial }}"></cc-missing-partial>
-    {{- else -}}
       {{- partial $partial $dispatch.Params.cc_props -}}
-    {{- end -}}
   {{- end -}}
 {{- end -}}`
 
@@ -98,42 +91,42 @@ type editorSiteBuilder struct {
 // stub rewrite, never adds a file write to a render build, and needs no
 // directory or page-path knowledge on the browser side.
 func (builder *editorSiteBuilder) configureEditorSite(contentDir, dataDir string) error {
-	contents, err := builder.readFile("cc-editor.json")
-	if err != nil {
-		return fmt.Errorf("cc-editor.json not readable: %w", err)
-	}
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(contents), &cfg); err != nil {
-		return fmt.Errorf("cc-editor.json is not valid JSON: %w", err)
-	}
-	if contentDir != "" {
-		cfg["contentDir"] = contentDir
-	}
-	if dataDir != "" {
-		cfg["dataDir"] = dataDir
-	}
-	homeCascade := map[string]interface{}{
-		"_target": map[string]interface{}{"kind": "home"},
-		"build":   map[string]interface{}{"render": "always"},
-	}
-	// Preserve the browser's suppression cascade by placing the home rule in
-	// front of it (cascade entries are first-match-wins per page).
-	switch existing := cfg["cascade"].(type) {
-	case []interface{}:
-		cfg["cascade"] = append([]interface{}{homeCascade}, existing...)
-	case map[string]interface{}:
-		cfg["cascade"] = []interface{}{homeCascade, existing}
-	default:
-		cfg["cascade"] = []interface{}{
-			homeCascade,
-			map[string]interface{}{"build": map[string]interface{}{"render": "link"}},
-		}
-	}
-	encoded, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to encode cc-editor.json: %w", err)
-	}
-	builder.writeFile("cc-editor.json", string(encoded))
+	// contents, err := builder.readFile("cc-editor.json")
+	// if err != nil {
+	// 	return fmt.Errorf("cc-editor.json not readable: %w", err)
+	// }
+	// var cfg map[string]interface{}
+	// if err := json.Unmarshal([]byte(contents), &cfg); err != nil {
+	// 	return fmt.Errorf("cc-editor.json is not valid JSON: %w", err)
+	// }
+	// if contentDir != "" {
+	// 	cfg["contentDir"] = contentDir
+	// }
+	// if dataDir != "" {
+	// 	cfg["dataDir"] = dataDir
+	// }
+	// homeCascade := map[string]interface{}{
+	// 	"_target": map[string]interface{}{"kind": "home"},
+	// 	"build":   map[string]interface{}{"render": "always"},
+	// }
+	// // Preserve the browser's suppression cascade by placing the home rule in
+	// // front of it (cascade entries are first-match-wins per page).
+	// switch existing := cfg["cascade"].(type) {
+	// case []interface{}:
+	// 	cfg["cascade"] = append([]interface{}{homeCascade}, existing...)
+	// case map[string]interface{}:
+	// 	cfg["cascade"] = []interface{}{homeCascade, existing}
+	// default:
+	// 	cfg["cascade"] = []interface{}{
+	// 		homeCascade,
+	// 		map[string]interface{}{"build": map[string]interface{}{"render": "link"}},
+	// 	}
+	// }
+	// encoded, err := json.Marshal(cfg)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to encode cc-editor.json: %w", err)
+	// }
+	// builder.writeFile("cc-editor.json", string(encoded))
 	return nil
 }
 
@@ -167,11 +160,42 @@ func (builder *editorSiteBuilder) learnSiteConfigDirs() (string, string) {
 	return cfg.Base.ContentDir, cfg.Base.DataDir
 }
 
+// func (builder *editorSiteBuilder) loadConfig() error {
+// 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
+// 		Fs:       builder.Afs,
+// 		Flags:    config.New(),
+// 		Filename: "cc-editor.json",
+// 	})
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// The editor runs "rebuilds" rather than fresh builds; Running/Watch
+// 	// enable Hugo's incremental change-event pipeline. hugoInfo (the `hugo.*`
+// 	// template namespace, e.g. `hugo.IsServer`) reads these from the
+// 	// per-language configs, so propagate the flags beyond the root config.
+// 	cfg.Base.WorkingDir = ""
+// 	cfg.Base.Internal.Running = true
+// 	cfg.Base.Internal.Watch = true
+// 	for _, languageConfig := range cfg.LanguageConfigMap {
+// 		languageConfig.Internal.Running = true
+// 		languageConfig.Internal.Watch = true
+// 	}
+// 	builder.Cfg = cfg
+// 	builder.Fs = hugofs.NewFrom(builder.Afs, cfg.GetFirstLanguageConfig().BaseConfig())
+
+// 	return nil
+// }
+
 func (builder *editorSiteBuilder) loadConfig() error {
+	env := "production"
+	if contents, err := builder.readFile("cc-env"); err == nil {
+		env = strings.TrimSpace(contents)
+	}
 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
-		Fs:       builder.Afs,
-		Flags:    config.New(),
-		Filename: "cc-editor.json",
+		Fs:          builder.Afs,
+		Flags:       config.New(),
+		Environment: env,
 	})
 	if err != nil {
 		return err
@@ -300,7 +324,46 @@ func main() {
 	js.Global().Set("initHugoEditorSite", js.FuncOf(initHugoEditorSite))
 	js.Global().Set("rebuildHugoEditorSite", js.FuncOf(rebuildHugoEditorSite))
 	js.Global().Set("renderHugoPartial", js.FuncOf(renderHugoPartial))
+	js.Global().Set("dumpResolvedConfig", js.FuncOf(dumpResolvedConfig))
 	<-c
+}
+
+// dumpResolvedConfig returns the editor's resolved config (dirs, theme, and
+// resolved modules with their physical dirs) as a JS object, so a booted test
+// can inspect what the renderer actually loaded. Debug helper; inert until
+// called via globalThis.dumpResolvedConfig().
+func dumpResolvedConfig(this js.Value, args []js.Value) (result interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = js.ValueOf(map[string]interface{}{"panic": fmt.Sprintf("%v", r)})
+		}
+	}()
+	if builder.Cfg == nil || builder.Cfg.Base == nil {
+		return js.ValueOf(map[string]interface{}{"error": "config not loaded"})
+	}
+	c := builder.Cfg.Base
+	out := map[string]interface{}{
+		"baseURL":     c.BaseURL,
+		"title":       c.Title,
+		"theme":       strings.Join(c.Theme, ","),
+		"contentDir":  c.ContentDir,
+		"dataDir":     c.DataDir,
+		"layoutDir":   c.LayoutDir,
+		"staticDir":   strings.Join(c.StaticDir, ","),
+		"themesDir":   c.ThemesDir,
+		"publishDir":  c.PublishDir,
+		"resourceDir": c.ResourceDir,
+	}
+	var mods []interface{}
+	for _, m := range builder.Cfg.Modules {
+		mods = append(mods, map[string]interface{}{
+			"path":   m.Path(),
+			"dir":    m.Dir(),
+			"vendor": m.Vendor(),
+		})
+	}
+	out["modules"] = mods
+	return js.ValueOf(out)
 }
 
 // JSON numbers decode to float64, but components expect the numeric types a
