@@ -233,10 +233,10 @@ async function loadEditorCollectionData() {
 
 	// The site's real config files must be in place before the editor site is
 	// created: the renderer probes them (mirrored as JSON at their real paths)
-	// to learn the site's contentDir/dataDir, then splices them into the
-	// editor config before any stub depends on the dirs. Collections and
+	// to learn the site's contentDir/dataDir, config, theme, and module
+	// imports, then builds the editor config around them. Collections and
 	// datasets mirror under those dirs, so config lands first.
-	// await mirrorSiteConfig(files);
+	await mirrorSiteConfig(files);
 
 	if (typeof CloudCannon.collections === "function") {
 		let collections;
@@ -315,41 +315,71 @@ async function loadEditorCollectionData() {
 }
 
 /**
- * Config-dir roots the editor's config probe (learnSiteConfigDirs in the
- * renderer) reads. Root candidates are exactly the names Hugo's default-name
- * search accepts; config-dir candidates cover every supported format file
- * under config/_default or the build-time environment layer, since Hugo
- * merges all of them (menu.toml, params.toml and friends belong to a real
- * config). Only that one environment layer is mirrored — the renderer loads
- * the config with meta.env as the active environment, so mirroring any other
- * layer would change what Hugo resolves.
+ * Config files the editor's config load (allconfig.LoadConfig default-name
+ * search in the renderer) reads. Root candidates are exactly the names Hugo's
+ * default-name search accepts; config-dir candidates cover every supported
+ * format file under a config/ directory (Hugo merges config/_default plus the
+ * active environment layer — menu.toml, params.toml and friends belong to a
+ * real config).
  */
 const CONFIG_EXT_RE = /\.(?:toml|yaml|yml|json)$/i;
 
 /**
  * @param {string} rel - Site-root-relative source path (no leading slash)
- * @param {string} env - Build-time environment from the snapshot
  * @returns {boolean}
  */
-function isConfigCandidate(rel, env) {
+function isConfigCandidate(rel) {
 	if (!CONFIG_EXT_RE.test(rel)) return false;
 	if (!rel.includes("/")) {
 		const base = rel.slice(0, rel.lastIndexOf(".")).toLowerCase();
 		return base === "hugo" || base === "config";
 	}
-	return rel.startsWith("config/_default/") || rel.startsWith(`config/${env}/`);
+	return rel.startsWith("config/");
+}
+
+/**
+ * The editable-regions module's own import path. Any site using this
+ * integration imports it (with a local filesystem replacement), and the
+ * editor can never resolve it: its replacement points at the repo on disk,
+ * which doesn't exist in the WASM renderer's in-memory filesystem. Its
+ * templates are already mirrored, so the import is dropped from the config
+ * the editor loads — everything else (theme, vendored module imports) must
+ * survive.
+ */
+const SELF_MODULE = "github.com/cloudcannon/editables";
+
+/**
+ * Removes the self-import (and module replacements generally) from a parsed
+ * config object so the editor's config load never tries to resolve anything
+ * it cannot. `theme`, vendored imports, params, menus, and everything else
+ * are left intact so the renderer resolves the site the way its real build
+ * does.
+ *
+ * @param {Record<string, any>} configData - Parsed config object, mutated in place
+ */
+function stripSelfImport(configData) {
+	const mod = configData.module;
+	if (!mod || typeof mod !== "object") return;
+	if (Array.isArray(mod.imports)) {
+		mod.imports = mod.imports.filter(
+			(/** @type {any} */ imp) => !imp || imp.path !== SELF_MODULE,
+		);
+		if (mod.imports.length === 0) delete mod.imports;
+	}
+	if (mod.replacements !== undefined) delete mod.replacements;
+	if (Object.keys(mod).length === 0) delete configData.module;
 }
 
 /**
  * Mirrors the site's config files into the editor site at their real paths,
- * so the renderer can learn the site's directories through Hugo's own config
- * resolution instead of re-implementing precedence. The CloudCannon API
- * already parses config files to objects (data.get()), so each candidate is
- * re-serialized as JSON with the extension changed to .json (a mirrored
- * hugo.toml becomes hugo.json) — the renderer's probe then only ever decodes
- * JSON. theme/themesDir/module are dropped from every candidate: the editor
- * never resolves themes or modules, and a native load that sees them would
- * try (and fail) to fetch them in the WASM renderer. Also writes the
+ * so the renderer can load the site's config, directories, theme, and module
+ * imports through Hugo's own config resolution instead of re-implementing
+ * precedence. The CloudCannon API already parses config files to objects
+ * (data.get()), so each candidate is re-serialized as JSON with the extension
+ * changed to .json (a mirrored hugo.toml becomes hugo.json) — the renderer
+ * then only decodes JSON. Only the self-import is stripped (stripSelfImport):
+ * theme and vendored module imports are preserved so the renderer mounts
+ * themes/ and _vendor/ templates the way the real site does. Also writes the
  * cc-env carrier the renderer reads to pick the active environment.
  *
  * @param {Record<string, string>} files - Memfs write map being built for boot
@@ -370,7 +400,7 @@ async function mirrorSiteConfig(files) {
 
 	for (const file of siteFiles ?? []) {
 		const rel = rootRelativePath(file?.path);
-		if (!rel || !isConfigCandidate(rel, env)) continue;
+		if (!rel || !isConfigCandidate(rel)) continue;
 		let data;
 		try {
 			data = await file?.data?.get?.();
@@ -379,13 +409,10 @@ async function mirrorSiteConfig(files) {
 			continue;
 		}
 		if (!data || typeof data !== "object" || Array.isArray(data)) continue;
-		// The editor never runs the site's themes or modules; without this the
-		// renderer's native config probe would fail resolving them.
 		const configData = /** @type {Record<string, any>} */ (data);
-		delete configData.theme;
-		delete configData.themesDir;
-		delete configData.module;
-		files[rel.replace(/\.(?:toml|yaml|yml)$/i, ".json")] = JSON.stringify(data);
+		stripSelfImport(configData);
+		files[rel.replace(/\.(?:toml|yaml|yml)$/i, ".json")] =
+			JSON.stringify(configData);
 	}
 
 	files["cc-env"] = env;

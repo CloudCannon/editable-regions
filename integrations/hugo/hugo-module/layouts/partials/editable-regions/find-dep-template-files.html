@@ -1,0 +1,85 @@
+ {{- /*
+  Captures one dependency's (a theme or a vendored module) template files —
+  verbatim at their physical paths — plus its root config files (hugo.* /
+  config.*), so Hugo's editor build can resolve the module the way the real
+  site does. Replaces find-dep-template-dirs.html, which returned dirs.
+
+  Mount resolution: the dependency's module config (module.mounts) maps source
+  dirs to template locations; without mounts (or without a config at all) the
+  default layouts/partials + layouts/shortcodes + layouts/_default/_markup
+  trees are captured. Whatever the mounts say, files are always keyed at their
+  actual physical path below this dependency's root.
+
+  Expects: (dict "dir" "<physical dependency root>" "exts" (slice ".html" ...)).
+*/ -}}
+{{- $dir := .dir -}}
+{{- $exts := .exts -}}
+{{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+{{- $files := dict -}}
+
+{{- /* Capture the dependency's root config files verbatim. */ -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $files = merge $files (dict $cfgPath (readFile $cfgPath)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* Resolve mounts from the dependency's module config. */ -}}
+{{- $conf := dict -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}}
+    {{- $conf = os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $mounts := slice -}}
+{{- with $conf.module -}}
+  {{- with .mounts -}}
+    {{- $mounts = . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $templateDirs := slice -}}
+{{- if eq (len $mounts) 0 -}}
+  {{- range $subDir := $subDirs -}}
+    {{- $sp := path.Join $dir "layouts" $subDir -}}
+    {{- if os.FileExists $sp -}}
+      {{- $templateDirs = $templateDirs | append $sp -}}
+    {{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- range $mount := $mounts -}}
+    {{- $target := $mount.target | default "" -}}
+    {{- $source := $mount.source | default "" -}}
+    {{- if eq $source "." -}}
+      {{- $source = "" -}}
+    {{- end -}}
+
+    {{- if eq $target "layouts" -}}
+      {{- range $subDir := $subDirs -}}
+        {{- $sp := path.Join $dir $source $subDir -}}
+        {{- if os.FileExists $sp -}}
+          {{- $templateDirs = $templateDirs | append $sp -}}
+        {{- end -}}
+      {{- end -}}
+    {{- else if strings.HasPrefix $target "layouts/" -}}
+      {{- $t := strings.TrimPrefix "layouts/" $target -}}
+      {{- range $subDir := $subDirs -}}
+        {{- if strings.HasPrefix $t $subDir -}}
+          {{- $templateDirs = $templateDirs | append (path.Join $dir $source) -}}
+          {{- break -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- range $td := $templateDirs -}}
+  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $td "exts" $exts)) -}}
+{{- end -}}
+
+{{- return $files -}}

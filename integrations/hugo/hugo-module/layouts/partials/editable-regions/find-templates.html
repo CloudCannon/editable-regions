@@ -1,6 +1,0 @@
-{{- $exts := .exts -}}
-{{- $files := dict -}}
-{{- range $templateDir := .templateDirs -}}
-  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $templateDir "exts" $exts)) -}}
-{{- end -}}
-{{- return $files -}}

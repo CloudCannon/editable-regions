@@ -1,6 +1,25 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
+import type { MockFile } from "../_mocks/cloudcannon";
+import { setMockFiles } from "../_mocks/cloudcannon";
+
+// The site config mirrors from the CloudCannon API at boot (mirrorSiteConfig);
+// the fixture's params carry the brand the card probe reads.
+const configFile: MockFile = {
+	path: "/config.toml",
+	data: {
+		get: () =>
+			Promise.resolve({
+				baseURL: "/",
+				title: "Hugo Unit Fixture",
+				params: { brand: "Fixture Brand" },
+			}),
+	},
+	get: () => Promise.resolve(""),
+	content: { get: () => Promise.resolve("") },
+};
+setMockFiles([configFile]);
 
 // Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);

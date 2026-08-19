@@ -61,7 +61,14 @@ const editorLayout = `{{- $dispatch := site.GetPage "/cc-dispatch/" -}}
 {{- if $dispatch -}}
   {{- if $dispatch.Params.cc_partial -}}
     {{- $partial := $dispatch.Params.cc_partial -}}
+    {{- $found := templates.Exists (printf "partials/%s" $partial) -}}
+    {{- $found = or $found (templates.Exists (printf "partials/%s.html" $partial)) -}}
+    {{- $found = or $found (templates.Exists (printf "partials/%s.htm" $partial)) -}}
+    {{- if not $found -}}
+      <cc-missing-partial data-name="{{ $partial }}"></cc-missing-partial>
+    {{- else -}}
       {{- partial $partial $dispatch.Params.cc_props -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}`
 
@@ -195,6 +202,7 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	cfg, err := allconfig.LoadConfig(allconfig.ConfigSourceDescriptor{
 		Fs:          builder.Afs,
 		Flags:       config.New(),
+		ConfigDir:   "config",
 		Environment: env,
 	})
 	if err != nil {

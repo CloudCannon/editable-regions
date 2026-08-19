@@ -1,0 +1,57 @@
+ {{- /*
+  Walks the physical project tree and returns a flat "physical path -> contents"
+  map of template files, collapsing the old find-template-dirs + find-templates
+  pair (a slice of dirs that was then re-walked) into a single recursive pass.
+
+  Pruned: .git, node_modules, public, resources (build noise). A directory whose
+  path ends with a module dependency path (themes/<theme>, or _vendor/<import>)
+  is handed to find-dep-template-files.html, which resolves the dependency's
+  mounts and captures its template files verbatim plus its root config files.
+  Every other directory contributes template files under partials/, shortcodes/,
+  and _default/_markup/ at their physical paths — these are Hugo's template
+  locations, and templates.Exists already gated the salient set at build time.
+
+  Expects: (dict "deps" (slice of dependency .Path) "exts" (slice ".html" ...)).
+  Recursion carries (dict "dir" "..."); the caller passes only "deps"/"exts".
+*/ -}}
+{{- $files := dict -}}
+{{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+{{- $prune := slice ".git" "node_modules" "public" "resources" -}}
+
+{{- $deps := .deps -}}
+{{- $exts := .exts -}}
+{{- $dir := .dir | default "." -}}
+
+{{- if os.FileExists $dir -}}
+  {{- range $entry := readDir $dir -}}
+    {{- if not $entry.IsDir -}}
+      {{ continue }}
+    {{- end -}}
+
+    {{- $path := path.Join $dir $entry.Name -}}
+
+    {{- $isDep := false -}}
+    {{- range $dep := $deps -}}
+      {{- if strings.HasSuffix $path $dep -}}
+        {{- $files = merge $files (partial "editable-regions/find-dep-template-files.html" (dict "dir" $path "exts" $exts)) -}}
+        {{- $isDep = true -}}
+        {{- break -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- if or $isDep (in $prune $entry.Name) -}}
+      {{ continue }}
+    {{- end -}}
+
+    {{- range $subDir := $subDirs -}}
+      {{- $sp := path.Join $path $subDir -}}
+      {{- if os.FileExists $sp -}}
+        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $sp "exts" $exts)) -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- $files = merge $files (partial "editable-regions/find-template-files.html" (dict "dir" $path "deps" $deps "exts" $exts)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return $files -}}

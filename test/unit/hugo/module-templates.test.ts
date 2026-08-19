@@ -17,6 +17,7 @@ import type { MockFile } from "../_mocks/cloudcannon";
 import {
 	makeMockCollection,
 	setMockCollectionsList,
+	setMockFiles,
 } from "../_mocks/cloudcannon";
 
 /** Builds a mock API file from its front matter; only data.get() is used. */
@@ -39,8 +40,25 @@ const one = mkFile("/content/blog/one.md", {
 	date: "2025-01-15",
 });
 
-// Content is mirrored from collections at boot (these templates-only tests
-// don't assert on pages; the home stub renders the probes through).
+// The site config mirrors from CloudCannon (mirrorSiteConfig) — the fixture's
+// config.toml parsed to an object, as the real API returns it. It carries the
+// theme (proot) and the vendored module import; the self-import is what
+// mirrorSiteConfig strips.
+const configToml = mkFile("/config.toml", {
+	baseURL: "/",
+	title: "Hugo Unit Fixture",
+	theme: "proot",
+	module: {
+		replacements: "github.com/cloudcannon/editables -> ../../../../..",
+		imports: [
+			{ path: "github.com/cloudcannon/editables" },
+			{ path: "example.com/cc-fixture-vendor" },
+		],
+	},
+});
+
+// The site's own config files, mirrored at boot (plus the content collection).
+setMockFiles([configToml]);
 setMockCollectionsList([makeMockCollection("content", [home, one])]);
 
 // Built fixture bundle — run `npm run test:build-hugo-fixture` first.

@@ -24,9 +24,11 @@ import {
 	restoreRendererStdout,
 } from "../_helpers/wasm-renderer";
 
-/** The snapshot the browser runtime would feed the renderer at startup. */
+/** The snapshot the browser runtime would feed the renderer at startup. The
+ * config is the site's own, loadable by Hugo's default-name search (the
+ * renderer no longer reads a separate editor config file). */
 const siteFiles = {
-	"cc-editor.json": JSON.stringify({
+	"config.json": JSON.stringify({
 		baseURL: "/",
 		title: "Renderer unit test",
 		disableKinds: ["taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"],

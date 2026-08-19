@@ -1,3 +1,8 @@
+ {{- /*
+  Recursively walks a directory and returns every file whose extension matches
+  "exts", keyed by its physical (path-joined) path. Used for both project and
+  dependency template trees; callers merge the maps.
+*/ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
 {{- $files := dict -}}
@@ -7,14 +12,10 @@
     {{- if $entry.IsDir -}}
       {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts)) -}}
     {{- else -}}
-      {{- $ext := path.Ext $entry.Name | lower -}}
-      {{ fmt.Warnf "Scanning %s (ext %s) (exts %s) (in %s)" $path $ext (debug.Dump $exts) (debug.Dump (in $exts $ext)) }}
-      {{- if in $exts $ext -}}
-        {{ fmt.Warnf "MerGing" }}
+      {{- if in $exts (path.Ext $entry.Name | lower) -}}
         {{- $files = merge $files (dict $path (readFile $path)) -}}
       {{- end -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
-
 {{- return $files -}}
