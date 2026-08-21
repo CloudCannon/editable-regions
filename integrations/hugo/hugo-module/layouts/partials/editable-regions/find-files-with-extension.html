@@ -1,15 +1,21 @@
  {{- /*
   Recursively walks a directory and returns every file whose extension matches
   "exts", keyed by its physical (path-joined) path; callers merge the results.
+  Directories named in the optional "ignore" slice (their directory name, not
+  path) are skipped.
 */ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
 {{- $files := dict -}}
 {{- if os.FileExists $dir -}}
   {{- range $entry := readDir $dir -}}
     {{- $path := path.Join $dir $entry.Name -}}
     {{- if $entry.IsDir -}}
-      {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts)) -}}
+      {{- if in $ignore $entry.Name -}}
+        {{ continue }}
+      {{- end -}}
+      {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
     {{- else -}}
       {{- if in $exts (path.Ext $entry.Name | lower) -}}
         {{- $files = merge $files (dict $path (readFile $path)) -}}

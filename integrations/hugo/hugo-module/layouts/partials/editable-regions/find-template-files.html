@@ -1,20 +1,21 @@
  {{- /*
   Walks the physical project tree, returning a flat "physical path -> contents"
-  map of template files in one recursive pass. Prunes build noise (.git,
-  node_modules, public, resources); a directory ending in a dependency path is
-  handed to find-dep-template-files.html, while every other directory
-  contributes files under partials/, shortcodes/, and _default/_markup/ at their
-  physical paths.
+  map of template files in one recursive pass. Prunes the "ignore" directory
+  names (default .git, node_modules, public, resources); a directory ending in a
+  dependency path is handed to find-dep-template-files.html, while every other
+  directory contributes files under partials/, shortcodes/, and
+  _default/_markup/ at their physical paths.
 
-  Expects: (dict "deps" (slice of dependency .Path) "exts" (slice ".html" ...)).
-  Recursion carries (dict "dir" "..."); the caller passes only "deps"/"exts".
+  Expects: (dict "deps" (slice of dependency .Path) "exts" (slice ".html" ...)
+                  "ignore" (slice of directory names to skip)).
+  Recursion carries (dict "dir" "..."); the caller passes only the above.
 */ -}}
 {{- $files := dict -}}
 {{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
-{{- $prune := slice ".git" "node_modules" "public" "resources" -}}
 
 {{- $deps := .deps -}}
 {{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
 {{- $dir := .dir | default "." -}}
 
 {{- if os.FileExists $dir -}}
@@ -28,24 +29,24 @@
     {{- $isDep := false -}}
     {{- range $dep := $deps -}}
       {{- if strings.HasSuffix $path $dep -}}
-        {{- $files = merge $files (partial "editable-regions/find-dep-template-files.html" (dict "dir" $path "exts" $exts)) -}}
+        {{- $files = merge $files (partial "editable-regions/find-dep-template-files.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
         {{- $isDep = true -}}
         {{- break -}}
       {{- end -}}
     {{- end -}}
 
-    {{- if or $isDep (in $prune $entry.Name) -}}
+    {{- if or $isDep (in $ignore $entry.Name) -}}
       {{ continue }}
     {{- end -}}
 
     {{- range $subDir := $subDirs -}}
       {{- $sp := path.Join $path $subDir -}}
       {{- if os.FileExists $sp -}}
-        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $sp "exts" $exts)) -}}
+        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $sp "exts" $exts "ignore" $ignore)) -}}
       {{- end -}}
     {{- end -}}
 
-    {{- $files = merge $files (partial "editable-regions/find-template-files.html" (dict "dir" $path "deps" $deps "exts" $exts)) -}}
+    {{- $files = merge $files (partial "editable-regions/find-template-files.html" (dict "dir" $path "deps" $deps "exts" $exts "ignore" $ignore)) -}}
   {{- end -}}
 {{- end -}}
 

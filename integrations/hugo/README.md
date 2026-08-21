@@ -84,13 +84,21 @@ editable-component region:
 ```toml
 [params.editable_regions]
   # Template discovery is a recursive walk of the project tree for "salient"
-  # folders (partials, shortcodes, _default/_markup), validated with
-  # templates.Exists — layoutDir-agnostic, no config parsing needed. Only set
-  # template_dirs to REPLACE the walk entirely: the dirs are walked verbatim
-  # and keyed at their given paths (typically logical layouts/... paths,
-  # including project-level module.mounts the walk can't see).
+  # folders (partials, shortcodes, _default/_markup) plus the site's themes and
+  # vendored modules. Set template_dirs to REPLACE that walk (and the theme /
+  # vendored-module discovery) entirely: each dir is walked verbatim and keyed
+  # at its given paths (typically logical layouts/... paths, including
+  # project-level module.mounts the walk can't see).
   template_dirs = []
+  # Template file extensions to capture. Defaults shown.
   template_extensions = [".html", ".htm"]
+  # Directory names skipped while walking templates. Defaults shown (the build
+  # noise the auto-discovery prunes).
+  ignore_directories = [".git", "node_modules", "public", "resources"]
+  # Config files captured into the editor snapshot. Set to a list of paths to
+  # REPLACE the default config discovery (the root hugo.*/config.* plus
+  # everything under config/); each listed path is captured verbatim.
+  config_paths = []
   wasm_url = ""                         # full override of the renderer WASM URL
   # Optional version override. Normally the version is auto-detected from
   # your module pin via hugo.Deps; set this to force a specific release

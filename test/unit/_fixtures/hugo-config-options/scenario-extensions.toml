@@ -1,0 +1,3 @@
+# Scenario: restrict template capture to a custom extension set (.htm excluded).
+[params.editable_regions]
+  template_extensions = [".html", ".gohtml"]

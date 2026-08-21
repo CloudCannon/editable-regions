@@ -6,10 +6,12 @@
   without mounts the default layouts/partials + layouts/shortcodes +
   layouts/_default/_markup trees are captured.
 
-  Expects: (dict "dir" "<physical dependency root>" "exts" (slice ".html" ...)).
+  Expects: (dict "dir" "<physical dependency root>" "exts" (slice ".html" ...)
+                  "ignore" (slice of directory names to skip)).
 */ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
 {{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
 {{- $files := dict -}}
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
@@ -72,7 +74,7 @@
 {{- end -}}
 
 {{- range $td := $templateDirs -}}
-  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $td "exts" $exts)) -}}
+  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $td "exts" $exts "ignore" $ignore)) -}}
 {{- end -}}
 
 {{- return $files -}}

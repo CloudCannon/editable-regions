@@ -1,0 +1,4 @@
+# Scenario: an explicit template_dirs list replaces the recursive project walk
+# (and theme/vendored-module discovery) entirely.
+[params.editable_regions]
+  template_dirs = ["extra-templates"]

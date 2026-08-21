@@ -1,5 +1,6 @@
 {{- $cfg := site.Params.editable_regions | default dict -}}
 {{- $templateExts := $cfg.template_extensions | default (slice ".html" ".htm") -}}
+{{- $ignoreDirs := $cfg.ignore_directories | default (slice ".git" "node_modules" "public" "resources") -}}
 
 {{- $wasmUrl := $cfg.wasm_url -}}
 {{- if not $wasmUrl -}}
@@ -9,20 +10,33 @@
   ) -}}
 {{- end -}}
 
-{{- $deps := partial "editable-regions/load-deps.html" -}}
+  {{- /* Template snapshot: explicit template_dirs replace the recursive project walk (and its theme/vendored-module discovery) entirely — each listed dir is walked verbatim and keyed at its given paths. Otherwise the usual discovery captures partials, render hooks, and shortcodes from the project, theme, and vendored modules. */ -}}
+{{- $templateFiles := dict -}}
+{{- if $cfg.template_dirs -}}
+  {{- range $td := $cfg.template_dirs -}}
+    {{- $templateFiles = merge $templateFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" $td "exts" $templateExts "ignore" $ignoreDirs)) -}}
+  {{- end -}}
+{{- else -}}
+  {{- $deps := partial "editable-regions/load-deps.html" -}}
+  {{- $templateFiles = partial "editable-regions/find-template-files.html" (dict "deps" $deps "exts" $templateExts "ignore" $ignoreDirs) -}}
 
-{{- $templateFiles := partial "editable-regions/find-template-files.html" (dict
-  "deps" $deps
-  "exts" $templateExts
-) -}}
-
-  {{- /* Vendored modules resolve from _vendor/ only when modules.txt (the vendor manifest) exists, so mirror it verbatim. */ -}}
-{{- if os.FileExists "_vendor/modules.txt" -}}
-  {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
+    {{- /* Vendored modules resolve from _vendor/ only when modules.txt (the vendor manifest) exists, so mirror it verbatim. */ -}}
+  {{- if os.FileExists "_vendor/modules.txt" -}}
+    {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
+  {{- end -}}
 {{- end -}}
 
-  {{- /* Site config captured at build time so the editor loads the real config (theme, module imports, params, menus, …) through Hugo's own resolution. */ -}}
-{{- $configFiles := partial "editable-regions/find-config-files.html" -}}
+  {{- /* Site config captured at build time so the editor loads the real config (theme, module imports, params, menus, …) through Hugo's own resolution. Explicit config_paths skip discovery and capture only the listed files, verbatim. */ -}}
+{{- $configFiles := dict -}}
+{{- if $cfg.config_paths -}}
+  {{- range $cp := $cfg.config_paths -}}
+    {{- if os.FileExists $cp -}}
+      {{- $configFiles = merge $configFiles (dict $cp (readFile $cp)) -}}
+    {{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- $configFiles = partial "editable-regions/find-config-files.html" -}}
+{{- end -}}
 
 {{- $ctx := dict
   "meta" (dict

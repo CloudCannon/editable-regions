@@ -123,7 +123,10 @@ memfs) lazily once the CloudCannon API appears, then:
     again (this branch) by verbatim config/template mirroring.** The old
     `layout-dirs.html` probe is gone, as are the salient walk
     (`walk-project.html` — now dead code), `walk-modules.html`, and the
-    `template_dirs` override (dropped in the verbatim rework). Config files
+    `template_dirs` override (re-added after the verbatim rework — plus
+   `config_paths`, `ignore_directories`, and `template_extensions`; an explicit
+   `template_dirs`/`config_paths` replaces the corresponding auto-discovery).
+   Config files
     and templates are captured at their physical paths and the renderer
     loads them through Hugo's native config + composite-FS resolution, so
     relocated *content/data/layout* dirs, `theme`, vendored imports, and
