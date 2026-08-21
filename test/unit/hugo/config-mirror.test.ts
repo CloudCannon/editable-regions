@@ -19,13 +19,6 @@ import {
 
 /** The snapshot the browser runtime would feed the renderer at startup. */
 const siteFiles = {
-	"cc-editor.json": JSON.stringify({
-		baseURL: "/",
-		title: "Config mirror test",
-		disableKinds: ["taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"],
-		params: {},
-		markup: { goldmark: { renderer: { unsafe: true } } },
-	}),
 	// The build-time environment the snapshot was emitted with. No
 	// config/_default dir exists here, so root-only resolution applies.
 	"cc-env": "production",

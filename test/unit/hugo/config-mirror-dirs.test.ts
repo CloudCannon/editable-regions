@@ -18,13 +18,6 @@ import {
 
 /** The snapshot the browser runtime would feed the renderer at startup. */
 const siteFiles = {
-	"cc-editor.json": JSON.stringify({
-		baseURL: "/",
-		title: "Config mirror precedence test",
-		disableKinds: ["taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"],
-		params: {},
-		markup: { goldmark: { renderer: { unsafe: true } } },
-	}),
 	"cc-env": "production",
 	// Both root candidates present: hugo.* wins the root slot.
 	"hugo.json": JSON.stringify({ contentDir: "hdir" }),

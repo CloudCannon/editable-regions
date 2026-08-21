@@ -18,7 +18,7 @@ import {
 
 /** The snapshot the browser runtime would feed the renderer at startup. The
  * config is the site's own, loadable by Hugo's default-name search; the
- * renderer layers its own overrides (disableKinds/cascade/markup) on top. */
+ * renderer layers its own overrides (disableKinds + the publish cascade) on top. */
 const siteFiles = {
 	"config.json": JSON.stringify({
 		baseURL: "/",
