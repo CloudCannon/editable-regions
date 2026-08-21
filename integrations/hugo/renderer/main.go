@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall/js"
 
@@ -55,6 +56,11 @@ type editorSiteBuilder struct {
 	Sites        *hugolib.HugoSites
 	changedFiles []string
 	removedFiles []string
+
+	// TemplateOverrides maps a normalized partial name to the reserved partial
+	// name ("__cc_overrides/N.html") that renders the override source verbatim,
+	// sidestepping Hugo's name-based partial lookup (project shadows theme).
+	TemplateOverrides map[string]string
 }
 
 // editorFlags returns the renderer-owned config overrides applied on top of
@@ -204,6 +210,51 @@ func (builder *editorSiteBuilder) changeEvents() []fsnotify.Event {
 	return events
 }
 
+// normalizePartialName strips a trailing template extension so override keys
+// match the render request regardless of ".html"/".htm" (mirroring Hugo's
+// extension-tolerant partial lookup).
+func normalizePartialName(name string) string {
+	name = strings.TrimSuffix(name, ".html")
+	name = strings.TrimSuffix(name, ".htm")
+	return name
+}
+
+// installTemplateOverrides mirrors each override source into a reserved partial
+// under the resolved layout dir's partials tree and records the normalized name
+// -> reserved partial name mapping. Rendering an override resolves to its
+// reserved name, so the exact override file renders regardless of Hugo's normal
+// partial lookup order (project shadows theme) or name collisions.
+func (builder *editorSiteBuilder) installTemplateOverrides(overrides map[string]string) {
+	builder.TemplateOverrides = make(map[string]string, len(overrides))
+	if len(overrides) == 0 {
+		return
+	}
+
+	basePartialDir := filepath.Join(builder.Cfg.Base.LayoutDir, "partials")
+
+	// Deterministic reserved names: sort the override keys.
+	keys := make([]string, 0, len(overrides))
+	for name := range overrides {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	i := 0
+	for _, name := range keys {
+		src := filepath.Clean(overrides[name])
+		contents, err := builder.readFile(src)
+		if err != nil {
+			// A missing source is a config mistake; skip it rather than fail boot.
+			fmt.Println(fmt.Sprintf("template override %q: source %q not found: %s", name, src, err))
+			continue
+		}
+		reserved := fmt.Sprintf("__cc_overrides/%d.html", i)
+		i++
+		builder.writeFile(filepath.Join(basePartialDir, reserved), contents)
+		builder.TemplateOverrides[normalizePartialName(name)] = reserved
+	}
+}
+
 var builder editorSiteBuilder
 
 func main() {
@@ -349,6 +400,13 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 // resolution so paths come from the site's real config; renderer overrides
 // ride on top via editorFlags.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
+	var overrides map[string]string
+	if len(args) > 0 && args[0].Type() == js.TypeString && args[0].String() != "" {
+		if err := json.Unmarshal([]byte(args[0].String()), &overrides); err != nil {
+			return errorValue("bad template overrides: %s", err)
+		}
+	}
+
 	// Load config first so the dispatch layout and stub can be written under
 	// the resolved layoutDir/contentDir and exist before the site is created.
 	if err := builder.loadConfig(); err != nil {
@@ -369,6 +427,11 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {
 		builder.writeFile(homeStub, "---\ncc_initialized: true\n---\n")
 	}
+
+	// Override templates are mirrored after config resolves the layout dir (and
+	// before the site is created), so their reserved partials are registered for
+	// the first build.
+	builder.installTemplateOverrides(overrides)
 
 	if err := builder.createSites(); err != nil {
 		return errorValue("failed to create site: %s", err)
@@ -451,6 +514,13 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
+	// A template override (name -> reserved partial) replaces the natural
+	// partial lookup for that name, rendering the exact override source.
+	partialName := req.Partial
+	if reserved, ok := builder.TemplateOverrides[normalizePartialName(req.Partial)]; ok {
+		partialName = reserved
+	}
+
 	contentDir := builder.Cfg.Base.ContentDir
 
 	// The dispatch page carries the render request; every opted-in page depends
@@ -461,7 +531,7 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 	// printf "%d" and large-id rendering; goccy/go-yaml is Hugo's own decoder.
 	frontMatter, err := yaml.Marshal(map[string]interface{}{
 		"headless":   true,
-		"cc_partial": req.Partial,
+		"cc_partial": partialName,
 		"cc_props":   integralizeNumbers(props),
 	})
 	if err != nil {

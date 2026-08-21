@@ -169,7 +169,10 @@ async function startEngine() {
 	// incremental content-add path.
 	await loadEditorCollectionData();
 
-	const initError = /** @type {any} */ (globalThis).initHugoEditorSite();
+	const overrides = runtimeData.meta.templateOverrides ?? {};
+	const initError = /** @type {any} */ (globalThis).initHugoEditorSite(
+		JSON.stringify(overrides),
+	);
 	if (initError?.error) {
 		groupEnd();
 		throw new Error(`Hugo editor site failed to build: ${initError.error}`);

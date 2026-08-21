@@ -1,0 +1,17 @@
+# Unit-test fixture exercising templates_overrides: a mapped component name
+# renders its override source (here, a partial outside the layout tree) instead
+# of the naturally-discovered project partial of the same name.
+baseURL = "/"
+title = "Hugo Templates Overrides Fixture"
+languageCode = "en-AU"
+
+[module]
+  # Relative replacement targets resolve against themesDir
+  # (test/unit/_fixtures/hugo-templates-overrides/themes), not the project dir
+  # — hence five levels.
+  replacements = "github.com/cloudcannon/editables -> ../../../../.."
+  [[module.imports]]
+    path = "github.com/cloudcannon/editables"
+
+[params.editable_regions]
+  templates_overrides.card = "overrides/card.html"

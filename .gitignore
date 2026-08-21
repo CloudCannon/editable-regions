@@ -22,4 +22,6 @@ test/unit/_fixtures/hugo-custom-dirs/public
 test/unit/_fixtures/hugo-custom-dirs/resources
 test/unit/_fixtures/hugo-config-options/public
 test/unit/_fixtures/hugo-config-options/resources
+test/unit/_fixtures/hugo-templates-overrides/public
+test/unit/_fixtures/hugo-templates-overrides/resources
 .hugo_build.lock

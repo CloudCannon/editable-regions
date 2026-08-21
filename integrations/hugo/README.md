@@ -99,6 +99,14 @@ editable-component region:
   # REPLACE the default config discovery (the root hugo.*/config.* plus
   # everything under config/); each listed path is captured verbatim.
   config_paths = []
+  # Component-name -> physical source path overrides: when live editing renders
+  # a component whose name matches a key (extension-tolerant: "card" ==
+  # "card.html"), the file at that path is rendered instead of the
+  # naturally-discovered partial of the same name. Each override source is
+  # mirrored verbatim, so it can live anywhere (e.g. a dir the walk doesn't
+  # reach, or a theme/vendored-module partial shadowed by a project file).
+  [params.editable_regions.templates_overrides]
+    card = "overrides/card.html"
   wasm_url = ""                         # full override of the renderer WASM URL
   # Optional version override. Normally the version is auto-detected from
   # your module pin via hugo.Deps; set this to force a specific release

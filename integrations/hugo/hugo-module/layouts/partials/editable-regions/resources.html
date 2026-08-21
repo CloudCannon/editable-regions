@@ -1,6 +1,7 @@
 {{- $cfg := site.Params.editable_regions | default dict -}}
 {{- $templateExts := $cfg.template_extensions | default (slice ".html" ".htm") -}}
 {{- $ignoreDirs := $cfg.ignore_directories | default (slice ".git" "node_modules" "public" "resources") -}}
+{{- $overrides := $cfg.templates_overrides | default dict -}}
 
 {{- $wasmUrl := $cfg.wasm_url -}}
 {{- if not $wasmUrl -}}
@@ -38,12 +39,22 @@
   {{- $configFiles = partial "editable-regions/find-config-files.html" -}}
 {{- end -}}
 
+  {{- /* Template overrides: name -> physical source path, mirrored verbatim (keyed at that path) so the renderer has the exact file; it maps the name to a reserved partial at runtime so the override renders regardless of lookup/collision order. */ -}}
+{{- if $overrides -}}
+  {{- range $name, $overridePath := $overrides -}}
+    {{- if os.FileExists $overridePath -}}
+      {{- $templateFiles = merge $templateFiles (dict $overridePath (readFile $overridePath)) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
 {{- $ctx := dict
   "meta" (dict
     "generator" (printf "Hugo %s" hugo.Version)
     "wasmUrl" $wasmUrl
     "verbose" ($cfg.verbose | default false)
     "env" (hugo.Environment | default "production")
+    "templateOverrides" $overrides
   )
   "files" (merge $templateFiles $configFiles)
 -}}

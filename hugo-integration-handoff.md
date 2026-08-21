@@ -294,6 +294,15 @@ memfs) lazily once the CloudCannon API appears, then:
   resolves it the way the real site does. Content/data from those layers stay
   uncaptured; non-vendored go-module imports live in the module cache, which
   templates can't reach — `hugo mod vendor` or a local copy.
+- **Templates overrides** (`params.editable_regions.templates_overrides`, a
+  name → physical source path map): each override source is mirrored verbatim
+  into the snapshot and the map travels in the snapshot meta. `initHugoEditorSite`
+  copies each source into a reserved partial under the resolved `layoutDir`'s
+  partials tree (`__cc_overrides/N.html`, deterministic order via sorted keys)
+  and records the normalized name (`.html`/`.htm` stripped) → reserved name, so
+  `renderHugoPartial` renders the exact override file regardless of Hugo's
+  name-based partial lookup order (project shadows theme). Extension-tolerant
+  key matching mirrors the existing partial lookup.
 - **Props typing**: props travel as goccy YAML front matter on the dispatch
   page (not JSON — JSON decodes every number as float64); `integralizeNumbers`
   canonicalizes integral floats to ints; date-looking strings stay quoted.
