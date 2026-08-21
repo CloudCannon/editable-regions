@@ -1,8 +1,8 @@
 // Browser half of the Hugo integration. The Hugo module's snapshot prelude
-// emits the site's template snapshot, data files, and config onto
-// `window.cc_hugo*`, concatenated ahead of this runtime in the published
-// bundle. This module boots the Hugo WASM renderer from that data and
-// registers `window.cc_components` renderers for the shared core.
+// emits the site's template snapshot, data, and config onto `window.cc_hugo*`,
+// concatenated ahead of this runtime in the published bundle. This module
+// boots the Hugo WASM renderer from that data and registers
+// `window.cc_components` renderers for the shared core.
 
 import "./wasm_exec.js";
 import {
@@ -16,9 +16,8 @@ import { serializeData, serializeFrontMatter } from "./serialize-yaml.mjs";
 /**
  * Memfs key for a mirrored file: the API's site-root-relative source path
  * with the leading slash removed ("/content/blog/one.md" ->
- * "content/blog/one.md"). Verbatim mirroring — the same string the renderer
- * matches against each built page's file path to resolve the render target,
- * so no page-path computation happens on either side.
+ * "content/blog/one.md"). Verbatim mirroring — the renderer matches it against
+ * each page's file path, so no path computation happens on either side.
  * @param {string} apiPath
  * @returns {string}
  */
@@ -29,22 +28,17 @@ function rootRelativePath(apiPath) {
 }
 
 /**
- * The file being edited, captured once at boot from the CloudCannon API as a
- * verbatim site-root-relative path ("" when no file is current). Navigating
- * to another page reboots the editor (a fresh page load), so the target
- * never changes mid session: the renderer resolves the built page whose file
- * path matches, and this file's stub carries the build.render opt-in that
- * publishes it meanwhile. The home page's publishing is the renderer's own
- * (config cascade); the browser never knows the home path.
+ * The file being edited, captured once at boot as a verbatim site-root-relative
+ * path ("" when no file is current). Navigation reboots the editor, so the
+ * target never changes mid session; this stub carries the build.render opt-in.
  * @type {string}
  */
 let sessionFile = "";
 
 /**
- * The collections and datasets mirrored at boot. Each is subscribed to
- * change/delete events after the editor site exists (so boot-time writes
- * can't race the first build); the handlers rewrite the affected stub/data
- * file and rebuild.
+ * The collections mirrored at boot. Each is subscribed to change/delete
+ * events (installed after the editor site exists, so boot-time writes can't
+ * race the first build) that push edits into the editor site.
  * @type {any[]}
  */
 let editorCollections = [];
@@ -67,8 +61,8 @@ let enginePromise = null;
 /**
  * Entry point, called by the prebuilt runtime bundle. Reads the emitted
  * `window.cc_hugo*` globals, installs the component proxy immediately, and
- * warms the WASM engine once the CloudCannon Visual Editor API appears — so
- * loading the script on a production page never fetches the WASM.
+ * warms the WASM engine once the editor API appears — so loading the script on
+ * a production page never fetches the WASM.
  *
  * @param {Partial<HugoRuntimeData> & { wasmUrl?: string }} [options]
  */
@@ -191,17 +185,12 @@ async function startEngine() {
 }
 
 /**
- * Mirrors the site's CloudCannon collections and datasets into the editor
- * site before it's built. Collections become content stubs (front matter
- * only, blank bodies — decision 10) and datasets become data files, each
- * keyed verbatim at its site-root-relative path under the editor's default
- * content/ and data/ dirs — so standard trees land exactly where Hugo reads
- * them; relocated trees resolve because the site's real config (captured at
- * build time and loaded by the renderer) sets contentDir/dataDir to match the
- * real site's. Everything a CloudCannon collection yields is mirrored as
- * content, verbatim — no content-dir filtering. The session target's stub
- * carries build.render: "always" so it publishes under the cascade; the home
- * page's publishing is the renderer's config cascade.
+ * Mirrors the site's CloudCannon collections and datasets into the editor site
+ * before it's built: collections become content stubs (front matter only, blank
+ * bodies), datasets become data files, each keyed verbatim at its
+ * site-root-relative path. Relocated trees resolve because the site's real
+ * config (loaded by the renderer) sets contentDir/dataDir to match; the home
+ * page's publishing is the renderer's own config cascade.
  */
 async function loadEditorCollectionData() {
 	if (!CloudCannon) return;
@@ -294,14 +283,9 @@ async function loadEditorCollectionData() {
 
 /**
  * Subscribes to each mirrored collection's and dataset's change/delete
- * events and pushes edits into the editor site as they happen — the
- * mid-session freshness the boot-time mirror alone can't provide. A
- * collection `change` fires when any of its files is created or updated and
- * carries `event.detail.sourcePath` (new files ride the same event). Each
- * handler performs exactly one write followed by a
- * `rebuildHugoEditorSite`, so the dispatch page stays alone in its own
- * (render) build — no change set ever batches two writes (the
- * multi-content-change quirk).
+ * events, pushing edits into the editor site as they happen. Each handler
+ * performs exactly one write followed by `rebuildHugoEditorSite`, so no change
+ * set ever batches two writes (the multi-content-change quirk).
  */
 function watchContentChanges() {
 	for (const collection of editorCollections) {
@@ -367,9 +351,8 @@ function handleDatasetEvent(event, kind) {
 
 /**
  * Re-fetches a changed content file's front matter from the API and rewrites
- * its stub in the editor site, then rebuilds so Hugo re-reads it into the
- * store — `page.*`, `site.Pages`, `site.GetPage`, and collection queries all
- * refresh for the next component render.
+ * its stub, then rebuilds so Hugo re-reads it into the store (`page.*`,
+ * `site.Pages`, `site.GetPage`, and collection queries all refresh).
  *
  * @param {string} apiPath - Root-relative source path from the event
  */
@@ -394,8 +377,7 @@ async function updateContentStub(apiPath) {
 
 /**
  * Re-fetches a changed dataset file from the API and rewrites it in the data
- * dir, then rebuilds so `site.Data`/`hugo.Data` reflect the edit for the next
- * component render.
+ * dir, then rebuilds so `site.Data`/`hugo.Data` reflect the edit.
  *
  * @param {string} apiPath - Root-relative source path from the event
  */
@@ -418,10 +400,8 @@ async function updateDatasetFile(apiPath) {
 
 /**
  * Drops a deleted content file's stub from the editor site and rebuilds so
- * collections lose the page. The session's edit target keeps its stub — its
- * opt-in is what the render chain reads, and a deleted edit target is a page
- * the editor is already tearing down. The home page is protected by the
- * renderer itself (removeHugoFiles refuses the home file).
+ * collections lose the page. The session's edit target keeps its stub, and
+ * the renderer protects the home page itself.
  *
  * @param {string} apiPath - Root-relative source path from the event
  */
@@ -453,11 +433,9 @@ async function removeDatasetFile(apiPath) {
 }
 
 /**
- * Serializes a dataset file's contents for the data dir by extension. YAML
- * files become the runtime's typed YAML; JSON files stay JSON (numbers
- * decode to float64 there, matching Hugo's native JSON data decoding). Other
- * extensions fall back to YAML — a documented first-pass gap, since the API
- * only exposes parsed data (original formatting is unrecoverable).
+ * Serializes a dataset file's contents for the data dir by extension. JSON
+ * stays JSON (matching Hugo's native decoding); everything else falls back to
+ * YAML, since the API only exposes parsed data.
  *
  * @param {Record<string, any> | any[]} data
  * @param {string} apiPath
@@ -471,10 +449,9 @@ function serializeDataset(data, apiPath) {
 }
 
 /**
- * Serializes a page's stub from its front matter, adding the session
- * target's publishing opt-in (`build.render: "always"` under the render-link
- * cascade). The home page's publishing is the renderer's config cascade, so
- * the browser only ever opts in the file being edited.
+ * Serializes a page's stub from its front matter, adding the session target's
+ * publishing opt-in (`build.render: "always"`); the browser only opts in the
+ * file being edited.
  *
  * @param {Record<string, any>} frontMatter
  * @param {string} filePath

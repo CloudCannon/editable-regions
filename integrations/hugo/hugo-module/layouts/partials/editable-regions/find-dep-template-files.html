@@ -1,14 +1,10 @@
  {{- /*
-  Captures one dependency's (a theme or a vendored module) template files —
+  Captures one dependency's (a theme or vendored module) template files —
   verbatim at their physical paths — plus its root config files (hugo.* /
   config.*), so Hugo's editor build can resolve the module the way the real
-  site does. Replaces find-dep-template-dirs.html, which returned dirs.
-
-  Mount resolution: the dependency's module config (module.mounts) maps source
-  dirs to template locations; without mounts (or without a config at all) the
-  default layouts/partials + layouts/shortcodes + layouts/_default/_markup
-  trees are captured. Whatever the mounts say, files are always keyed at their
-  actual physical path below this dependency's root.
+  site does. Mounts (module.mounts) map source dirs to template locations;
+  without mounts the default layouts/partials + layouts/shortcodes +
+  layouts/_default/_markup trees are captured.
 
   Expects: (dict "dir" "<physical dependency root>" "exts" (slice ".html" ...)).
 */ -}}
@@ -16,8 +12,6 @@
 {{- $exts := .exts -}}
 {{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
 {{- $files := dict -}}
-
-{{- /* Capture the dependency's root config files verbatim. */ -}}
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
   {{- $cfgPath := path.Join $dir $candidate -}}
   {{- if os.FileExists $cfgPath -}}
@@ -25,7 +19,6 @@
   {{- end -}}
 {{- end -}}
 
-{{- /* Resolve mounts from the dependency's module config. */ -}}
 {{- $conf := dict -}}
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" -}}
   {{- $cfgPath := path.Join $dir $candidate -}}

@@ -331,6 +331,5 @@ memfs) lazily once the CloudCannon API appears, then:
 - **Small**: WASM startup readiness is a `setTimeout(10ms)` poll for
   `globalThis.renderHugoPartial` — the Go side could signal explicitly.
   `find-files-with-extension.html`/`find-template-files.html` merge in a loop
-  (O(n²)) — fine at partial scale. `walk-project.html` is dead code (leftover
-  from the superseded salient walk). `hugo-integration-shape.md` describes the
+  (O(n²)) — fine at partial scale. `hugo-integration-shape.md` describes the
   superseded output-format plan; keep as historical record or refresh.

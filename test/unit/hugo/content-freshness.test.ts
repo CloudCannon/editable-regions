@@ -1,16 +1,9 @@
 /**
- * Bundle-path tests for mid-session freshness: each mirrored collection's and
- * dataset's `change`/`delete` events push front-matter and data edits into the
- * editor site as they happen. The runtime subscribes after boot, rewrites the
- * affected content stub (preserving the home/session-page publishing opt-ins)
- * or data file, and runs a build-only rebuild — so the dispatch page stays
- * alone in its own render build (the single-content-write-per-build
- * invariant).
- *
- * Each test mutates the mock state (`setMockFiles` — the API `file()` lookup
- * the handlers re-read) and emits an event on the owning collection/dataset
- * object via its `emit` helper; the async handler resolves on a later
- * microtask, so assertions poll with `vi.waitFor`.
+ * Bundle-path tests for mid-session freshness: `change`/`delete` events on
+ * mirrored collections and datasets push front-matter and data edits into the
+ * editor site as they happen. The runtime rewrites the affected stub or data
+ * file and runs a build-only rebuild, keeping the dispatch page's
+ * single-content-write-per-build invariant intact.
  */
 
 import { afterAll, beforeAll, expect, test, vi } from "vitest";

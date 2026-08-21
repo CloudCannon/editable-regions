@@ -1,14 +1,9 @@
 /**
- * Bundle-path tests for the props-to-renderer coercion question: the renderer
- * writes component props as YAML front matter on the stub content file (with
- * integral floats canonicalized to ints), and the editor layout hands them to
- * the partial as `.Params.cc_props`. Hugo's front-matter processing sits in
- * that path, so this suite pins what it does to key casing and value types —
- * the exact shape CloudCannon props take when a component reads them.
- *
- * Previously (JSON front matter) every number arrived as float64: `printf
- * "%d"` on a count errored and large ids rendered in scientific notation —
- * both fixed by the YAML round-trip below.
+ * Bundle-path tests for props-to-renderer coercion: the renderer writes
+ * component props as YAML front matter on the stub content file, and the
+ * editor layout hands them to the partial as `.Params.cc_props`. This pins the
+ * key-casing and value-type shape Hugo's front-matter processing produces
+ * (the YAML round-trip fixed the old float64-everywhere JSON behavior).
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

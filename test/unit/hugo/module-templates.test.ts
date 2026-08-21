@@ -1,13 +1,13 @@
 /**
  * Bundle-path tests for template capture from the site's themes and vendored
- * modules (walk-modules.html): components whose partials live in a theme
- * (themes/proot) or a vendored module import (example.com/cc-fixture-vendor,
- * hand-vendored in _vendor/) resolve and render in the editor.
+ * modules: components whose partials live in a theme (themes/proot) or a
+ * vendored module import (example.com/cc-fixture-vendor, hand-vendored in
+ * _vendor/) resolve and render in the editor.
  *
- * The snapshot walks those trees into logical layout paths and merges them
- * UNDER the project's own files — a project partial shadows a theme partial
- * with the same name, matching Hugo's lookup priority. Kind layouts stay out
- * so the renderer's dispatch layout is never shadowed.
+ * The snapshot merges those trees UNDER the project's own files — a project
+ * partial shadows a theme partial with the same name, matching Hugo's lookup
+ * priority. Kind layouts stay out so the renderer's dispatch layout is never
+ * shadowed.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

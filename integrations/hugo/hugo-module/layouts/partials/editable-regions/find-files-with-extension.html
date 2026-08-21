@@ -1,7 +1,6 @@
  {{- /*
   Recursively walks a directory and returns every file whose extension matches
-  "exts", keyed by its physical (path-joined) path. Used for both project and
-  dependency template trees; callers merge the maps.
+  "exts", keyed by its physical (path-joined) path; callers merge the results.
 */ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}

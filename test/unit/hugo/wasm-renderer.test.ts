@@ -1,17 +1,9 @@
 /**
  * Direct tests of the Hugo renderer WASM, booted in Node (no browser bundle,
- * no Hugo build involved). Runs the actual piece of Go the browser runtime
- * depends on — `writeHugoFiles` / `initHugoEditorSite` /
- * `renderHugoPartial` and friends — and asserts on its real output.
- *
- * The renderer must be built first: `npm run build:hugo`
- * (integrations/hugo/renderer/build.sh). The test fails loudly if the WASM
- * isn't there rather than skipping, so an unbootable renderer can't pass
- * quietly.
- *
- * State is sequential: the renderer holds one Hugo site for the whole file,
- * and later cases build on earlier ones (fresh renders, error recovery,
- * template updates), so ordering matters.
+ * no Hugo build involved), asserting on the real Go output. The renderer must
+ * be built first (`npm run build:hugo`), the boot fails loudly if the WASM
+ * isn't there, and state is sequential — later cases build on earlier ones —
+ * so ordering matters.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -67,8 +59,8 @@ test("renders props into a partial", () => {
 	});
 	expect(error).toBeUndefined();
 	expect(html).toMatch(/<h2>Hello World<\/h2>/);
-	expect(html).toMatch(/<strong>bold<\/strong>/); // markdownify
-	expect(html).toContain("Fixture Brand"); // site params
+	expect(html).toMatch(/<strong>bold<\/strong>/);
+	expect(html).toContain("Fixture Brand");
 	expect(html).toContain("<em>a</em><em>b</em>");
 });
 

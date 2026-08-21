@@ -1,13 +1,10 @@
 /**
- * Renderer tests for config mirroring: the browser mirrors the site's real
- * config files as JSON at their real paths (mirrorSiteConfig), and
- * learnSiteConfigDirs resolves them with Hugo's own config loading so the
- * editor's contentDir/dataDir match the site's. This file boots a site whose
- * mirrored root config (hugo.json — the JSON re-serialization of the site's
- * hugo.toml) relocates contentDir and dataDir, then checks that content
- * stubs, dataset files, render targets, the home-page fallback, and the home
- * delete guard all resolve through the learned dirs. Precedence between
- * mirrored candidates is covered by config-mirror-dirs.test.ts.
+ * Renderer tests for config resolution: the site's config files are captured
+ * verbatim and the renderer loads them natively (allconfig.LoadConfig +
+ * editorFlags + IgnoreModuleDoesNotExist), so contentDir/dataDir come from the
+ * site's own config. This file boots a site whose root config relocates
+ * contentDir and dataDir, then pins that content stubs, dataset files, render
+ * targets, and the home-page fallback all resolve through those dirs.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -29,12 +26,11 @@ const siteFiles = {
 		params: {},
 		markup: { goldmark: { renderer: { unsafe: true } } },
 	}),
-	// The build-time environment the snapshot was emitted with; the mirrored
-	// hugo.json below is the site's root config. No config/_default dir exists
-	// here, so root-only resolution applies.
+	// The build-time environment the snapshot was emitted with. No
+	// config/_default dir exists here, so root-only resolution applies.
 	"cc-env": "production",
-	// JSON re-serialization of the site's hugo.toml: contentDir/dataDir moved
-	// off their defaults; theme/module were already stripped by the mirror.
+	// The site's root config file, captured verbatim: contentDir/dataDir moved
+	// off their defaults.
 	"hugo.json": JSON.stringify({
 		title: "Site Brand",
 		contentDir: "notes",

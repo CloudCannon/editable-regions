@@ -1,14 +1,11 @@
-// Minimal YAML serializer for editor content stubs. The runtime writes each
-// content file's front matter (fetched from the CloudCannon API) as YAML so
-// Hugo's front-matter decoder — goccy/go-yaml — produces typed params:
-// whole numbers parse as uint64 (printf "%d" works, big ids don't print in
-// scientific notation), dates stay quoted strings, keys keep their exact case.
-// JSON stubs would decode every number as float64 (see params-coercion.test.ts
-// for the same problem on props).
-//
-// Deliberately conservative: every string (and any key that could be
-// ambiguous) is double-quoted, and only the shapes the API returns — plain
-// objects, arrays, numbers, booleans, strings, null, Date — are emitted.
+// Minimal YAML serializer for editor content stubs. Writing content front
+// matter as YAML lets Hugo's goccy/go-yaml decoder produce typed params —
+// whole numbers parse as uint64, dates stay quoted strings, keys keep their
+// case — whereas JSON stubs would decode every number as float64 (see
+// params-coercion.test.ts for the same problem on props).
+// Deliberately conservative: every string (and any ambiguous key) is
+// double-quoted, and only the shapes the API returns — plain objects, arrays,
+// numbers, booleans, strings, null, Date — are emitted.
 
 /**
  * Serializes front matter to YAML, wrapped in `---` delimiters.
@@ -27,10 +24,10 @@ export function serializeFrontMatter(data) {
 
 /**
  * Serializes a data file's contents to a bare YAML document (no front-matter
- * delimiters), for dataset files mirrored from the CloudCannon API into the
+ * delimiters) for dataset files mirrored from the CloudCannon API into the
  * editor site's data dir. Object and array roots are supported; scalars pass
- * through (Hugo rejects scalar-root data files natively too, so the mirror
- * behaves like the real build).
+ * through, matching the real build (Hugo rejects scalar-root data files
+ * natively too).
  * @param {Record<string, any> | any[] | any} data
  * @returns {string}
  */

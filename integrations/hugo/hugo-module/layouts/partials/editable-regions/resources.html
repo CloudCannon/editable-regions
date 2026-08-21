@@ -16,15 +16,12 @@
   "exts" $templateExts
 ) -}}
 
-{{- /* Vendored Go/Hugo modules resolve from _vendor/ only when modules.txt (the
-  vendor manifest) is present, so mirror it verbatim for the editor build. */ -}}
+  {{- /* Vendored modules resolve from _vendor/ only when modules.txt (the vendor manifest) exists, so mirror it verbatim. */ -}}
 {{- if os.FileExists "_vendor/modules.txt" -}}
   {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
 {{- end -}}
 
-{{- /* The site's own config files, captured at build time so the editor loads
-  the real config (theme, module imports, params, menus, …) through Hugo's own
-  config resolution. */ -}}
+  {{- /* Site config captured at build time so the editor loads the real config (theme, module imports, params, menus, …) through Hugo's own resolution. */ -}}
 {{- $configFiles := partial "editable-regions/find-config-files.html" -}}
 
 {{- $ctx := dict

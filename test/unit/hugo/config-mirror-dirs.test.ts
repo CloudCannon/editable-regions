@@ -1,11 +1,10 @@
 /**
- * Renderer tests for config-mirroring precedence: the browser mirrors every
- * candidate it finds (root hugo/config files and config/_default files), so
- * the effective contentDir is whatever Hugo's own resolution produces —
- * config/_default merges over the root candidate (dir wins on conflicts), and
- * within the root, the hugo-named candidate beats the config-named one.
- * Nothing here re-implements those rules; learnSiteConfigDirs just reads the
- * dirs off Hugo's own loaded config, and these tests pin the outcome.
+ * Renderer tests for config precedence among mirrored candidates: the renderer
+ * loads every captured config file natively, so the effective contentDir is
+ * whatever Hugo's own resolution produces — config/_default merges over the
+ * root candidate, and within the root the hugo-named candidate beats the
+ * config-named one. These tests pin the outcome without re-implementing Hugo's
+ * rules.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

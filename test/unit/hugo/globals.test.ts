@@ -1,17 +1,9 @@
 /**
- * Bundle-path tests for the globals a component can reach when the renderer
- * renders it: the `site` global object (a real Hugo `Site`), the `hugo.*`
- * namespace, and query helpers over site data.
- *
- * These run the full consumer chain, exactly as register/render/slots do:
- * the fixture site (test/unit/_fixtures/hugo) is built by real Hugo, its
- * snapshot is emitted into the live-editing bundle, and the browser runtime
- * writes that snapshot into the WASM renderer. The `globals-*.html` probe
- * partials live in the fixture and are rendered through `cc_components` with
- * `{}` props — the same calls a user component partial makes.
- *
- * The probe config lives in the fixture too: title, `languageCode` (emitted
- * as `locale`), extra params, two menus, and the `data/` files.
+ * Bundle-path tests for the globals components can reach at render time: the
+ * `site` global object (a real Hugo `Site`), the `hugo.*` namespace, and query
+ * helpers over site data. These run the full consumer chain — the fixture is
+ * built by real Hugo, its snapshot ships in the live-editing bundle, and the
+ * browser runtime writes it into the WASM renderer.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

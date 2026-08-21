@@ -48,9 +48,8 @@ export function restoreRendererStdout(): void {
 
 /**
  * Loads the fixture's fingerprinted live-editing bundle and boots the real
- * Hugo renderer against it, exactly as the browser runtime would: `fetch` is
- * stubbed to serve the fingerprinted WASM from the fixture's build output,
- * and the engine starts once the CloudCannon API mock is on `window`.
+ * Hugo renderer against it, exactly as the browser runtime would (`fetch` is
+ * stubbed to serve the fingerprinted WASM from the fixture's build output).
  *
  * Call in `beforeAll` (with `afterAll(restoreRendererStdout)`); the first
  * render then awaits engine boot transparently. Select the fixture with

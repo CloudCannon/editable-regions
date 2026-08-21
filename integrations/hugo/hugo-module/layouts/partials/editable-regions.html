@@ -1,14 +1,9 @@
 {{- /*
-  Loads the editable-regions live-editing bundle. Include once in the site's
-  <head>:
-
-    {{ partial "editable-regions" . }}
-
-  Emits a single fingerprinted <script> tag (SRI + defer) containing the
-  site snapshot and the runtime. Safe on production pages: the runtime only
-  fetches the Hugo WASM once the CloudCannon Visual Editor API announces
-  itself. For control over the tag (conditional loading, your own pipeline),
-  call editable-regions/resources.html directly and use the resource.
+  Include this partial once in <head> ({{ partial "editable-regions" . }}). It
+  emits one fingerprinted <script> (SRI + defer) carrying the site snapshot and
+  runtime; the runtime only fetches the Hugo WASM once the CloudCannon editor
+  announces itself, so it is safe on production pages. Call
+  editable-regions/resources.html directly if you need control over the tag.
 */ -}}
 {{- $bundle := partial "editable-regions/resources.html" . -}}
 <script src="{{ $bundle.RelPermalink }}" integrity="{{ $bundle.Data.Integrity }}" crossorigin="anonymous" defer></script>

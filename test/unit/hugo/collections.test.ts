@@ -3,23 +3,9 @@
  * content tree comes from the CloudCannon API at runtime (front matter only,
  * blank bodies), and components query it with the full Hugo collection
  * surface — `site.Pages`/`site.RegularPages`/`site.Sections`,
- * `site.GetPage`, `where`, sort helpers, and the `page` global for the page
- * being edited.
- *
- * The page being edited is captured ONCE at boot — navigating reboots the
- * editor, so the render target never changes mid session. Its stub is opted
- * into publishing at boot (build.render: always under the render-link
- * cascade), and each render only rewrites the hidden dispatch page that
- * carries the component request; the current page re-renders through its
- * dependency on it.
- *
- * These use the existing CloudCannon API mock: `setMockCollectionsList`
- * supplies one collection whose items the runtime mirrors as content at
- * boot, and `setMockCurrentFile` (set at module scope, before
- * `beforeAll(loadHugoBundle)`) is the page being edited.
- *
- * The fixture's real content files (test/unit/_fixtures/hugo/content/) mirror
- * this listing; the bundle itself never snapshots content files.
+ * `site.GetPage`, `where`, sort helpers, and the `page` global. The page
+ * being edited is captured once at boot (navigating reboots the editor), and
+ * its stub is opted into publishing so it renders through the cascade.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

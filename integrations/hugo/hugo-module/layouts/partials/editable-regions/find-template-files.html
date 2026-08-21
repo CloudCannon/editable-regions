@@ -1,15 +1,10 @@
  {{- /*
-  Walks the physical project tree and returns a flat "physical path -> contents"
-  map of template files, collapsing the old find-template-dirs + find-templates
-  pair (a slice of dirs that was then re-walked) into a single recursive pass.
-
-  Pruned: .git, node_modules, public, resources (build noise). A directory whose
-  path ends with a module dependency path (themes/<theme>, or _vendor/<import>)
-  is handed to find-dep-template-files.html, which resolves the dependency's
-  mounts and captures its template files verbatim plus its root config files.
-  Every other directory contributes template files under partials/, shortcodes/,
-  and _default/_markup/ at their physical paths — these are Hugo's template
-  locations, and templates.Exists already gated the salient set at build time.
+  Walks the physical project tree, returning a flat "physical path -> contents"
+  map of template files in one recursive pass. Prunes build noise (.git,
+  node_modules, public, resources); a directory ending in a dependency path is
+  handed to find-dep-template-files.html, while every other directory
+  contributes files under partials/, shortcodes/, and _default/_markup/ at their
+  physical paths.
 
   Expects: (dict "deps" (slice of dependency .Path) "exts" (slice ".html" ...)).
   Recursion carries (dict "dir" "..."); the caller passes only "deps"/"exts".

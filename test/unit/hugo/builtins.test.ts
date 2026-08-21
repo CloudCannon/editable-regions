@@ -1,33 +1,8 @@
 /**
  * Bundle-path tests for Hugo's built-in template functions, filters, and
- * template helpers (see `layouts/partials/builtins-probe.html`, which emits
- * one `<div data-k="...">` row per builtin and is rendered through the real
- * WASM renderer here). Ground truth was captured with the native hugo v0.164.0
- * binary — the same version the renderer bundles — via a scratch site.
- *
- * Research findings baked into the probe conventions:
- * - **Pipeline arg placement is vanilla Go text/template semantics**: the
- *   piped value always lands in the *last* positional slot. A piped call only
- *   works correctly when the function's signature happens to put its primary
- *   input last (`truncate LENGTH STRING`, `first LIMIT LIST`, `replaceRE
- *   PATTERN REPL STRING`...). In this Hugo line there is no per-function
- *   reordering, so `X | where "k" "v"`, `X | substr 6 5`, `X | delimit ","`,
- *   `X | sort "key"`, `X | apply "f" "."`, `X | replace "a" "b"`, `X | trim
- *   "x"` and `X | transform.Highlight "js"` all mis-route the piped value and
- *   either error or silently produce wrong output. The probe therefore uses
- *   direct-call form for every multi-arg builtin — unambiguous on both code
- *   paths (native binary and the WASM renderer run the same engine).
- * - **`strings.Join` no longer exists** (removed; `collections.Delimit` is the
- *   replacement) and **`crypto.FNV32a` moved to the `hash` namespace** —
- *   both surface as "can't evaluate field" at render time, which is how a
- *   component using them breaks.
- * - **`strings.Count` is `(substr, s)`** (haystack second), `strings.Diff`
- *   takes four args, and `hmac` is `(hash, key, message)` — all verified
- *   against the source.
- * - **`countrunes` excludes whitespace** and **`math.Div` on ints truncates**
- *   (10/4 → 2) — easy-to-miss behaviors worth pinning.
- * - Time inputs are date-only or explicit-UTC so results don't depend on the
- *   renderer's timezone (= UTC in wasm, local on native binaries).
+ * template helpers, rendered through the real WASM renderer against the
+ * builtins-probe partial. Ground truth was captured with the native hugo
+ * v0.164.0 binary (the same version the renderer bundles).
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

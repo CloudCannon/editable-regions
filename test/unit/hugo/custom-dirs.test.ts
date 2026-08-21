@@ -1,19 +1,10 @@
 /**
- * Bundle-path tests for sites that configure custom directories. The fixture
- * (test/unit/_fixtures/hugo-custom-dirs) moves layoutDir to "templates",
- * dataDir to "custom-data", and contentDir to "notes" — like a real site
- * with non-default layout. Templates are snapshotted at their physical paths
- * and the site's hugo.toml is captured at build time, so:
- *
- * - partials, render hooks under _default/_markup, and shortcodes are
- *   snapshotted at their relocated physical paths (templates/...);
- * - kind layouts like templates/_default/index.html are NOT snapshotted (they
- *   would shadow the renderer's dispatch layout);
- * - the renderer loads the snapshotted hugo.toml natively, so contentDir=notes
- *   and dataDir=custom-data resolve and the relocated collections/datasets
- *   land where Hugo reads them;
- * - components, shortcodes, and render hooks render from the relocated tree
- *   through the real WASM renderer.
+ * Bundle-path tests for sites with custom directories: the fixture moves
+ * layoutDir to "templates", dataDir to "custom-data", and contentDir to
+ * "notes". Relocated partials, shortcodes, and render hooks are snapshotted at
+ * their physical paths (kind layouts are omitted so the renderer's dispatch
+ * layout isn't shadowed), and the renderer loads the captured hugo.toml
+ * natively so those dirs resolve.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

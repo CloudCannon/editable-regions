@@ -35,10 +35,8 @@ export function enhanceHugoError(message, componentKey) {
 }
 
 /**
- * Error for a component whose partial isn't in the editor's template bundle.
- * Raised by the runtime when the dispatch layout's templates.Exists check
- * (rendered as a missing-partial marker) reports that the name doesn't
- * resolve.
+ * Error for a component whose partial isn't in the editor's template bundle,
+ * raised when the dispatch layout's templates.Exists check fails.
  * @param {string} componentKey
  * @returns {Error}
  */

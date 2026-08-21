@@ -1,14 +1,10 @@
 /**
  * Shared harness for the direct tests of the Hugo renderer WASM: boots the
- * real Go WASM in Node (no browser bundle, no Hugo build involved), holds one
- * Hugo site for the whole caller's test file, and exposes the renderer's JS
- * surface. The renderer must be built first — `npm run build:hugo`
- * (integrations/hugo/renderer/build.sh). The boot throws loudly if the WASM
- * isn't there rather than skipping, so an unbootable renderer can't pass
- * quietly.
- *
- * State is sequential: the renderer holds one Hugo site, and later cases
- * build on earlier ones, so ordering matters within a file.
+ * real Go WASM in Node (no browser bundle, no Hugo build involved) and exposes
+ * the renderer's JS surface. The renderer must be built first
+ * (`npm run build:hugo`); the boot throws loudly rather than skipping if the
+ * WASM isn't there. State is sequential — later cases build on earlier ones —
+ * so ordering matters within a file.
  */
 
 import fs from "node:fs";
@@ -83,9 +79,9 @@ export async function bootRenderer(): Promise<void> {
 }
 
 /**
- * Writes a site snapshot (cc-editor.json, partials, data files, optionally
- * mirrored site config) into the renderer's in-memory filesystem and boots
- * the editor site against it.
+ * Writes a site snapshot (config files, partials, data files, content stubs)
+ * into the renderer's in-memory filesystem and boots the editor site against
+ * it.
  */
 export function initEditorSite(files: Record<string, string>): void {
 	renderer().writeHugoFiles(JSON.stringify(files));

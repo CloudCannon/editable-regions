@@ -1,9 +1,7 @@
 /**
  * Bundle-path tests for the home-page fallback: when the CloudCannon API
- * reports no current page at boot, the session target is the home page —
- * the editor site's always-on anchor (see home-page fallback in the handoff).
- * The home stub carries the site's real home front matter plus
- * build.render: always, so it renders under the cascade with real data.
+ * reports no current page at boot, the session target is the home page — the
+ * editor site's always-on anchor — and its rendering is pinned here.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
