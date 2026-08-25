@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,7 +17,6 @@ import (
 	"syscall/js"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/goccy/go-yaml"
 	"github.com/gohugoio/hugo/config"
 	"github.com/gohugoio/hugo/config/allconfig"
 	"github.com/gohugoio/hugo/deps"
@@ -311,31 +309,6 @@ func dumpResolvedConfig(this js.Value, args []js.Value) (result interface{}) {
 	return js.ValueOf(out)
 }
 
-// JSON numbers decode to float64, but whole numbers should stay ints so
-// printf "%d" works and large ids don't render in scientific notation; this
-// recursively converts integral float64s to int64 before the props are written
-// as YAML front matter. Values beyond the int64 range stay floats.
-func integralizeNumbers(v interface{}) interface{} {
-	switch n := v.(type) {
-	case float64:
-		if n == math.Trunc(n) && n >= math.MinInt64 && n <= math.MaxInt64 {
-			return int64(n)
-		}
-		return n
-	case map[string]interface{}:
-		for k, vv := range n {
-			n[k] = integralizeNumbers(vv)
-		}
-		return n
-	case []interface{}:
-		for i, vv := range n {
-			n[i] = integralizeNumbers(vv)
-		}
-		return n
-	}
-	return v
-}
-
 func errorValue(format string, args ...interface{}) js.Value {
 	return js.ValueOf(map[string]interface{}{
 		"error": fmt.Sprintf(format, args...),
@@ -526,18 +499,18 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 	// The dispatch page carries the render request; every opted-in page depends
 	// on it, so rewriting it makes the edit target stale and re-rendered. It's
 	// headless (never appears in site.Pages or emits output) so real pages'
-	// front matter stays pristine. Its front matter is YAML (not JSON) so props
-	// keep their types: JSON would decode whole numbers to floats, breaking
-	// printf "%d" and large-id rendering; goccy/go-yaml is Hugo's own decoder.
-	frontMatter, err := yaml.Marshal(map[string]interface{}{
+	// front matter stays pristine. Its front matter is JSON inside `---` fences:
+	// Hugo keys the format off the leading `-`, so goccy decodes it and whole
+	// numbers keep their integer type.
+	frontMatter, err := json.Marshal(map[string]interface{}{
 		"headless":   true,
 		"cc_partial": partialName,
-		"cc_props":   integralizeNumbers(props),
+		"cc_props":   props,
 	})
 	if err != nil {
 		return errorValue("failed to encode request for %s: %s", req.Partial, err)
 	}
-	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\n"+string(frontMatter)+"---\n")
+	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\n"+string(frontMatter)+"\n---\n")
 
 	if err := builder.build(); err != nil {
 		return errorValue("%s", err)

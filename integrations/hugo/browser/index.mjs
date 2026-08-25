@@ -11,7 +11,6 @@ import {
 } from "../../../helpers/cloudcannon.mjs";
 import { enhanceHugoError, missingComponentError } from "./errors.mjs";
 import { group, groupEnd, log, setVerbose, warn } from "./logger.mjs";
-import { serializeData, serializeFrontMatter } from "./serialize-yaml.mjs";
 
 /**
  * Memfs key for a mirrored file: the API's site-root-relative source path
@@ -269,7 +268,7 @@ async function loadEditorCollectionData() {
 					continue;
 				}
 				if (data === undefined || data === null) continue;
-				files[rootRelativePath(file.path)] = serializeDataset(data, file.path);
+				files[datasetTargetPath(file.path)] = serializeDataset(data);
 			}
 			editorDatasets.push(dataset);
 		}
@@ -395,7 +394,7 @@ async function updateDatasetFile(apiPath) {
 	if (data === undefined || data === null) return;
 	/** @type {any} */ (globalThis).writeHugoFiles(
 		JSON.stringify({
-			[rootRelativePath(apiPath)]: serializeDataset(data, apiPath),
+			[datasetTargetPath(apiPath)]: serializeDataset(data),
 		}),
 	);
 	rebuildEditorSite();
@@ -430,25 +429,51 @@ async function removeContentStub(apiPath) {
  */
 async function removeDatasetFile(apiPath) {
 	/** @type {any} */ (globalThis).removeHugoFiles?.(
-		JSON.stringify([rootRelativePath(apiPath)]),
+		JSON.stringify([datasetTargetPath(apiPath)]),
 	);
 	rebuildEditorSite();
 }
 
 /**
- * Serializes a dataset file's contents for the data dir by extension. JSON
- * stays JSON (matching Hugo's native decoding); everything else falls back to
- * YAML, since the API only exposes parsed data.
+ * Maps a dataset's source path to its mirrored data-dir path. `.yaml`/`.yml`/`.json`
+ * keep their extension (Hugo natively decodes all three); anything else is
+ * rewritten to `.json` so it lands in a decoder Hugo understands instead of
+ * the old "serialize as YAML" fallback.
  *
- * @param {Record<string, any> | any[]} data
  * @param {string} apiPath
  * @returns {string}
  */
-function serializeDataset(data, apiPath) {
-	if (String(apiPath).endsWith(".json")) {
-		return `${JSON.stringify(data, null, 2)}\n`;
+function datasetTargetPath(apiPath) {
+	const path = rootRelativePath(apiPath);
+	if (/\.(ya?ml|json)$/i.test(path)) return path;
+	return `${path.replace(/\.[^./]*$/, "")}.json`;
+}
+
+/**
+ * Serializes a dataset file's contents as JSON. The same JSON round-trips
+ * through Hugo's native JSON decoder (`.json`) and goccy's flow-YAML parsing
+ * (`.yaml`/`.yml`), so one serializer covers every data-file extension.
+ *
+ * @param {Record<string, any> | any[]} data
+ * @returns {string}
+ */
+function serializeDataset(data) {
+	return `${JSON.stringify(data, null, 2)}\n`;
+}
+
+/**
+ * Serializes front matter as a JSON object inside `---` fences. Hugo keys the
+ * front-matter format off the leading `-` (YAML), so the JSON is decoded by
+ * goccy and whole numbers keep their integer type.
+ *
+ * @param {Record<string, any>} data
+ * @returns {string}
+ */
+function serializeFrontMatter(data) {
+	if (!data || typeof data !== "object" || Array.isArray(data)) {
+		throw new TypeError("front matter must be a plain object");
 	}
-	return serializeData(data);
+	return `---\n${JSON.stringify(data, null, 2)}\n---\n`;
 }
 
 /**

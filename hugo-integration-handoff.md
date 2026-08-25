@@ -303,10 +303,12 @@ memfs) lazily once the CloudCannon API appears, then:
   `renderHugoPartial` renders the exact override file regardless of Hugo's
   name-based partial lookup order (project shadows theme). Extension-tolerant
   key matching mirrors the existing partial lookup.
-- **Props typing**: props travel as goccy YAML front matter on the dispatch
-  page (not JSON — JSON decodes every number as float64); `integralizeNumbers`
-  canonicalizes integral floats to ints; date-looking strings stay quoted.
-  `printf "%d"` works on whole numbers and large ids.
+- **Props typing**: props travel as JSON inside `---` fences on the dispatch
+  page. Hugo keys the front-matter format off the leading `-`, so the JSON is
+  decoded by goccy — whole numbers stay integers (no `integralizeNumbers`
+  step), date-looking strings stay quoted, and `printf "%d"` works on whole
+  numbers and large ids. Bare (unfenced) JSON would decode every number as
+  float64; fencing is what preserves the types.
 
 ## Open items (in suggested order)
 

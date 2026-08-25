@@ -218,7 +218,8 @@ script, not a 16MB download.
   and nested keys included), numbers render as integers (`printf "%d"`
   works; large ids don't flip to scientific notation) or floats, and
   date-looking strings stay strings. The renderer round-trips props
-  through YAML front matter to preserve this.
+  through JSON inside `---` fences (Hugo's YAML parser decodes it and
+  keeps whole numbers as integers) to preserve this.
 - Props are delivered by the shared core from the CloudCannon API
   (`data-prop` source paths), so front-matter edits render live.
 
