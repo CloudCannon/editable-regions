@@ -1,14 +1,3 @@
- {{- /*
-  Captures one dependency's (a theme or vendored module) template files —
-  verbatim at their physical paths — plus its root config files (hugo.* /
-  config.*), so Hugo's editor build can resolve the module the way the real
-  site does. Mounts (module.mounts) map source dirs to template locations;
-  without mounts the default layouts/partials + layouts/shortcodes +
-  layouts/_default/_markup trees are captured.
-
-  Expects: (dict "dir" "<physical dependency root>" "exts" (slice ".html" ...)
-                  "ignore" (slice of directory names to skip)).
-*/ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
 {{- $ignore := .ignore | default slice -}}

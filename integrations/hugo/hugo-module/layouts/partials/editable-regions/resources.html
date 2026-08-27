@@ -11,7 +11,6 @@
   ) -}}
 {{- end -}}
 
-  {{- /* Template snapshot: explicit template_dirs replace the recursive project walk (and its theme/vendored-module discovery) entirely — each listed dir is walked verbatim and keyed at its given paths. Otherwise the usual discovery captures partials, render hooks, and shortcodes from the project, theme, and vendored modules. */ -}}
 {{- $templateFiles := dict -}}
 {{- if $cfg.template_dirs -}}
   {{- range $td := $cfg.template_dirs -}}
@@ -21,25 +20,22 @@
   {{- $deps := partial "editable-regions/load-deps.html" -}}
   {{- $templateFiles = partial "editable-regions/find-template-files.html" (dict "deps" $deps "exts" $templateExts "ignore" $ignoreDirs) -}}
 
-    {{- /* Vendored modules resolve from _vendor/ only when modules.txt (the vendor manifest) exists, so mirror it verbatim. */ -}}
   {{- if os.FileExists "_vendor/modules.txt" -}}
     {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
   {{- end -}}
 {{- end -}}
 
-  {{- /* Site config captured at build time so the editor loads the real config (theme, module imports, params, menus, …) through Hugo's own resolution. Explicit config_paths skip discovery and capture only the listed files, verbatim. */ -}}
 {{- $configFiles := dict -}}
 {{- if $cfg.config_paths -}}
-  {{- range $cp := $cfg.config_paths -}}
-    {{- if os.FileExists $cp -}}
-      {{- $configFiles = merge $configFiles (dict $cp (readFile $cp)) -}}
+  {{- range $configPath := $cfg.config_paths -}}
+  {{- if os.FileExists $configPath -}}
+  {{- $configFiles = merge $configFiles (dict $configPath (readFile $configPath)) -}}
     {{- end -}}
   {{- end -}}
 {{- else -}}
   {{- $configFiles = partial "editable-regions/find-config-files.html" -}}
 {{- end -}}
 
-  {{- /* Template overrides: name -> physical source path, mirrored verbatim (keyed at that path) so the renderer has the exact file; it maps the name to a reserved partial at runtime so the override renders regardless of lookup/collision order. */ -}}
 {{- if $overrides -}}
   {{- range $name, $overridePath := $overrides -}}
     {{- if os.FileExists $overridePath -}}

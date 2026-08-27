@@ -1,9 +1,3 @@
- {{- /*
-  Recursively walks a directory and returns every file whose extension matches
-  "exts", keyed by its physical (path-joined) path; callers merge the results.
-  Directories named in the optional "ignore" slice (their directory name, not
-  path) are skipped.
-*/ -}}
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
 {{- $ignore := .ignore | default slice -}}

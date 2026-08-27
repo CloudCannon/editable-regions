@@ -1,9 +1,2 @@
-{{- /*
-  Include this partial once in <head> ({{ partial "editable-regions" . }}). It
-  emits one fingerprinted <script> (SRI + defer) carrying the site snapshot and
-  runtime; the runtime only fetches the Hugo WASM once the CloudCannon editor
-  announces itself, so it is safe on production pages. Call
-  editable-regions/resources.html directly if you need control over the tag.
-*/ -}}
 {{- $bundle := partial "editable-regions/resources.html" . -}}
 <script src="{{ $bundle.RelPermalink }}" integrity="{{ $bundle.Data.Integrity }}" crossorigin="anonymous" defer></script>

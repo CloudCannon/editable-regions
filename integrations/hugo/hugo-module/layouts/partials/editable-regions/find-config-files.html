@@ -1,13 +1,3 @@
- {{- /*
-  Captures the site's own config files for the editor build: the root config
-  (config.toml / hugo.toml / …) and everything under a config/ directory.
-  The root is enumerated via os.ReadDir, which reads the real project dir — NOT
-  Hugo's composite filesystem — so a dependency's config never appears here;
-  os.FileExists/os.ReadFile use the composite FS and would surface the module's
-  own hugo.toml (in the module cache/repo) at the root, shadowing the site's
-  config.toml. Dependency configs are captured separately, at their physical
-  paths, by find-dep-template-files.html.
-*/ -}}
 {{- $files := dict -}}
 {{- $rootConfigLocations := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
 
@@ -17,7 +7,6 @@
   {{- end -}}
 {{- end -}}
 
-  {{- /* config/ (config/_default + config/<env>) is captured at physical paths so Hugo's own config-dir merge applies in the editor. */ -}}
 {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict
     "dir" "config"
     "exts" (slice "toml" "yaml" "yml" "json")

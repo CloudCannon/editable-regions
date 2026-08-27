@@ -1,8 +1,3 @@
-// A minimal Hugo renderer compiled to WASM for CloudCannon editable regions:
-// it holds a hugolib.HugoSites over an in-memory filesystem and re-renders a
-// single page per request. Exposed on the JS global scope: writeHugoFiles,
-// removeHugoFiles, readHugoFiles, initHugoEditorSite, rebuildHugoEditorSite,
-// renderHugoPartial.
 package main
 
 import (
@@ -25,13 +20,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-// The layout every rendered page goes through. The render request rides in
-// the front matter of a dedicated headless page (contentDir/cc-dispatch), so
-// real pages' front matter stays pristine; headless pages are invisible to
-// site.Pages but resolvable via site.GetPage, and render no output of their
-// own. The partial is validated with templates.Exists because errorf can't
-// carry a message back through the build (Hugo only reports "logged N
-// errors").
 const editorLayout = `{{- $dispatch := site.GetPage "/cc-dispatch/" -}}
 {{- if $dispatch -}}
   {{- if $dispatch.Params.cc_partial -}}
@@ -54,19 +42,9 @@ type editorSiteBuilder struct {
 	Sites        *hugolib.HugoSites
 	changedFiles []string
 	removedFiles []string
-
-	// TemplateOverrides maps a normalized partial name to the reserved partial
-	// name ("__cc_overrides/N.html") that renders the override source verbatim,
-	// sidestepping Hugo's name-based partial lookup (project shadows theme).
 	TemplateOverrides map[string]string
 }
 
-// editorFlags returns the renderer-owned config overrides applied on top of
-// the site's own config (which loadConfig reads through Hugo's default-name
-// search). disableKinds trims every rebuild to content pages only; the
-// cascade suppresses per-page output so pages stay in the store while only
-// the home page (and anything opted into publishing via front matter) emits
-// HTML.
 func editorFlags() config.Provider {
 	flags := config.New()
 	flags.Set("disableKinds", []string{"taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"})
@@ -145,8 +123,6 @@ func (builder *editorSiteBuilder) build() error {
 
 	err := builder.Sites.Build(hugolib.BuildCfg{NoBuildLock: true}, builder.changeEvents()...)
 
-	// Each build consumes the pending change events; replaying stale ones on
-	// later builds would force a full "template changed" re-render.
 	builder.changedFiles = nil
 	builder.removedFiles = nil
 
@@ -208,20 +184,6 @@ func (builder *editorSiteBuilder) changeEvents() []fsnotify.Event {
 	return events
 }
 
-// normalizePartialName strips a trailing template extension so override keys
-// match the render request regardless of ".html"/".htm" (mirroring Hugo's
-// extension-tolerant partial lookup).
-func normalizePartialName(name string) string {
-	name = strings.TrimSuffix(name, ".html")
-	name = strings.TrimSuffix(name, ".htm")
-	return name
-}
-
-// installTemplateOverrides mirrors each override source into a reserved partial
-// under the resolved layout dir's partials tree and records the normalized name
-// -> reserved partial name mapping. Rendering an override resolves to its
-// reserved name, so the exact override file renders regardless of Hugo's normal
-// partial lookup order (project shadows theme) or name collisions.
 func (builder *editorSiteBuilder) installTemplateOverrides(overrides map[string]string) {
 	builder.TemplateOverrides = make(map[string]string, len(overrides))
 	if len(overrides) == 0 {
@@ -242,14 +204,13 @@ func (builder *editorSiteBuilder) installTemplateOverrides(overrides map[string]
 		src := filepath.Clean(overrides[name])
 		contents, err := builder.readFile(src)
 		if err != nil {
-			// A missing source is a config mistake; skip it rather than fail boot.
 			fmt.Println(fmt.Sprintf("template override %q: source %q not found: %s", name, src, err))
 			continue
 		}
 		reserved := fmt.Sprintf("__cc_overrides/%d.html", i)
 		i++
 		builder.writeFile(filepath.Join(basePartialDir, reserved), contents)
-		builder.TemplateOverrides[normalizePartialName(name)] = reserved
+		builder.TemplateOverrides[name] = reserved
 	}
 }
 
@@ -267,46 +228,7 @@ func main() {
 	js.Global().Set("initHugoEditorSite", js.FuncOf(initHugoEditorSite))
 	js.Global().Set("rebuildHugoEditorSite", js.FuncOf(rebuildHugoEditorSite))
 	js.Global().Set("renderHugoPartial", js.FuncOf(renderHugoPartial))
-	js.Global().Set("dumpResolvedConfig", js.FuncOf(dumpResolvedConfig))
 	<-c
-}
-
-// dumpResolvedConfig returns the editor's resolved config (dirs, theme, and
-// resolved modules with their physical dirs) as a JS object, so a booted test
-// can inspect what the renderer actually loaded. Debug helper; inert until
-// called via globalThis.dumpResolvedConfig().
-func dumpResolvedConfig(this js.Value, args []js.Value) (result interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			result = js.ValueOf(map[string]interface{}{"panic": fmt.Sprintf("%v", r)})
-		}
-	}()
-	if builder.Cfg == nil || builder.Cfg.Base == nil {
-		return js.ValueOf(map[string]interface{}{"error": "config not loaded"})
-	}
-	c := builder.Cfg.Base
-	out := map[string]interface{}{
-		"baseURL":     c.BaseURL,
-		"title":       c.Title,
-		"theme":       strings.Join(c.Theme, ","),
-		"contentDir":  c.ContentDir,
-		"dataDir":     c.DataDir,
-		"layoutDir":   c.LayoutDir,
-		"staticDir":   strings.Join(c.StaticDir, ","),
-		"themesDir":   c.ThemesDir,
-		"publishDir":  c.PublishDir,
-		"resourceDir": c.ResourceDir,
-	}
-	var mods []interface{}
-	for _, m := range builder.Cfg.Modules {
-		mods = append(mods, map[string]interface{}{
-			"path":   m.Path(),
-			"dir":    m.Dir(),
-			"vendor": m.Vendor(),
-		})
-	}
-	out["modules"] = mods
-	return js.ValueOf(out)
 }
 
 func errorValue(format string, args ...interface{}) js.Value {
@@ -380,8 +302,6 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	// Load config first so the dispatch layout and stub can be written under
-	// the resolved layoutDir/contentDir and exist before the site is created.
 	if err := builder.loadConfig(); err != nil {
 		return errorValue("failed to load config: %s", err)
 	}
@@ -389,9 +309,6 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	layoutDir := builder.Cfg.Base.LayoutDir
 	contentDir := builder.Cfg.Base.ContentDir
 	builder.writeFile(filepath.Join(layoutDir, "all.html"), editorLayout)
-
-	// The dispatch page must exist before the first build: every opted-in
-	// page's layout depends on it via site.GetPage, and each render rewrites it.
 	builder.writeFile(filepath.Join(contentDir, "cc-dispatch/index.md"), "---\nheadless: true\ncc_partial: \"\"\n---\n")
 
 	// Only plant a placeholder home page when none arrived, so loader-provided
@@ -401,9 +318,6 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 		builder.writeFile(homeStub, "---\ncc_initialized: true\n---\n")
 	}
 
-	// Override templates are mirrored after config resolves the layout dir (and
-	// before the site is created), so their reserved partials are registered for
-	// the first build.
 	builder.installTemplateOverrides(overrides)
 
 	if err := builder.createSites(); err != nil {
@@ -416,8 +330,7 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 }
 
 // rebuildHugoEditorSite runs an incremental build so the browser's site-wide
-// content stubs are re-read before the next render, keeping the dispatch
-// write alone in its own build (the single-content-write-per-build invariant).
+// content stubs are re-read before the next render.
 func rebuildHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	if builder.Sites == nil {
 		return errorValue("editor site not initialized (call initHugoEditorSite first)")
@@ -487,8 +400,6 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 		}
 	}
 
-	// A template override (name -> reserved partial) replaces the natural
-	// partial lookup for that name, rendering the exact override source.
 	partialName := req.Partial
 	if reserved, ok := builder.TemplateOverrides[normalizePartialName(req.Partial)]; ok {
 		partialName = reserved
@@ -496,12 +407,6 @@ func renderHugoPartial(this js.Value, args []js.Value) interface{} {
 
 	contentDir := builder.Cfg.Base.ContentDir
 
-	// The dispatch page carries the render request; every opted-in page depends
-	// on it, so rewriting it makes the edit target stale and re-rendered. It's
-	// headless (never appears in site.Pages or emits output) so real pages'
-	// front matter stays pristine. Its front matter is JSON inside `---` fences:
-	// Hugo keys the format off the leading `-`, so goccy decodes it and whole
-	// numbers keep their integer type.
 	frontMatter, err := json.Marshal(map[string]interface{}{
 		"headless":   true,
 		"cc_partial": partialName,

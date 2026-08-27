@@ -1,18 +1,3 @@
-Resolves the renderer WASM URL the bundle meta carries, in order:
-(1) explicit params.editable_regions.wasm_url (handled by resources.html, which
-only calls here when unset), (2) _version override (e.g. themes-dir consumers
-or private mirrors), (3) the site's own resolved version of this module from
-hugo.Deps — empty under a local replace or a themes/ copy, so falls through to
-(4) the local cc-editable-regions/hugo_renderer.wasm.gz (dev checkouts).
-For (2)/(3) the release asset is fetched remotely at build time, fingerprinted,
-and published under public/_cloudcannon/ so the runtime loads it same-origin;
-an explicit "0.0.0-dev" selects the local asset.
-
-Called with partialCached, so a base layout emitting the bundle once per page
-only publishes the remote asset once per build. A partial may only `return` a
-value once, so branches assign into $result first.
-
-Expects (dict "override_version" "base_url").
 {{- $version := .override_version -}}
 {{- if not $version -}}
   {{- range hugo.Deps -}}
@@ -21,7 +6,7 @@ Expects (dict "override_version" "base_url").
     {{- end -}}
   {{- end -}}
 {{- end -}}
-{{- /* Release tags are "vX.Y.Z"; Go reports the leading v and (for v2+ root modules) "+incompatible". Note strings.TrimSuffix/TrimPrefix take (affix, s). */ -}}
+
 {{- $version = strings.TrimSuffix "+incompatible" $version -}}
 {{- $version = strings.TrimPrefix "v" $version -}}
 {{- $result := "" -}}

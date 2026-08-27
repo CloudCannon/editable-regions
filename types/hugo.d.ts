@@ -14,21 +14,10 @@ declare module "@cloudcannon/editable-regions/hugo/browser" {
 	 * immediately; the WASM renderer loads once the CloudCannon Visual Editor
 	 * API appears.
 	 */
-	export function initHugoLiveEditing(
-		options?: Partial<HugoRuntimeData> & { wasmUrl?: string },
-	): void;
+	export function initHugoLiveEditing(): void;
 
 	/** Starts (or returns the in-flight start of) the WASM renderer. */
 	export function ensureEngine(): Promise<void>;
-
-	/**
-	 * Pins a component renderer under `key`, optionally to an explicit
-	 * partial. Takes precedence over the on-demand proxy resolution.
-	 */
-	export function registerHugoComponent(
-		key: string,
-		partialName?: string,
-	): void;
 
 	/**
 	 * Wraps `window.cc_components` in a Proxy manufacturing a renderer for

@@ -1,15 +1,3 @@
- {{- /*
-  Walks the physical project tree, returning a flat "physical path -> contents"
-  map of template files in one recursive pass. Prunes the "ignore" directory
-  names (default .git, node_modules, public, resources); a directory ending in a
-  dependency path is handed to find-dep-template-files.html, while every other
-  directory contributes files under partials/, shortcodes/, and
-  _default/_markup/ at their physical paths.
-
-  Expects: (dict "deps" (slice of dependency .Path) "exts" (slice ".html" ...)
-                  "ignore" (slice of directory names to skip)).
-  Recursion carries (dict "dir" "..."); the caller passes only the above.
-*/ -}}
 {{- $files := dict -}}
 {{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
 
@@ -40,9 +28,9 @@
     {{- end -}}
 
     {{- range $subDir := $subDirs -}}
-      {{- $sp := path.Join $path $subDir -}}
-      {{- if os.FileExists $sp -}}
-        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $sp "exts" $exts "ignore" $ignore)) -}}
+      {{- $subPath := path.Join $path $subDir -}}
+      {{- if os.FileExists $subPath -}}
+        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $subPath "exts" $exts "ignore" $ignore)) -}}
       {{- end -}}
     {{- end -}}
 
