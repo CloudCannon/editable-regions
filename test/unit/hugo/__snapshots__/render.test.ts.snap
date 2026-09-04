@@ -1,0 +1,16 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`defaults apply when the renderer is called without props 1`] = `
+"<div><div class="with-props"><h3></h3><span class="count">0</span></div>
+</div>"
+`;
+
+exports[`props passed to the renderer reach the partial and match the snapshot 1`] = `
+"<div><div class="with-props"><h3>Hello</h3><span class="count">7</span><em class="tag">one</em><em class="tag">two</em></div>
+</div>"
+`;
+
+exports[`the rendered DOM matches the snapshot for a static component 1`] = `
+"<div><div class="static"><p>hello from hugo</p></div>
+</div>"
+`;

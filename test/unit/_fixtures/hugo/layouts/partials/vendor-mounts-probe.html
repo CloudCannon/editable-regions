@@ -1,0 +1,3 @@
+<p class="vendor-data">{{ with site.Data.greeting }}{{ .word }}{{ else }}data-missing{{ end }}</p>
+<p class="vendor-i18n">{{ i18n "vendorI18nProbe" | default "i18n-missing" }}</p>
+<p class="theme-data">{{ with site.Data.themeword }}{{ .word }}{{ else }}data-missing{{ end }}</p>

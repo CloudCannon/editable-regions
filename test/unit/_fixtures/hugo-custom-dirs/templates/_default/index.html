@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>{{ .Title }}</title>
+		{{ partial "editable-regions" . }}
+	</head>
+	<body>
+		<h1>{{ .Title }}</h1>
+		<div data-editable="component" data-component="custom-static.html" data-prop="static">
+			{{- partial "custom-static.html" .Params.static -}}
+		</div>
+	</body>
+</html>

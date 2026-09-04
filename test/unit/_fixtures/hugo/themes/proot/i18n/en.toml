@@ -1,0 +1,3 @@
+# Theme-level translations; the project's i18n files shadow these per key.
+[ccI18nThemeProbe]
+other = "Theme translation"

@@ -1,0 +1,3 @@
+# Scenario: a custom ignore_directories list skips matching directory names.
+[params.editable_regions]
+  ignore_directories = ["skipme"]

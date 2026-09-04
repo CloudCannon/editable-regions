@@ -1,0 +1,5 @@
+{{/* Globals probes for the browser-bundle unit tests (globals.test.ts): params via dotted access, nested maps, arrays, and site.Param. */}}
+<div>{{ site.Params.brand }}</div>
+<div>{{ site.Params.extra.region }}</div>
+<div>{{ delimit site.Params.tags "," }}</div>
+<div>{{ site.Param "brand" }}</div>

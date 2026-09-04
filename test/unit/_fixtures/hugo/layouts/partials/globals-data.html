@@ -1,0 +1,4 @@
+{{/* Globals probes for the browser-bundle unit tests (globals.test.ts): data files — yaml + json (hugo.Data is the non-deprecated accessor). */}}
+<div>{{ range hugo.Data.nav.links }}{{ .label }};{{ end }}</div>
+<div>{{ hugo.Data.social.twitter }}</div>
+<div>siteDataLen={{ site.Data.nav.links | len }}</div>

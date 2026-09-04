@@ -1,0 +1,2 @@
+{{- /* Child component that hands a single prop down to a grandchild partial. */ -}}
+<div class="slot-child">{{ partial "slot-grandchild.html" (dict "message" .childProps.message) }}</div>

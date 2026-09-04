@@ -1,0 +1,10 @@
+# Scenario: config_dirs replaces default config discovery (walking the dir
+# recursively for config files), and additional_paths / additional_dirs
+# capture extra files verbatim.
+
+[params.editable_regions]
+  config_dirs = ["extra-config"]
+  additional_paths = ["additional/notes.md"]
+
+[params.editable_regions.additional_dirs]
+  "additional/text" = ["txt"]

@@ -1,0 +1,3 @@
+# Scenario: an explicit config_paths list replaces config discovery entirely.
+[params.editable_regions]
+  config_paths = ["site-config.toml"]

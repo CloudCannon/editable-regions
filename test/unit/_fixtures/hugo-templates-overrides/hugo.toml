@@ -1,0 +1,19 @@
+# Unit-test fixture exercising templates_overrides: a map of key path ->
+# source path. The file contents at the source path is copied over the
+# template snapshot at the key path, so the editor renders the override
+# through Hugo's normal partial lookup instead of the naturally-discovered
+# partial.
+baseURL = "/"
+title = "Hugo Templates Overrides Fixture"
+languageCode = "en-AU"
+
+[module]
+  # Relative replacement targets resolve against themesDir
+  # (test/unit/_fixtures/hugo-templates-overrides/themes), not the project dir
+  # — hence five levels.
+  replacements = "github.com/CloudCannon/editable-regions -> ../../../../.."
+  [[module.imports]]
+    path = "github.com/CloudCannon/editable-regions"
+
+[params.editable_regions.templates_overrides]
+  "layouts/partials/card.html" = "overrides/card.html"

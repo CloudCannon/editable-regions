@@ -1,0 +1,10 @@
+{
+	"name": "hugo-config-options-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"build": "node build-all.mjs"
+	},
+	"dependencies": {}
+}

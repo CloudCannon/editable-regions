@@ -1,0 +1,2 @@
+{{- /* A richer props-driven component: markdown body, site params, arrays. */ -}}
+<div class="card"><h2>{{ .title }}</h2>{{ with .body }}<p class="body">{{ . | markdownify }}</p>{{ end }}<span class="brand">{{ site.Params.brand }}</span>{{ range .tags }}<em class="tag">{{ . }}</em>{{ end }}</div>

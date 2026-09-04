@@ -1,0 +1,6 @@
+# Site-level translations the editor's i18n capture must mirror.
+[ccI18nProbe]
+other = "Site translation"
+
+[ccI18nProbeArg]
+other = "Hello {{ .name }}"

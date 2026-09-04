@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>{{ .Title }}</title>
+		{{ partial "editable-regions" . }}
+	</head>
+	<body>
+		<h1>{{ .Title }}</h1>
+		<div data-editable="component" data-component="card.html" data-prop="card">
+			{{- partial "card.html" .Params.card -}}
+		</div>
+		{{ partial "nav.html" . }}
+	</body>
+</html>

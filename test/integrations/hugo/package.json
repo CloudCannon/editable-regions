@@ -1,0 +1,9 @@
+{
+	"name": "hugo-editable-regions-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"build": "npm --prefix ../../.. run build:hugo && rm -rf public resources && hugo --quiet"
+	}
+}

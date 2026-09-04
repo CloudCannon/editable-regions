@@ -1,0 +1,15 @@
+# Unit-test fixture for the Hugo editable-regions configuration options.
+# `build-all.mjs` rebuilds this site several times, merging a scenario file
+# over this base config via `--config=config.toml,<scenario>.toml`, so each
+# `params.editable_regions` combination can be asserted from its own bundle.
+baseURL = "/"
+title = "Hugo Config Options Fixture"
+languageCode = "en-AU"
+
+[module]
+  # Relative replacement targets resolve against themesDir
+  # (test/unit/_fixtures/hugo-config-options/themes), not the project dir —
+  # hence five levels.
+  replacements = "github.com/CloudCannon/editable-regions -> ../../../../.."
+  [[module.imports]]
+    path = "github.com/CloudCannon/editable-regions"
