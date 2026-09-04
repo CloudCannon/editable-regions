@@ -1,0 +1,8 @@
+{{- /* i18n files for the editor build: without these, i18n calls inside captured
+   partials fall back to their keys. A custom i18nDir is not rolled, like configDir. */ -}}
+{{- $files := dict -}}
+{{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict
+    "dir" "i18n"
+    "exts" (slice ".toml" ".yaml" ".yml" ".json")
+)) -}}
+{{- return $files -}}

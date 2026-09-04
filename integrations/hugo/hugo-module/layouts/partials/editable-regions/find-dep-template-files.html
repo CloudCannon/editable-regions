@@ -1,0 +1,91 @@
+{{- $dir := .dir -}}
+{{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
+
+{{- /* Config extensions double as the data/i18n file extensions. */ -}}
+{{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
+{{- /* The layout subtrees the editor can safely use: kind layouts and baseof
+   anywhere else under layouts/ would out-rank the renderer's dispatch layout
+   (all.html is the last-resort fallback, verified against _default/single.html),
+   so every walk below stays inside them however mounts are declared. */ -}}
+{{- $templateSubDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+
+{{- $files := dict -}}
+
+{{- /* Dep root config files, captured verbatim at their physical paths so the
+   renderer's module resolution sees them. */ -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $files = merge $files (dict $cfgPath (readFile $cfgPath)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* The dep's own config, parsed for module.mounts: hugo.* first, then
+   config.* (Hugo's root precedence). */ -}}
+{{- $conf := dict -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}}
+    {{- $conf = os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $mounts := slice -}}
+{{- with $conf.module -}}
+  {{- with .mounts -}}
+    {{- $mounts = . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* Walks to run, handed straight to find-files-with-extension (which
+   no-ops on missing dirs). */ -}}
+{{- $walks := slice -}}
+
+{{- if eq (len $mounts) 0 -}}
+  {{- /* No mounts: Hugo's implicit module trees. */ -}}
+  {{- range $subDir := $templateSubDirs -}}
+    {{- $walks = $walks | append (dict "dir" (path.Join $dir "layouts" $subDir) "exts" $exts "ignore" $ignore) -}}
+  {{- end -}}
+  {{- range $tree := slice "i18n" "data" -}}
+    {{- $walks = $walks | append (dict "dir" (path.Join $dir $tree) "exts" $configExts) -}}
+  {{- end -}}
+{{- else -}}
+  {{- range $mount := $mounts -}}
+    {{- $source := $mount.source | default "" -}}
+    {{- if eq $source "." -}}
+      {{- $source = "" -}}
+    {{- end -}}
+    {{- $target := $mount.target | default "" -}}
+    {{- $src := path.Join $dir $source -}}
+
+    {{- if eq $target "layouts" -}}
+      {{- /* The source maps onto layouts/, so only its safe subtrees. */ -}}
+      {{- range $subDir := $templateSubDirs -}}
+        {{- $walks = $walks | append (dict "dir" (path.Join $src $subDir) "exts" $exts "ignore" $ignore) -}}
+      {{- end -}}
+    {{- else if strings.HasPrefix $target "layouts/" -}}
+      {{- /* A subtree target (partials/shortcodes/_markup) maps the source wholesale —
+         its root is already inside a safe subtree. */ -}}
+      {{- $subTarget := strings.TrimPrefix "layouts/" $target -}}
+      {{- range $subDir := $templateSubDirs -}}
+        {{- if strings.HasPrefix $subTarget $subDir -}}
+          {{- $walks = $walks | append (dict "dir" $src "exts" $exts "ignore" $ignore) -}}
+          {{- break -}}
+        {{- end -}}
+      {{- end -}}
+    {{- else if or (eq $target "i18n") (strings.HasPrefix $target "i18n/") (eq $target "data") (strings.HasPrefix $target "data/") -}}
+      {{- $walks = $walks | append (dict "dir" $src "exts" $configExts) -}}
+    {{- end -}}
+    {{- /* Other targets (content/static/assets/archetypes) stay uncaptured:
+       content comes from the CloudCannon mirror, the rest is unused by the editor. */ -}}
+  {{- end -}}
+{{- end -}}
+
+{{- range $walk := $walks -}}
+  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" $walk) -}}
+{{- end -}}
+
+{{- return $files -}}

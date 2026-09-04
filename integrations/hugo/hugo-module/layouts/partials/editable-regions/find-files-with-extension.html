@@ -1,0 +1,23 @@
+{{- $dir := .dir -}}
+{{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
+{{- /* Extensions are dotted (the form path.Ext produces) and compared
+   verbatim; the configurable entry point normalizes to a leading dot first. */ -}}
+{{- $files := dict -}}
+{{- if os.FileExists $dir -}}
+  {{- range $entry := readDir $dir -}}
+    {{- $path := path.Join $dir $entry.Name -}}
+    {{- if $entry.IsDir -}}
+      {{- if in $ignore $entry.Name -}}
+        {{ continue }}
+      {{- end -}}
+      {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
+    {{- else -}}
+      {{- if in $exts (path.Ext $entry.Name) -}}
+        {{- $files = merge $files (dict $path (readFile $path)) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- return $files -}}
+

@@ -1,0 +1,41 @@
+{{- $files := dict -}}
+{{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+
+{{- $deps := .deps -}}
+{{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
+{{- $dir := .dir | default "." -}}
+
+{{- if os.FileExists $dir -}}
+  {{- range $entry := readDir $dir -}}
+    {{- if not $entry.IsDir -}}
+      {{ continue }}
+    {{- end -}}
+
+    {{- $path := path.Join $dir $entry.Name -}}
+
+    {{- $isDep := false -}}
+    {{- range $dep := $deps -}}
+      {{- if strings.HasSuffix $path (printf "/%s" $dep) -}}
+        {{- $files = merge $files (partial "editable-regions/find-dep-template-files.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
+        {{- $isDep = true -}}
+        {{- break -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- if or $isDep (in $ignore $entry.Name) -}}
+      {{ continue }}
+    {{- end -}}
+
+    {{- range $subDir := $subDirs -}}
+      {{- $subPath := path.Join $path $subDir -}}
+      {{- if os.FileExists $subPath -}}
+        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $subPath "exts" $exts "ignore" $ignore)) -}}
+      {{- end -}}
+    {{- end -}}
+
+    {{- $files = merge $files (partial "editable-regions/find-template-files.html" (dict "dir" $path "deps" $deps "exts" $exts "ignore" $ignore)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return $files -}}

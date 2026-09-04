@@ -1,0 +1,10 @@
+{{- /* Normalizes extension candidates to the dotted form path.Ext produces —
+   bare entries gain a leading dot, dotted entries pass through verbatim, no case munging. */ -}}
+{{- $dotted := slice -}}
+{{- range $ext := . -}}
+  {{- if not (strings.HasPrefix $ext ".") -}}
+    {{- $ext = printf ".%s" $ext -}}
+  {{- end -}}
+  {{- $dotted = $dotted | append $ext -}}
+{{- end -}}
+{{- return $dotted -}}

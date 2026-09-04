@@ -1,0 +1,87 @@
+{{- $cfg := site.Params.editable_regions | default dict -}}
+{{- /* path.Ext matching is verbatim, so configured extension lists are normalized
+   to the dotted form where they are read. */ -}}
+{{- $templateExts := partial "editable-regions/normalize-extensions.html"
+  ($cfg.template_extensions | default (slice ".html" ".htm")) -}}
+{{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
+{{- $ignoreDirs := $cfg.ignore_directories | default (slice ".git" "node_modules" "public" "resources") -}}
+{{- $overrides := $cfg.templates_overrides | default dict -}}
+
+{{- $wasmUrl := $cfg.wasm_url -}}
+{{- if not $wasmUrl -}}
+  {{- $wasmUrl = partialCached "editable-regions/wasm-url.html" (dict
+    "override_version" ($cfg._version | default "")
+    "base_url" ($cfg.wasm_base_url | default "https://github.com/CloudCannon/editable-regions/releases/download")
+  ) -}}
+{{- end -}}
+
+{{- $templateFiles := dict -}}
+{{- if $cfg.template_dirs -}}
+  {{- range $td := $cfg.template_dirs -}}
+    {{- $templateFiles = merge $templateFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" $td "exts" $templateExts "ignore" $ignoreDirs)) -}}
+  {{- end -}}
+{{- else -}}
+  {{- $deps := partial "editable-regions/load-deps.html" -}}
+  {{- $templateFiles = partial "editable-regions/find-template-files.html" (dict "deps" $deps "exts" $templateExts "ignore" $ignoreDirs) -}}
+
+  {{- if os.FileExists "_vendor/modules.txt" -}}
+    {{- $templateFiles = merge $templateFiles (dict "_vendor/modules.txt" (readFile "_vendor/modules.txt")) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $configFiles := dict -}}
+{{- if or $cfg.config_paths $cfg.config_dirs -}}
+  {{- /* Either replace-style option set: default discovery is skipped and both
+     lists merge; paths are captured verbatim, dirs walked for config files. */ -}}
+  {{- range $configPath := $cfg.config_paths | default slice -}}
+    {{- if os.FileExists $configPath -}}
+      {{- $configFiles = merge $configFiles (dict $configPath (readFile $configPath)) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- range $configDir := $cfg.config_dirs | default slice -}}
+    {{- $configFiles = merge $configFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" $configDir "exts" $configExts)) -}}
+  {{- end -}}
+{{- else -}}
+  {{- $configFiles = partial "editable-regions/find-config-files.html" -}}
+{{- end -}}
+
+{{- $configFiles = merge $configFiles (partial "editable-regions/find-i18n-files.html") -}}
+
+{{- /* Additional snapshot files, captured verbatim and keyed at their physical
+   paths. Merged last, so explicit entries win path clashes. */ -}}
+{{- $additionalFiles := dict -}}
+{{- range $additionalPath := $cfg.additional_paths | default slice -}}
+  {{- if os.FileExists $additionalPath -}}
+    {{- $additionalFiles = merge $additionalFiles (dict $additionalPath (readFile $additionalPath)) -}}
+  {{- end -}}
+{{- end -}}
+{{- range $dir, $exts := $cfg.additional_dirs | default dict -}}
+  {{- $additionalFiles = merge $additionalFiles (partial "editable-regions/find-files-with-extension.html" (dict
+      "dir" $dir
+      "exts" (partial "editable-regions/normalize-extensions.html" $exts)
+  )) -}}
+{{- end -}}
+
+  {{- /* Template overrides: key path -> source path; source contents replace
+     what discovery captured at the key path, rendering via Hugo's normal
+     partial lookup. */ -}}
+  {{- range $keyPath, $valuePath := $overrides -}}
+    {{- if os.FileExists $valuePath -}}
+      {{- $templateFiles = merge $templateFiles (dict $keyPath (readFile $valuePath)) -}}
+    {{- end -}}
+  {{- end -}}
+
+{{- $ctx := dict
+  "meta" (dict
+    "generator" (printf "Hugo %s" hugo.Version)
+    "wasmUrl" $wasmUrl
+    "verbose" ($cfg.verbose | default false)
+    "env" (hugo.Environment | default "production")
+  )
+  "files" (merge $templateFiles $configFiles $additionalFiles)
+-}}
+{{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}
+{{- if not $entry -}}
+  {{- errorf "editable-regions: integrations/hugo/browser/entry.js not found in assets — is the editable-regions module imported and mounted?" -}}
+{{- end -}}
+{{- return ($entry | resources.ExecuteAsTemplate "_cloudcannon/live-editing.js" $ctx | js.Build (dict "minify" (not hugo.IsDevelopment)) | fingerprint) -}}

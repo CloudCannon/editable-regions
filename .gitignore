@@ -10,3 +10,18 @@ next-env.d.ts
 dist
 .astro
 _site
+
+# Hugo integration build artifacts
+integrations/hugo/renderer/hugo_renderer.wasm
+integrations/hugo/hugo-module/assets/_cloudcannon/hugo_renderer.wasm.gz
+test/integrations/hugo/public
+test/integrations/hugo/resources
+test/unit/_fixtures/hugo/public
+test/unit/_fixtures/hugo/resources
+test/unit/_fixtures/hugo-custom-dirs/public
+test/unit/_fixtures/hugo-custom-dirs/resources
+test/unit/_fixtures/hugo-config-options/public
+test/unit/_fixtures/hugo-config-options/resources
+test/unit/_fixtures/hugo-templates-overrides/public
+test/unit/_fixtures/hugo-templates-overrides/resources
+.hugo_build.lock
