@@ -41,8 +41,8 @@
   {{- /* No mounts: Hugo's implicit module trees. */ -}}
   {{- $walks = $walks | append
       (dict "dir" (path.Join $dir "layouts") "exts" $exts "ignore" $ignore)
-      (dict "dir" (path.Join $dir "i18n") "exts" $configExts)
-      (dict "dir" (path.Join $dir "data") "exts" $configExts) -}}
+      (dict "dir" (path.Join $dir "i18n") "exts" $configExts "ignore" $ignore)
+      (dict "dir" (path.Join $dir "data") "exts" $configExts "ignore" $ignore) -}}
 {{- else -}}
   {{- range $mount := $mounts -}}
     {{- $source := $mount.source | default "" -}}
@@ -55,7 +55,7 @@
     {{- if or (eq $target "layouts") (strings.HasPrefix $target "layouts/") -}}
       {{- $walks = $walks | append (dict "dir" $src "exts" $exts "ignore" $ignore) -}}
     {{- else if or (eq $target "i18n") (strings.HasPrefix $target "i18n/") (eq $target "data") (strings.HasPrefix $target "data/") -}}
-      {{- $walks = $walks | append (dict "dir" $src "exts" $configExts) -}}
+      {{- $walks = $walks | append (dict "dir" $src "exts" $configExts "ignore" $ignore) -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
