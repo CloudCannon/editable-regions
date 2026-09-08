@@ -22,7 +22,7 @@ const siteFiles = {
 	"config.json": JSON.stringify({
 		baseURL: "/",
 		title: "Renderer unit test",
-		params: { brand: "Fixture Brand" },
+		params: { brand: "Fixture Brand", ENV_CLIENT: "site-says" },
 	}),
 	"layouts/partials/card.html": [
 		'<div class="card">',
@@ -37,6 +37,7 @@ const siteFiles = {
 		'<nav>{{ range site.Data.nav.links }}<a href="{{ .url }}">{{ .label }}</a>{{ end }}</nav>',
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
+	"layouts/partials/envprobe.html": '<p>env=[{{ site.Params.ENV_CLIENT }}]</p>',
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
 	// Boot-time content — the browser writes collections before init.
@@ -76,6 +77,12 @@ test("nested partials render", () => {
 	const { html, error } = render("wrapper.html", { title: "Nested" });
 	expect(error).toBeUndefined();
 	expect(html).toMatch(/<h2>Nested<\/h2>/);
+});
+
+test("ENV_CLIENT is true in the renderer, beating site config", () => {
+	const { html, error } = render("envprobe.html");
+	expect(error).toBeUndefined();
+	expect(html).toContain("env=[true]");
 });
 
 test("site data files resolve", () => {

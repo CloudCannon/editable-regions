@@ -61,6 +61,13 @@ test("a component partial provided by a theme renders", async () => {
 	expect(text(el)).toBe("themed-hero-from-proot");
 });
 
+test("ENV_CLIENT is true in the editor's renderer", async () => {
+	// The fixture build renders this partial with the module config's false
+	// default; the browser's wasm renderer overrides the param to true.
+	const el = await render("env-probe");
+	expect(text(el)).toBe("env=[true]");
+});
+
 test("nested partial includes resolve across the theme tree", async () => {
 	const el = await render("themed-outer");
 	expect(text(el)).toContain("themed-inner-from-proot");

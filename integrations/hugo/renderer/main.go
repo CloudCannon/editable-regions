@@ -101,9 +101,17 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	cfg.Base.WorkingDir = ""
 	cfg.Base.Internal.Running = true
 	cfg.Base.Internal.Watch = true
+	// ENV_CLIENT marks renders happening in the browser (this wasm): site
+	// builds get the module config's false default, and setting this here —
+	// after all config merging, where site config would win over the flags
+	// provider — leaves nothing able to override the renderer's truth.
 	for _, languageConfig := range cfg.LanguageConfigMap {
 		languageConfig.Internal.Running = true
 		languageConfig.Internal.Watch = true
+		if languageConfig.Params == nil {
+			languageConfig.Params = hmaps.Params{}
+		}
+		languageConfig.Params["env_client"] = true
 	}
 	builder.Cfg = cfg
 	builder.Fs = hugofs.NewFrom(builder.Afs, cfg.GetFirstLanguageConfig().BaseConfig())
