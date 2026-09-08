@@ -1,6 +1,4 @@
 {{- $cfg := site.Params.editable_regions | default dict -}}
-{{- /* path.Ext matching is verbatim, so configured extension lists are normalized
-   to the dotted form where they are read. */ -}}
 {{- $templateExts := partial "editable-regions/normalize-extensions.html"
   ($cfg.template_extensions | default (slice ".html" ".htm")) -}}
 {{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
@@ -31,8 +29,6 @@
 
 {{- $configFiles := dict -}}
 {{- if or $cfg.config_paths $cfg.config_dirs -}}
-  {{- /* Either replace-style option set: default discovery is skipped and both
-     lists merge; paths are captured verbatim, dirs walked for config files. */ -}}
   {{- range $configPath := $cfg.config_paths | default slice -}}
     {{- if os.FileExists $configPath -}}
       {{- $configFiles = merge $configFiles (dict $configPath (readFile $configPath)) -}}
@@ -45,19 +41,14 @@
   {{- $configFiles = partial "editable-regions/find-config-files.html" -}}
 {{- end -}}
 
-{{- /* i18n files for the editor build: without these, i18n calls inside
-   captured partials fall back to their keys. i18n_dirs replaces the default
-   i18n dir location; a custom i18nDir is not discovered, like configDir. */ -}}
 {{- if $cfg.i18n_dirs -}}
   {{- range $i18nDir := $cfg.i18n_dirs -}}
-    {{- $configFiles = merge $configFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" $i18nDir "exts" $configExts)) -}}
+    {{- $configFiles = merge $configFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" $i18nDir "exts" $configExts "ignore" $ignoreDirs)) -}}
   {{- end -}}
 {{- else -}}
-  {{- $configFiles = merge $configFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" "i18n" "exts" $configExts)) -}}
+  {{- $configFiles = merge $configFiles (partial "editable-regions/find-files-with-extension.html" (dict "dir" "i18n" "exts" $configExts "ignore" $ignoreDirs)) -}}
 {{- end -}}
 
-{{- /* Additional snapshot files, captured verbatim and keyed at their physical
-   paths. Merged last, so explicit entries win path clashes. */ -}}
 {{- $additionalFiles := dict -}}
 {{- range $additionalPath := $cfg.additional_paths | default slice -}}
   {{- if os.FileExists $additionalPath -}}

@@ -1,8 +1,6 @@
 {{- $dir := .dir -}}
 {{- $exts := .exts -}}
 {{- $ignore := .ignore | default slice -}}
-{{- /* Extensions are dotted (the form path.Ext produces) and compared
-   verbatim; the configurable entry point normalizes to a leading dot first. */ -}}
 {{- $files := dict -}}
 {{- if os.FileExists $dir -}}
   {{- range $entry := readDir $dir -}}
@@ -20,4 +18,3 @@
   {{- end -}}
 {{- end -}}
 {{- return $files -}}
-

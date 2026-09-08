@@ -35,13 +35,6 @@
   {{- end -}}
 {{- end -}}
 
-{{- /* Walks to run, handed straight to find-files-with-extension (which
-   no-ops on missing dirs). Files are captured at their physical paths — the
-   renderer's module resolution re-derives these mounts from the dep config
-   captured above, so no target mapping is needed here. Layouts sources are
-   walked whole: pages build as render:link and the dispatch view is looked
-   up by exact path, so kind layouts and baseofs never execute — they are
-   inert but must parse under the renderer's Hugo. */ -}}
 {{- $walks := slice -}}
 
 {{- if eq (len $mounts) 0 -}}
@@ -64,8 +57,6 @@
     {{- else if or (eq $target "i18n") (strings.HasPrefix $target "i18n/") (eq $target "data") (strings.HasPrefix $target "data/") -}}
       {{- $walks = $walks | append (dict "dir" $src "exts" $configExts) -}}
     {{- end -}}
-    {{- /* Other targets (content/static/assets/archetypes) stay uncaptured:
-       content comes from the CloudCannon mirror, the rest is unused by the editor. */ -}}
   {{- end -}}
 {{- end -}}
 

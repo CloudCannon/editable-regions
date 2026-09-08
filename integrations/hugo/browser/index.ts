@@ -115,8 +115,6 @@ async function startEngine(): Promise<void> {
 
 async function loadAPIData(): Promise<void> {
 	const files: Record<string, string> = {};
-	// `currentFile()` may throw when no file is associated with the open page;
-	// treat that as an empty target so the renderer renders page-less.
 	try {
 		currentFilePath = CloudCannon.currentFile().path;
 	} catch {
@@ -124,8 +122,6 @@ async function loadAPIData(): Promise<void> {
 	}
 	const currentPath = currentFilePath;
 
-	// Change events only mirror the files; the renderer folds pending writes
-	// into its next render batch, so no explicit rebuild is needed here.
 	const collections = await CloudCannon.collections();
 	for (const collection of collections) {
 		collection.addEventListener("change", async (event) => {
@@ -208,12 +204,6 @@ interface QueuedRender {
 	reject: (err: unknown) => void;
 }
 
-/**
- * Collects calls within this window into one renderer request: the queued
- * partials share a single incremental build (per distinct render target), so
- * a burst of N renders costs one build instead of N; small enough to be
- * imperceptible next to a build's cost.
- */
 const BATCH_WINDOW_MS = 10;
 
 let batch: QueuedRender[] = [];
