@@ -23,7 +23,7 @@ const siteFiles = {
 	"layouts/partials/probe-static.html": '<p class="s">static</p>',
 	"layouts/partials/probe-error.html": '<p class="e">{{ div 1 0 }}</p>',
 	"content/_index.md": "---\ntitle: Home\ndate: 2024-01-01\n---\n",
-	"content/blog/one.md": "---\ntitle: One\nbuild:\n  render: always\n---\n",
+	"content/blog/one.md": "---\ntitle: One\n---\n",
 };
 
 beforeAll(async () => {
@@ -118,7 +118,7 @@ test("a missing partial marks only its own keyed div", () => {
 	expect(keyedDiv(html, "cc-render-1")).toContain('<p class="s">static</p>');
 });
 
-test("a batch whose target matches no page falls back to home together", () => {
+test("a batch whose target matches no page renders page-less together", () => {
 	const { html = "", error } = renderBatch(
 		[
 			{
@@ -133,7 +133,9 @@ test("a batch whose target matches no page falls back to home together", () => {
 		"content/nothing.md",
 	);
 
+	// No page backs the target, so `page` binds to Hugo's empty page — every
+	// request still renders, with empty page context.
 	expect(error).toBeUndefined();
-	expect(keyedDiv(html, "cc-render-0")).toContain("Home");
-	expect(keyedDiv(html, "cc-render-1")).toContain("Home");
+	expect(keyedDiv(html, "cc-render-0")).toBe('<p class="p"></p>');
+	expect(keyedDiv(html, "cc-render-1")).toBe('<p class="p"></p>');
 });

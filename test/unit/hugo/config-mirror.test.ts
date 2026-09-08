@@ -30,11 +30,9 @@ const siteFiles = {
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"layouts/partials/dataprobe.html": "<p>{{ site.Data.brand.brand }}</p>",
-	// Content stubs mirrored before init; the session-rendered stub is opted
-	// into publishing like the browser would.
+	// Content stubs mirrored before init.
 	"notes/_index.md": "---\ntitle: Home\ndate: 2024-01-01\n---\n",
-	"notes/blog/one.md":
-		"---\ntitle: Target One\nauthor: alice\nbuild:\n  render: always\n---\n",
+	"notes/blog/one.md": "---\ntitle: Target One\nauthor: alice\n---\n",
 	"custom-data/brand.yaml": "brand: Custom Data Brand\n",
 };
 
@@ -57,23 +55,26 @@ test("dataset files under the learned dataDir resolve via site.Data", () => {
 	expect(html).toContain("Custom Data Brand");
 });
 
-test("with no target, renders fall back to the home page in the learned contentDir", () => {
+test("with no target, renders with an empty page context", () => {
 	const { html, error } = render("pageprobe.html");
 	expect(error).toBeUndefined();
-	expect(html).toContain("Home|x|/");
+	expect(html).toContain("|x|");
 });
 
-test("removeHugoFiles refuses the home file in the learned contentDir", () => {
+test("removeHugoFiles deletes content files plainly", () => {
 	const r = renderer();
-	r.removeHugoFiles(JSON.stringify(["notes/_index.md"]));
+	r.removeHugoFiles(JSON.stringify(["notes/blog/one.md"]));
 	expect(
-		r.readHugoFiles(JSON.stringify(["notes/_index.md"]))["notes/_index.md"],
-	).toBeDefined();
+		r.readHugoFiles(JSON.stringify(["notes/blog/one.md"]))[
+			"notes/blog/one.md"
+		],
+	).toBeUndefined();
 
-	// A file outside the learned contentDir isn't the editor's home; removal is
-	// a plain no-op (the file was never written).
+	// A file outside any written path is a plain no-op.
 	r.removeHugoFiles(JSON.stringify(["content/_index.md"]));
 	expect(
-		r.readHugoFiles(JSON.stringify(["content/_index.md"]))["content/_index.md"],
+		r.readHugoFiles(JSON.stringify(["content/_index.md"]))[
+			"content/_index.md"
+		],
 	).toBeUndefined();
 });

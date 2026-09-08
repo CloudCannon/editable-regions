@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"syscall/js"
@@ -23,11 +22,11 @@ import (
 	"github.com/spf13/afero"
 )
 
-// dispatchView is the view renderBatch executes on the edit target's page
-// via Page.Render: it reads the batch's requests from the page's store and
-// renders each request's partial with `page` bound to the edit target, keying
+// dispatchView is the view renderBatch executes for each batch: the batch's
+// requests arrive as template data (keyed by render id), and each request's
+// partial renders with `page` bound through the execution context, keying
 // every result with its request id for the browser to demultiplex.
-const dispatchView = `{{- with .Store.Get "cc_requests" -}}
+const dispatchView = `{{- with .cc_requests -}}
   {{- /* cc_requests is a MAP keyed by render id, prepared on the Go side with
      Hugo's params preparation: it recurses into nested maps (not arrays),
      keeping case-insensitive Params semantics for props. Range order is
@@ -50,10 +49,9 @@ const dispatchView = `{{- with .Store.Get "cc_requests" -}}
   {{- end -}}
 {{- end -}}`
 
-// emptyPageLayout is the last-resort layout for built pages. The editor reads
-// no built output (components render on demand through dispatchView), but
-// without a fallback layout Hugo warns about pages that match no template.
-const emptyPageLayout = `{{- /* Built page output is unused; components render on demand via the __cc-dispatch view. */ -}}`
+// dispatchViewPath is the view's path inside the layouts mount, used to look
+// it up in the template store.
+const dispatchViewPath = "/_default/__cc-dispatch.html"
 
 type editorSiteBuilder struct {
 	Cfg          *allconfig.Configs
@@ -64,14 +62,14 @@ type editorSiteBuilder struct {
 	removedFiles []string
 }
 
+// editorFlags layers the editor's build posture on top of the site config:
+// only kinds the editor can render against, and no page rendered during
+// builds — pages exist as render targets only, and every render is the
+// explicit on-demand __cc-dispatch view.
 func editorFlags() config.Provider {
 	flags := config.New()
 	flags.Set("disableKinds", []string{"taxonomy", "term", "RSS", "sitemap", "robotsTXT", "404"})
 	flags.Set("cascade", []interface{}{
-		map[string]interface{}{
-			"_target": map[string]interface{}{"kind": "home"},
-			"build":   map[string]interface{}{"render": "always"},
-		},
 		map[string]interface{}{
 			"build": map[string]interface{}{"render": "link"},
 		},
@@ -261,18 +259,7 @@ func removeHugoFiles(this js.Value, args []js.Value) interface{} {
 		return errorValue("bad removeHugoFiles payload: %s", err)
 	}
 
-	// The home stub is the render fallback and boot surface, so it survives
-	// delete events regardless of what the browser sends; only a post-init
-	// config knows the content dir, hence the nil guard.
-	homeStub := ""
-	if builder.Cfg != nil {
-		homeStub = filepath.Join(builder.Cfg.Base.ContentDir, "_index.md")
-	}
 	for _, fileName := range removeFiles {
-		fileName = normalizeMemfsPath(fileName)
-		if homeStub != "" && filepath.Clean(fileName) == filepath.Clean(homeStub) {
-			continue
-		}
 		builder.removeFile(fileName)
 	}
 	return nil
@@ -296,35 +283,46 @@ func readHugoFiles(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(fileContents)
 }
 
-// initHugoEditorSite creates the Hugo site from the files written so far,
-// installing the editor view and a stub content file so the first build
-// always has a renderable page.
+// initHugoEditorSite loads the site config and installs the editor view. It
+// does not build: the browser calls it after writing the whole snapshot, and
+// the first build waits until the first render batch (ensureBuilt), so the
+// site's content tree is seeded from the complete file set. Every page builds
+// as render:link (editorFlags), so builds publish nothing; batches render
+// through the dispatch view with the edit target (or Hugo's empty page when
+// the target is empty or unmatched) bound as `page` via the execution context.
 func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	if err := builder.loadConfig(); err != nil {
 		return errorValue("failed to load config: %s", err)
 	}
 
-	layoutDir := builder.Cfg.Base.LayoutDir
-	contentDir := builder.Cfg.Base.ContentDir
-	// The view .Render executes for each batch. Installed under _default/ —
+	// The view renderBatch executes for each batch. Installed under _default/ —
 	// the least-specific fallback, written after the snapshot load so it wins
 	// its own path; only a kind- or section-specific __cc-dispatch view could
 	// shadow it.
-	builder.writeFile(filepath.Join(layoutDir, "_default", "__cc-dispatch.html"), dispatchView)
-	builder.writeFile(filepath.Join(layoutDir, "all.html"), emptyPageLayout)
+	builder.writeFile(filepath.Join(
+		builder.Cfg.Base.LayoutDir, "_default", "__cc-dispatch.html"), dispatchView)
+	return nil
+}
 
-	// Only plant a placeholder home page when none arrived, so loader-provided
-	// data is never clobbered.
-	homeStub := filepath.Join(contentDir, "_index.md")
-	if _, err := builder.Afs.Stat(homeStub); os.IsNotExist(err) {
-		builder.writeFile(homeStub, "---\ncc_initialized: true\n---\n")
+// ensureBuilt creates the site and runs the first build, on the first render
+// batch after init. By then every snapshot and API file is in the fs, so the
+// build seeds Hugo's content tree from the complete set — Hugo cannot add a
+// site's first content file on the incremental path later, so sites that boot
+// with no content at all only pick up content after a full editor reload.
+func (builder *editorSiteBuilder) ensureBuilt() error {
+	if builder.Sites != nil {
+		return nil
 	}
 
 	if err := builder.createSites(); err != nil {
-		return errorValue("failed to create site: %s", err)
+		return fmt.Errorf("failed to create site: %w", err)
 	}
+	// The initial build walks the full in-memory fs, so everything written so
+	// far is already reflected — feed none of it back in as change events.
+	builder.changedFiles = nil
+	builder.removedFiles = nil
 	if err := builder.build(); err != nil {
-		return errorValue("initial build failed: %s", err)
+		return fmt.Errorf("initial build failed: %w", err)
 	}
 	return nil
 }
@@ -335,8 +333,8 @@ type renderRequests struct {
 	// Verbatim site-root-relative source file of the page being edited
 	// ("content/blog/one.md"), matched after the build against the page's
 	// File().Path() so the render executes on the exact edit target; empty or
-	// unmatched falls back to the home page. Fixed at boot, so the whole
-	// batch carries one target.
+	// unmatched renders page-less (page binds to Hugo's empty page).
+	// Fixed at boot, so the whole batch carries one target.
 	Target   string          `json:"target"`
 	Requests []renderRequest `json:"requests"`
 }
@@ -351,9 +349,10 @@ type renderRequest struct {
 }
 
 // targetPage resolves the page a render batch targets: the page whose source
-// file path matches target, or the home page when target is empty or matches
-// no page. Matching by file path (not page identity) is exact.
-func (builder *editorSiteBuilder) targetPage(target string) (page.Page, error) {
+// file path matches target, or nil when target is empty or matches no page
+// (the batch then renders page-less). Matching by file path (not page
+// identity) is exact.
+func (builder *editorSiteBuilder) targetPage(target string) page.Page {
 	target = normalizeMemfsPath(target)
 	if target != "" && builder.Sites != nil {
 		for _, s := range builder.Sites.Sites {
@@ -365,16 +364,11 @@ func (builder *editorSiteBuilder) targetPage(target string) (page.Page, error) {
 				if filepath.Join(builder.Cfg.Base.ContentDir, f.Path()) != target {
 					continue
 				}
-				return p, nil
+				return p
 			}
 		}
 	}
-	for _, s := range builder.Sites.Sites {
-		if home := s.Home(); home != nil {
-			return home, nil
-		}
-	}
-	return nil, fmt.Errorf("no home page found to fall back to")
+	return nil
 }
 
 // renderHugoPartials renders a batch of queued partial-render requests in one
@@ -393,8 +387,10 @@ func renderHugoPartials(this js.Value, args []js.Value) interface{} {
 	if len(reqs) == 0 {
 		return errorValue("renderHugoPartials requires at least one request")
 	}
-	if builder.Sites == nil {
-		return errorValue("editor site not initialized (call initHugoEditorSite first)")
+	// First call after init: create the site and run the first build against
+	// the complete file set; later calls only rebuild pending changes.
+	if err := builder.ensureBuilt(); err != nil {
+		return errorValue("editor site build failed: %s", err)
 	}
 	if err := builder.buildIfDirty(); err != nil {
 		return errorValue("editor site build failed after pending content changes: %s", err)
@@ -416,11 +412,11 @@ func renderHugoPartials(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-// renderBatch stashes the batch's requests on the edit target page's store —
+// renderBatch renders the batch's requests through the __cc-dispatch view —
 // round-tripped through Hugo's YAML decoder and params preparation (the path
-// the dispatch page's front matter took), so props keep identical types and
-// case-insensitive Params semantics — and renders the __cc-dispatch view on
-// that page, so every batched partial executes with `page` bound to it.
+// front matter takes), so props keep identical types and case-insensitive
+// Params semantics. The view executes with the edit target's page bound via
+// the execution context, so every batched partial sees it as `page`.
 func (builder *editorSiteBuilder) renderBatch(target string, reqs []renderRequest) (string, error) {
 	requests := make(map[string]interface{}, len(reqs))
 	for _, req := range reqs {
@@ -448,19 +444,24 @@ func (builder *editorSiteBuilder) renderBatch(target string, reqs []renderReques
 	}
 	hmaps.PrepareParams(decoded)
 
-	renderTarget, err := builder.targetPage(target)
-	if err != nil {
-		return "", err
-	}
-	renderTarget.Store().Set("cc_requests", decoded)
 	// The `page` template function (and partial decoration state) resolves
 	// from the execution context, so prepare it the way hugo's own top-level
-	// page renders do (see the alias handler's on-demand renders).
-	ctx := builder.Sites.GetTemplateStore().PrepareTopLevelRenderCtx(
-		context.Background(), renderTarget)
-	html, err := renderTarget.Render(ctx, "__cc-dispatch")
-	if err != nil {
+	// page renders do (see the alias handler's on-demand renders, which also
+	// falls back to the empty page when there is none).
+	renderTarget := builder.targetPage(target)
+	if renderTarget == nil {
+		renderTarget = page.NopPage
+	}
+	store := builder.Sites.GetTemplateStore()
+	ctx := store.PrepareTopLevelRenderCtx(context.Background(), renderTarget)
+	tmpl := store.LookupByPath(dispatchViewPath)
+	if tmpl == nil {
+		return "", fmt.Errorf("dispatch view %q not found", dispatchViewPath)
+	}
+	var out strings.Builder
+	if err := store.ExecuteWithContext(ctx, tmpl, &out,
+		map[string]interface{}{"cc_requests": decoded}); err != nil {
 		return "", fmt.Errorf("failed to render the dispatch view for %q: %w", target, err)
 	}
-	return string(html), nil
+	return out.String(), nil
 }

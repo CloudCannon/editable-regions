@@ -4,11 +4,6 @@
 
 {{- /* Config extensions double as the data/i18n file extensions. */ -}}
 {{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
-{{- /* The layout subtrees the editor can safely use: kind layouts and baseof
-   anywhere else under layouts/ would out-rank the renderer's dispatch layout
-   (all.html is the last-resort fallback, verified against _default/single.html),
-   so every walk below stays inside them however mounts are declared. */ -}}
-{{- $templateSubDirs := slice "partials" "_default/_markup" "shortcodes" -}}
 
 {{- $files := dict -}}
 
@@ -41,17 +36,20 @@
 {{- end -}}
 
 {{- /* Walks to run, handed straight to find-files-with-extension (which
-   no-ops on missing dirs). */ -}}
+   no-ops on missing dirs). Files are captured at their physical paths — the
+   renderer's module resolution re-derives these mounts from the dep config
+   captured above, so no target mapping is needed here. Layouts sources are
+   walked whole: pages build as render:link and the dispatch view is looked
+   up by exact path, so kind layouts and baseofs never execute — they are
+   inert but must parse under the renderer's Hugo. */ -}}
 {{- $walks := slice -}}
 
 {{- if eq (len $mounts) 0 -}}
   {{- /* No mounts: Hugo's implicit module trees. */ -}}
-  {{- range $subDir := $templateSubDirs -}}
-    {{- $walks = $walks | append (dict "dir" (path.Join $dir "layouts" $subDir) "exts" $exts "ignore" $ignore) -}}
-  {{- end -}}
-  {{- range $tree := slice "i18n" "data" -}}
-    {{- $walks = $walks | append (dict "dir" (path.Join $dir $tree) "exts" $configExts) -}}
-  {{- end -}}
+  {{- $walks = $walks | append
+      (dict "dir" (path.Join $dir "layouts") "exts" $exts "ignore" $ignore)
+      (dict "dir" (path.Join $dir "i18n") "exts" $configExts)
+      (dict "dir" (path.Join $dir "data") "exts" $configExts) -}}
 {{- else -}}
   {{- range $mount := $mounts -}}
     {{- $source := $mount.source | default "" -}}
@@ -61,21 +59,8 @@
     {{- $target := $mount.target | default "" -}}
     {{- $src := path.Join $dir $source -}}
 
-    {{- if eq $target "layouts" -}}
-      {{- /* The source maps onto layouts/, so only its safe subtrees. */ -}}
-      {{- range $subDir := $templateSubDirs -}}
-        {{- $walks = $walks | append (dict "dir" (path.Join $src $subDir) "exts" $exts "ignore" $ignore) -}}
-      {{- end -}}
-    {{- else if strings.HasPrefix $target "layouts/" -}}
-      {{- /* A subtree target (partials/shortcodes/_markup) maps the source wholesale —
-         its root is already inside a safe subtree. */ -}}
-      {{- $subTarget := strings.TrimPrefix "layouts/" $target -}}
-      {{- range $subDir := $templateSubDirs -}}
-        {{- if strings.HasPrefix $subTarget $subDir -}}
-          {{- $walks = $walks | append (dict "dir" $src "exts" $exts "ignore" $ignore) -}}
-          {{- break -}}
-        {{- end -}}
-      {{- end -}}
+    {{- if or (eq $target "layouts") (strings.HasPrefix $target "layouts/") -}}
+      {{- $walks = $walks | append (dict "dir" $src "exts" $exts "ignore" $ignore) -}}
     {{- else if or (eq $target "i18n") (strings.HasPrefix $target "i18n/") (eq $target "data") (strings.HasPrefix $target "data/") -}}
       {{- $walks = $walks | append (dict "dir" $src "exts" $configExts) -}}
     {{- end -}}

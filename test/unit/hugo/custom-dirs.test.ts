@@ -73,9 +73,10 @@ test("templates under the relocated layout dir are snapshotted at their physical
 	expect(files["templates/shortcodes/custom-shout.html"]).toBeDefined();
 });
 
-test("kind layouts are not snapshotted (they would shadow the dispatch layout)", () => {
-	// The renderer installs its own `<layoutDir>/all.html` dispatch layout; any
-	// kind-specific layout would win the home lookup.
+test("kind layouts are not snapshotted (the editor never executes them)", () => {
+	// The editor only ever renders partials on demand via the renderer's
+	// __cc-dispatch view, so page layouts would be dead weight — and a parse
+	// error in one would break the editor's builds.
 	expect(snapshotFiles()["templates/_default/index.html"]).toBeUndefined();
 });
 

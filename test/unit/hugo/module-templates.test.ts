@@ -5,8 +5,9 @@
  *
  * The snapshot merges those trees UNDER the project's own files — a project
  * partial shadows a theme partial with the same name, matching Hugo's lookup
- * priority. Kind layouts stay out so the renderer's dispatch layout is never
- * shadowed.
+ * priority. Dep trees are captured wholesale at their physical paths (the
+ * renderer re-derives mounts from the dep config), so kind layouts ride along
+ * too — they never execute, they just have to parse.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";

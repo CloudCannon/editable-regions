@@ -116,7 +116,7 @@ async function startEngine(): Promise<void> {
 async function loadAPIData(): Promise<void> {
 	const files: Record<string, string> = {};
 	// `currentFile()` may throw when no file is associated with the open page;
-	// treat that as an empty target so the renderer falls back to the home page.
+	// treat that as an empty target so the renderer renders page-less.
 	try {
 		currentFilePath = CloudCannon.currentFile().path;
 	} catch {
@@ -135,10 +135,6 @@ async function loadAPIData(): Promise<void> {
 				return;
 			}
 
-			if (path === currentPath) {
-				(frontMatter as any).build = { render: "always" };
-			}
-
 			writeHugoFiles(
 				JSON.stringify({
 					[path]: `---\n${JSON.stringify(frontMatter)}\n---\n`,
@@ -155,9 +151,6 @@ async function loadAPIData(): Promise<void> {
 		for (const file of items) {
 			const frontMatter = await file.data.get();
 			if (!frontMatter || typeof frontMatter !== "object") continue;
-			if (file.path === currentPath) {
-				(frontMatter as any).build = { render: "always" };
-			}
 			files[file.path] = `---\n${JSON.stringify(frontMatter)}\n---\n`;
 		}
 	}

@@ -109,15 +109,17 @@ test("site data can be queried with where, index, and default", async () => {
 test("page collections are safe and empty-ish in the editor site", async () => {
 	const el = await window.cc_components?.["globals-collections"]({});
 
+	// With no content at all, the home page is Hugo's virtual one: it exists,
+	// and its title falls back to the site title.
 	expect(lines(el)).toBe(
-		"regularPages=0\npages=1\nsections=0\nhomeTitle=\nhomeRegularPages=0",
+		"regularPages=0\npages=1\nsections=0\nhomeTitle=Hugo Unit Fixture\nhomeRegularPages=0",
 	);
 });
 
 test("site.GetPage resolves the home page and misses elsewhere", async () => {
 	const el = await window.cc_components?.["globals-getpage"]({});
 
-	expect(lines(el)).toBe("home=\nmissing");
+	expect(lines(el)).toBe("home=Hugo Unit Fixture\nmissing");
 });
 
 // --- hugo.* namespace --------------------------------------------------------

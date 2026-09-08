@@ -1,7 +1,8 @@
 /**
- * Bundle-path tests for the home-page fallback: when the CloudCannon API
- * reports no current page at boot, the session target is the home page — the
- * editor site's always-on anchor.
+ * Bundle-path tests for the no-current-page case: when the CloudCannon API
+ * reports no file for the open page, the session target is empty and the
+ * renderer renders page-less — `page` binds to Hugo's empty page, so
+ * components still render (with empty page context) instead of failing.
  */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -55,22 +56,11 @@ function lines(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }
 
-test("the session target falls back to the home page", async () => {
-	const el = await window.cc_components?.["page-context"]({ title: "On Home" });
+test("the session renders page-less with an empty page context", async () => {
+	const el = await window.cc_components?.["page-context"]({ title: "On None" });
 
-	// No props beyond the title, so the final prop-title line is last; the
-	// empty lines are the missing author/section.
-	expect(lines(el)).toBe(
-		[
-			"Home", // the loaded home front matter
-			"", // no author on home
-			"", // home has no section
-			"/",
-			"home",
-			"2024-01-01", // the home stub's explicit date
-			"length=0",
-			"dark", // page.Params.theme survives on the home stub
-			"On Home",
-		].join("\n"),
-	);
+	// The empty page has no title, params, section, or permalink (its divs
+	// render nothing, and leading empty lines trim away); its date is the
+	// zero time and it has no content. The props still come through.
+	expect(lines(el)).toBe("0001-01-01\nlength=0\n\nOn None");
 });

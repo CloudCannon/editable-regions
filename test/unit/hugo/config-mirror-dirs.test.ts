@@ -27,8 +27,7 @@ const siteFiles = {
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	// Content stubs mirrored before init at the dir-resolved contentDir.
 	"dirnotes/_index.md": "---\ntitle: Home\ndate: 2024-01-01\n---\n",
-	"dirnotes/blog/one.md":
-		"---\ntitle: Dir One\nauthor: alice\nbuild:\n  render: always\n---\n",
+	"dirnotes/blog/one.md": "---\ntitle: Dir One\nauthor: alice\n---\n",
 	// A stub under a root-candidate dir that must NOT have won.
 	"hdir/blog/two.md": "---\ntitle: Root Two\n---\n",
 };
@@ -46,10 +45,10 @@ test("the config dir's contentDir wins over the root candidates (natively resolv
 	expect(html).toContain("Dir One|x|/blog/one/");
 });
 
-test("content outside the winning contentDir matches no page and falls back to home", () => {
+test("content outside the winning contentDir matches no page and renders page-less", () => {
 	// hdir lost the root slot and the dir lost to config/_default, so this file
-	// is outside the editor's contentDir — the render falls back to home.
+	// is outside the editor's contentDir — the render is page-less.
 	const { html, error } = render("pageprobe.html", {}, "hdir/blog/two.md");
 	expect(error).toBeUndefined();
-	expect(html).toContain("Home|x|/");
+	expect(html).toContain("|x|");
 });

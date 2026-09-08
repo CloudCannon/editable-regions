@@ -39,6 +39,8 @@ const siteFiles = {
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
+	// Boot-time content — the browser writes collections before init.
+	"content/notes/one.md": "---\ntitle: Target One\n---\n",
 };
 
 beforeAll(async () => {
@@ -93,33 +95,41 @@ test("a 20-render burst stays fresh on the incremental path", () => {
 
 // --- Render target resolution ---------------------------------------------
 
-test("with no target, renders read the home page's output", () => {
+test("with no target, renders with an empty page context", () => {
 	const { html, error } = render("pageprobe.html");
 	expect(error).toBeUndefined();
-	// The placeholder home stub (front matter: cc_initialized) is the fallback
-	// target; its publishing opt-in comes from the renderer's config cascade.
-	expect(html).toContain("|true|/");
+	// No content at all and no target, so `page` binds to Hugo's empty page:
+	// zero values, front matter params unset.
+	expect(html).toContain("|x|");
 });
 
 test("a target file path resolves to that page's built output", () => {
-	// Mirrored verbatim like the browser would; the renderer looks the target
-	// up by File().Path(), not by any computed page path.
-	renderer().writeHugoFiles(
-		JSON.stringify({
-			"content/notes/one.md":
-				"---\ntitle: Target One\nauthor: alice\nbuild:\n  render: always\n---\n",
-		}),
-	);
+	// The renderer looks the target up by File().Path(), not by any computed
+	// page path.
 	const { html, error } = render("pageprobe.html", {}, "content/notes/one.md");
 	expect(error).toBeUndefined();
 	expect(html).toContain("Target One|x|/notes/one/");
 });
 
-test("an unmatched target falls back to the home page", () => {
-	// A non-content file (e.g. a data file) matches no page — render reads home.
+test("an edit to an existing page resolves through the incremental rebuild", () => {
+	// Post-boot writes fold into the next render batch's rebuild, like the
+	// browser's change events.
+	renderer().writeHugoFiles(
+		JSON.stringify({
+			"content/notes/one.md": "---\ntitle: Target One Edited\n---\n",
+		}),
+	);
+	const { html, error } = render("pageprobe.html", {}, "content/notes/one.md");
+	expect(error).toBeUndefined();
+	expect(html).toContain("Target One Edited|x|/notes/one/");
+});
+
+test("an unmatched target renders with an empty page context", () => {
+	// A non-content file (e.g. a data file) matches no page — the render is
+	// page-less.
 	const { html, error } = render("pageprobe.html", {}, "data/nav.yaml");
 	expect(error).toBeUndefined();
-	expect(html).toContain("|true|/");
+	expect(html).toContain("|x|");
 });
 
 // --- File surface --------------------------------------------------------
