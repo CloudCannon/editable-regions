@@ -1,21 +1,6 @@
-# This repository doubles as the editable-regions Hugo module; consuming
-# sites import the repo root (hugo mod get github.com/CloudCannon/editable-regions).
-#
-# The mounts below are the module's public surface: only these directories
-# enter the build's virtual filesystem. The browser runtime and shared
-# helpers are mounted at their repo-relative paths so the import specifiers
-# inside them resolve identically in the mounted assets filesystem.
 [params]
-  # The renderer's ENV_CLIENT is only true when rendering in the browser's
-  # wasm (it sets the param itself after config load); site builds get this
-  # false default. Templates branch on it to vary output between the real
-  # build and live editing.
   ENV_CLIENT = false
 [module]
-  # The module's partials run in the importing site's Hugo build, so this is
-  # the floor for the newest template feature they use — hugo.IsDevelopment
-  # (v0.120.0). The wasm renderer is unaffected: it bundles its own Hugo
-  # (renderer/go.mod).
   [module.hugoVersion]
     min = "0.120.0"
   [[module.mounts]]
