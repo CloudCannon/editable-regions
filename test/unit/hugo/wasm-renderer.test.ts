@@ -37,7 +37,7 @@ const siteFiles = {
 		'<nav>{{ range site.Data.nav.links }}<a href="{{ .url }}">{{ .label }}</a>{{ end }}</nav>',
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
-	"layouts/partials/envprobe.html": '<p>env=[{{ site.Params.ENV_CLIENT }}]</p>',
+	"layouts/partials/envprobe.html": "<p>env=[{{ site.Params.ENV_CLIENT }}]</p>",
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
 	// Boot-time content — the browser writes collections before init.

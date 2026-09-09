@@ -65,16 +65,12 @@ test("removeHugoFiles deletes content files plainly", () => {
 	const r = renderer();
 	r.removeHugoFiles(JSON.stringify(["notes/blog/one.md"]));
 	expect(
-		r.readHugoFiles(JSON.stringify(["notes/blog/one.md"]))[
-			"notes/blog/one.md"
-		],
+		r.readHugoFiles(JSON.stringify(["notes/blog/one.md"]))["notes/blog/one.md"],
 	).toBeUndefined();
 
 	// A file outside any written path is a plain no-op.
 	r.removeHugoFiles(JSON.stringify(["content/_index.md"]));
 	expect(
-		r.readHugoFiles(JSON.stringify(["content/_index.md"]))[
-			"content/_index.md"
-		],
+		r.readHugoFiles(JSON.stringify(["content/_index.md"]))["content/_index.md"],
 	).toBeUndefined();
 });
