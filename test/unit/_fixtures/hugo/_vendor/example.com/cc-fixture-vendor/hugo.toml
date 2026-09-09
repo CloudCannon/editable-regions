@@ -10,3 +10,8 @@
   [[module.mounts]]
     source = "vendori18n"
     target = "i18n"
+  # A single-FILE mount (source is not a directory) — the shape bookshop uses
+  # to expose its dispatchers (core/bookshop.html -> layouts/partials/bookshop.html).
+  [[module.mounts]]
+    source = "vendorpartial.html"
+    target = "layouts/partials/vendor-file-mount-probe.html"

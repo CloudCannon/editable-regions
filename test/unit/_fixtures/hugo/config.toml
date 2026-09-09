@@ -16,7 +16,7 @@ theme = "proot"
 [module]
   # Relative replacement targets resolve against themesDir
   # (test/unit/_fixtures/hugo/themes), not the project dir — hence five levels.
-  replacements = "github.com/CloudCannon/editable-regions -> ../../../../.."
+  replacements = "github.com/CloudCannon/editable-regions -> ../../../../.., local/fixture-module -> ../fixture-module"
   [[module.imports]]
     path = "github.com/CloudCannon/editable-regions"
   # A vendored module import for the module-templates suite. The _vendor/
@@ -24,6 +24,9 @@ theme = "proot"
   # without the go toolchain — `hugo mod vendor` is not run here.
   [[module.imports]]
     path = "example.com/cc-fixture-vendor"
+  # A locally replaced module (component-library shape).
+  [[module.imports]]
+    path = "local/fixture-module"
 
 [params]
   brand = "Fixture Brand"

@@ -14,6 +14,13 @@
 
     {{- $path := path.Join $dir $entry.Name -}}
 
+    {{- range $dep := $deps -}}
+      {{- $resolved := path.Clean (path.Join $dir $dep) -}}
+      {{- if and (not (strings.HasPrefix $resolved "..")) (os.FileExists $resolved) -}}
+        {{- $files = merge $files (partial "editable-regions/find-dep-template-files.html" (dict "dir" $resolved "exts" $exts "ignore" $ignore)) -}}
+      {{- end -}}
+    {{- end -}}
+
     {{- $isDep := false -}}
     {{- range $dep := $deps -}}
       {{- if strings.HasSuffix $path (printf "/%s" $dep) -}}

@@ -111,5 +111,15 @@ test("vendored module data and i18n mounts render, and unmounted theme data", as
 	expect(el?.querySelector(".vendor-i18n")?.textContent).toBe(
 		"Vendored translation",
 	);
+	// A single-file module mount (vendorpartial.html ->
+	// layouts/partials/vendor-file-mount-probe.html) is captured and resolves.
+	expect(el?.querySelector(".vendor-file-mount")?.textContent?.trim()).toBe(
+		"from-vendor-file-mount",
+	);
+	// A locally replaced module (component-library shape) is captured at its
+	// project-relative path and its mounted partials resolve.
+	expect(el?.querySelector(".local-module-probe")?.textContent?.trim()).toBe(
+		"from-local-module",
+	);
 	expect(el?.querySelector(".theme-data")?.textContent).toBe("from-theme-data");
 });
