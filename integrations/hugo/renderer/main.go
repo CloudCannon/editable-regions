@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall/js"
+	_ "time/tzdata"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gohugoio/hugo/common/hmaps"
@@ -99,6 +100,7 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	for _, languageConfig := range cfg.LanguageConfigMap {
 		languageConfig.Internal.Running = true
 		languageConfig.Internal.Watch = true
+		languageConfig.Build.BuildStats.Enable = false
 		if languageConfig.Params == nil {
 			languageConfig.Params = hmaps.Params{}
 		}
