@@ -1,5 +1,8 @@
 [params]
   ENV_CLIENT = false
+[mediaTypes]
+  [mediaTypes."application/x-gzip"]
+    suffixes = ["gz"]
 [module]
   [module.hugoVersion]
     min = "0.120.0"
