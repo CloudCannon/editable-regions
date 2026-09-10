@@ -250,7 +250,9 @@ Then mark up your templates:
 
 ## How editable regions work
 
-An editable region is a piece of your page that the Visual Editor can edit in place. When your page is loaded in the Visual Editor, CloudCannon hydrates your elements into editable regions. Outside of CloudCannon your elements are plain HTML; your users see exactly the markup you authored. The Editable Regions can edit any structured data configured in your CloudCannon site, including your page front matter and content, your datasets, and your collections.
+An editable region is a piece of your page that the Visual Editor can edit in place. When your page is loaded in the Visual Editor, CloudCannon hydrates your elements into editable regions. Outside of CloudCannon your elements are plain HTML; your users see exactly the markup you authored.
+
+The Editable Regions can edit any structured data configured in your CloudCannon site, including your page front matter and content, your datasets, and your collections.
 
 ### Defining editable regions
 
@@ -268,16 +270,16 @@ You define one by adding an HTML attribute to an existing element, or by wrappin
 The two forms are equivalent. Data attributes are useful when you are attaching editable regions to existing markup, whereas the web components are useful when there isn't existing markup to attach an attribute to or you don't have direct access to the markup.
 
 ```astro
-    <h1 data-editable="text" data-prop="title">{title}</h1>
+<h1 data-editable="text" data-prop="title">{title}</h1>
 
-    <editable-image data-prop-src="src">
-        <MyFigureComponent src={src} />
-    </editable-image>
+<editable-image data-prop-src="src">
+    <MyFigureComponent src={src} />
+</editable-image>
 ```
 
 ### Passing values to editable regions
 
-Every editable region receives the value it edits through a `data-prop` selector. Selectors point into your data, relative to the root of the current file (typically its front matter) or the nearest editable ancestor — see [how prop selectors compose](#how-prop-selectors-compose). The region resolves the selector and re-renders as that value changes; edits write back through the same selector.
+Every editable region receives the value it edits through a `data-prop` selector. Selectors point into your data, relative to the root of the current file (typically its front matter) or the [nearest editable ancestor](#how-prop-selectors-compose). The region resolves the selector and re-renders as that value changes; edits write back through the same selector.
 
 ```astro
 <h4 data-editable="text" data-prop="name">{testimonial.name}</h4>

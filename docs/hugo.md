@@ -35,7 +35,7 @@ Include the partial in your site `<head>`:
 
 ## Resolving component names
 
-There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/`, with or without the file extension — `data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html`.
+There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/`, with or without the file extension, so`data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html`.
 
 ## Adding the markup
 
