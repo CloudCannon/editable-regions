@@ -1,0 +1,2 @@
+{{- /* Parent component: passes a child context into slot-shell via `with`, mirroring how a partial hands its data to a nested partial. */ -}}
+<div class="slot-parent">{{ with .slotProps }}{{ partial "slot-shell.html" . }}{{ end }}</div>

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -17,17 +17,31 @@
 			"test/**",
 			"types/**",
 			"!test/integrations",
+			"!test/unit/_fixtures/hugo",
+			"!test/unit/_fixtures/hugo-config-options",
+			"!test/unit/_fixtures/hugo-custom-dirs",
+			"!test/unit/_fixtures/hugo-templates-overrides",
 			"!**/*.astro",
 			"!**/*.svelte",
 			"!**/*.vue",
-			"!**/*.d.mts"
+			"!**/*.d.mts",
+			"!integrations/hugo/renderer",
+			"!integrations/hugo/browser/wasm_exec.js",
+			"!integrations/hugo/browser/entry.js",
+			"!integrations/hugo/hugo-module"
 		]
 	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {

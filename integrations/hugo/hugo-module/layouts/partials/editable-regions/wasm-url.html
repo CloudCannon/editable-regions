@@ -1,0 +1,28 @@
+{{- $version := .override_version -}}
+{{- if not $version -}}
+  {{- range hugo.Deps -}}
+    {{- if eq (lower .Path) "github.com/cloudcannon/editable-regions" -}}
+      {{- $version = .Version -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $version = strings.TrimSuffix "+incompatible" $version -}}
+{{- $version = strings.TrimPrefix "v" $version -}}
+{{- $result := "" -}}
+{{- if and $version (ne $version "0.0.0-dev") -}}
+  {{- $url := printf "%s/v%s/hugo_renderer.wasm.gz" .base_url $version -}}
+  {{- $remote := resources.GetRemote $url -}}
+  {{- if not $remote -}}
+    {{- errorf "editable-regions: no renderer WASM at %s — the resolved version %q has no release asset. Pin the module to a release tag (not a commit), or set params.editable_regions._version / .wasm_url" $url (printf "v%s" $version) -}}
+  {{- else -}}
+    {{- $result = (resources.Copy "_cloudcannon/hugo_renderer.wasm.gz" $remote | fingerprint).RelPermalink -}}
+  {{- end -}}
+{{- else -}}
+  {{- with resources.Get "_cloudcannon/hugo_renderer.wasm.gz" -}}
+    {{- $result = (. | fingerprint).RelPermalink -}}
+  {{- else -}}
+    {{- errorf "editable-regions: no renderer WASM available. Publish a tagged release of the module, or set params.editable_regions.wasm_url, or build the renderer locally with integrations/hugo/renderer/build.sh" -}}
+  {{- end -}}
+{{- end -}}
+{{- return $result -}}

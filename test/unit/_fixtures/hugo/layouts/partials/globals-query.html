@@ -1,0 +1,4 @@
+{{/* Globals probes for the browser-bundle unit tests (globals.test.ts): query helpers over global site data. */}}
+<div>{{ with where hugo.Data.nav.links "url" "/" }}{{ (index . 0).label }}{{ end }}</div>
+<div>{{ (index hugo.Data.nav.links 0).label }}</div>
+<div>{{ default "fallback" hugo.Data.nav.missing }}</div>

@@ -1,0 +1,9 @@
+{{- /* Normalizes extension candidates to the dotted form path.Ext produces */ -}}
+{{- $dotted := slice -}}
+{{- range $ext := . -}}
+  {{- if not (strings.HasPrefix $ext ".") -}}
+    {{- $ext = printf ".%s" $ext -}}
+  {{- end -}}
+  {{- $dotted = $dotted | append $ext -}}
+{{- end -}}
+{{- return $dotted -}}

@@ -1,0 +1,66 @@
+{{- $dir := .dir -}}
+{{- $exts := .exts -}}
+{{- $ignore := .ignore | default slice -}}
+
+{{- /* Config extensions double as the data/i18n file extensions. */ -}}
+{{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
+
+{{- $files := dict -}}
+
+{{- /* Dep root config files, captured verbatim at their physical paths so the
+   renderer's module resolution sees them. */ -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $files = merge $files (dict $cfgPath (readFile $cfgPath)) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* The dep's own config, parsed for module.mounts: hugo.* first, then
+   config.* (Hugo's root precedence). */ -}}
+{{- $conf := dict -}}
+{{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
+  {{- $cfgPath := path.Join $dir $candidate -}}
+  {{- if os.FileExists $cfgPath -}}
+    {{- $conf = os.ReadFile $cfgPath | resources.FromString $cfgPath | transform.Unmarshal -}}
+    {{- break -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $mounts := slice -}}
+{{- with $conf.module -}}
+  {{- with .mounts -}}
+    {{- $mounts = . -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $walks := slice -}}
+
+{{- if eq (len $mounts) 0 -}}
+  {{- /* No mounts: Hugo's implicit module trees. */ -}}
+  {{- $walks = $walks | append
+      (dict "dir" (path.Join $dir "layouts") "exts" $exts "ignore" $ignore)
+      (dict "dir" (path.Join $dir "i18n") "exts" $configExts "ignore" $ignore)
+      (dict "dir" (path.Join $dir "data") "exts" $configExts "ignore" $ignore) -}}
+{{- else -}}
+  {{- range $mount := $mounts -}}
+    {{- $source := $mount.source | default "" -}}
+    {{- if eq $source "." -}}
+      {{- $source = "" -}}
+    {{- end -}}
+    {{- $target := $mount.target | default "" -}}
+    {{- $src := path.Join $dir $source -}}
+
+    {{- if or (eq $target "layouts") (strings.HasPrefix $target "layouts/") -}}
+      {{- $walks = $walks | append (dict "dir" $src "exts" $exts "ignore" $ignore) -}}
+    {{- else if or (eq $target "i18n") (strings.HasPrefix $target "i18n/") (eq $target "data") (strings.HasPrefix $target "data/") -}}
+      {{- $walks = $walks | append (dict "dir" $src "exts" $configExts "ignore" $ignore) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- range $walk := $walks -}}
+  {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" $walk) -}}
+{{- end -}}
+
+{{- return $files -}}

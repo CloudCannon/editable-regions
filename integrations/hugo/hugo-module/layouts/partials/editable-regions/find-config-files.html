@@ -1,0 +1,14 @@
+{{- $files := dict -}}
+{{- $configLocations := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" "config" -}}
+{{- $configExts := slice ".toml" ".yaml" ".yml" ".json" -}}
+
+{{- range $entry := os.ReadDir "." -}}
+  {{- if in $configLocations $entry.Name -}}
+    {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict
+        "dir" $entry.Name
+        "exts" $configExts
+    )) -}}
+  {{- end -}}
+{{- end -}}
+
+{{- return $files -}}

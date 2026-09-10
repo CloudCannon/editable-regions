@@ -1,0 +1,5 @@
+<p class="vendor-data">{{ with site.Data.greeting }}{{ .word }}{{ else }}data-missing{{ end }}</p>
+<p class="vendor-i18n">{{ i18n "vendorI18nProbe" | default "i18n-missing" }}</p>
+<p class="vendor-file-mount">{{ partial "vendor-file-mount-probe" . | default "file-mount-missing" }}</p>
+<p class="local-module-probe">{{ partial "localmod/components/demo/local-module-card" . | default "localmod-missing" }}</p>
+<p class="theme-data">{{ with site.Data.themeword }}{{ .word }}{{ else }}data-missing{{ end }}</p>

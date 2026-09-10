@@ -7,6 +7,10 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
+## 0.0.20
+
+- Added support for Hugo partials in editable regions
+
 ## 0.0.19
 
 - Added full support for Svelte components and Svelte in Astro components

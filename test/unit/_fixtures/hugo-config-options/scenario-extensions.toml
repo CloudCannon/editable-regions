@@ -1,0 +1,5 @@
+# Scenario: restrict template capture to a custom extension set (.htm excluded).
+# One entry is bare to pin the leading-dot normalization at the config point.
+
+[params.editable_regions]
+  template_extensions = [".html", "gohtml"]

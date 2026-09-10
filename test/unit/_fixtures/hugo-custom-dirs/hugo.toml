@@ -1,0 +1,26 @@
+# Unit-test fixture exercising non-default directory configuration. Imports
+# the module exactly as a real site would, with layoutDir/dataDir/contentDir
+# moved off their defaults — the integration must snapshot the partials,
+# render hooks, and shortcodes from the configured layout dir, and tell the
+# renderer where to find everything.
+baseURL = "/"
+title = "Hugo Custom Dirs Fixture"
+languageCode = "en-AU"
+
+layoutDir = "templates"
+dataDir = "custom-data"
+contentDir = "notes"
+
+[module]
+  # Relative replacement targets resolve against themesDir
+  # (test/unit/_fixtures/hugo-custom-dirs/themes), not the project dir — hence
+  # five levels.
+  replacements = "github.com/CloudCannon/editable-regions -> ../../../../.."
+  [[module.imports]]
+    path = "github.com/CloudCannon/editable-regions"
+
+[params]
+  brand = "Custom Dirs Brand"
+
+  [params.editable_regions]
+    verbose = false

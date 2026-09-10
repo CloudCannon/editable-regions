@@ -1,0 +1,3 @@
+# The explicit config file the config_paths scenario captures. Non-standard
+# basename, so config discovery never picks it up on its own.
+title = "Explicit Site Config"

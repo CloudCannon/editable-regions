@@ -1,0 +1,17 @@
+[params]
+  ENV_CLIENT = false
+[module]
+  [module.hugoVersion]
+    min = "0.120.0"
+  [[module.mounts]]
+    source = "integrations/hugo/hugo-module/layouts"
+    target = "layouts"
+  [[module.mounts]]
+    source = "integrations/hugo/hugo-module/assets"
+    target = "assets"
+  [[module.mounts]]
+    source = "integrations/hugo/browser"
+    target = "assets/integrations/hugo/browser"
+  [[module.mounts]]
+    source = "helpers"
+    target = "assets/helpers"

@@ -1,0 +1,5 @@
+# Captured by config_dirs in the additional scenario (recursively).
+title = "Extra Config Settings"
+
+[params]
+  extra_setting = "from-extra-config"

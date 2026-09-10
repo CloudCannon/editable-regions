@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a component renders gracefully when no slot props are given 1`] = `
+"<div><div class="slot-parent"></div>
+</div>"
+`;
+
+exports[`a parent partial passes a props object into a child partial 1`] = `
+"<div><div class="slot-parent"><div class="slot-shell">slotted from parent</div>
+</div>
+</div>"
+`;

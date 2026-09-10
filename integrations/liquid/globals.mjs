@@ -136,7 +136,13 @@ async function materialiseFile(file) {
  */
 export async function buildPageData() {
 	await apiLoadedPromise;
-	const file = CloudCannon?.currentFile?.();
+	let file;
+	try {
+		file = CloudCannon?.currentFile?.();
+	} catch {
+		// No current file (page with no associated source).
+		return {};
+	}
 	if (!file) return {};
 	const inputPath = file.path;
 	const data = (await file.data.get()) ?? {};

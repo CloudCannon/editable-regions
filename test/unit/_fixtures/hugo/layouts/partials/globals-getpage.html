@@ -1,0 +1,3 @@
+{{/* Globals probes for the browser-bundle unit tests (globals.test.ts): site.GetPage lookups. */}}
+<div>{{ with site.GetPage "/" }}home={{ .Title }}{{ else }}missing{{ end }}</div>
+<div>{{ with site.GetPage "/about/" }}found{{ else }}missing{{ end }}</div>

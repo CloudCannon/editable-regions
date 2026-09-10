@@ -1,0 +1,3 @@
+# Theme-level data (implicit data/ tree, no module mounts) the editor dep
+# capture must mirror for site.Data to resolve.
+word = "from-theme-data"

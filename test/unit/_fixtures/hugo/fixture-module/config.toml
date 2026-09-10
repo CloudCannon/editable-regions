@@ -1,0 +1,9 @@
+# A local replacement module (imported as local/fixture-module,
+# replaced with ../fixture-module) — the shape of locally vendored
+# component libraries like bookshop's component-library.
+[[module.mounts]]
+source = '.'
+target = 'layouts/partials/localmod'
+includeFiles = [
+  '**/*.hugo.html',
+]

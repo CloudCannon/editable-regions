@@ -9,17 +9,14 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
 
-  publish-npm-package:
+  create-github-release:
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: write
     outputs:
       npm_tag: ${{ steps.npm_tag.outputs.value }}
-    permissions:
-      id-token: write
-      contents: read
-      packages: write
     steps:
-      - uses: actions/checkout@v6
       - name: Get tag
         id: npm_tag
         run: |
@@ -27,6 +24,43 @@ jobs:
           # e.g.: x.y.z -> latest, x.y.z-rc.1 -> rc
           TAG=$([[ "$VERSION" == *-* ]] && echo "${VERSION#*-}" | cut -d. -f1 || echo latest)
           echo "value=$TAG" >> $GITHUB_OUTPUT
+      - name: Create release
+        run: |
+          if [ "${{ steps.npm_tag.outputs.value }}" = "latest" ]; then
+            gh release create ${{ github.ref_name }} --generate-notes --repo ${{ github.repository }}
+          else
+            gh release create ${{ github.ref_name }} --generate-notes --prerelease --repo ${{ github.repository }}
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-renderer-wasm:
+    runs-on: ubuntu-latest
+    needs: create-github-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: integrations/hugo/renderer/go.mod
+          cache-dependency-path: integrations/hugo/renderer/go.sum
+      - name: Build the renderer WASM
+        run: bash integrations/hugo/renderer/build.sh
+      - name: Upload the renderer to the release
+        run: gh release upload "${{ github.ref_name }}" integrations/hugo/hugo-module/assets/_cloudcannon/hugo_renderer.wasm.gz --repo "${{ github.repository }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm-package:
+    runs-on: ubuntu-latest
+    needs: [test, create-github-release, upload-renderer-wasm]
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           cache: npm
@@ -35,27 +69,11 @@ jobs:
       - name: Set version in package.json
         run: npm --no-git-tag-version version "${GITHUB_REF_NAME#v}"
       - name: Publish package on npm
-        run: npm publish --tag ${{ steps.npm_tag.outputs.value }}
+        run: npm publish --tag ${{ needs.create-github-release.outputs.npm_tag }}
       - uses: actions/setup-node@v6
         with:
           registry-url: https://npm.pkg.github.com
       - name: Publish package on GitHub
-        run: npm publish --tag ${{ steps.npm_tag.outputs.value }}
+        run: npm publish --tag ${{ needs.create-github-release.outputs.npm_tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  create-github-release:
-    runs-on: ubuntu-latest
-    needs: publish-npm-package
-    permissions:
-      contents: write
-    steps:
-      - name: Create release
-        run: |
-          if [ "${{ needs.publish-npm-package.outputs.npm_tag }}" = "latest" ]; then
-            gh release create ${{ github.ref_name }} --generate-notes --repo ${{ github.repository }}
-          else
-            gh release create ${{ github.ref_name }} --generate-notes --prerelease --repo ${{ github.repository }}
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

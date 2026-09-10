@@ -1,0 +1,5 @@
+{{- $deps := slice -}}
+{{- range $dep := hugo.Deps -}}
+    {{- $deps = $deps | append $dep.Path -}}
+{{- end -}}
+{{- return $deps -}}

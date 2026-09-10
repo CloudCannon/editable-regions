@@ -25,13 +25,19 @@
     "typecheck:watch": "tsc --noEmit --watch",
     "lint-autofix": "biome check --fix",
     "lint": "biome check",
+    "build:hugo": "bash integrations/hugo/renderer/build.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-snapshots": "vitest run -u",
-    "test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config",
+    "test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
+    "test:build-hugo-custom-dirs": "npm --prefix test/unit/_fixtures/hugo-custom-dirs run build",
+    "test:build-hugo-config-options": "npm --prefix test/unit/_fixtures/hugo-config-options run build",
+    "test:build-hugo-templates-overrides": "npm --prefix test/unit/_fixtures/hugo-templates-overrides run build",
+    "test:build-hugo-fixtures": "npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
     "test:build-astro-fixture": "npm --prefix test/unit/_fixtures/astro install --silent && npm --prefix test/unit/_fixtures/astro run build",
     "test:build-eleventy-fixture": "npm --prefix test/unit/_fixtures/eleventy install --silent && npm --prefix test/unit/_fixtures/eleventy run build",
-    "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build"
+    "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build",
+    "test:build-hugo-fixture": "npm --prefix test/unit/_fixtures/hugo run build"
   },
   "files": [
     "components",
@@ -39,7 +45,9 @@
     "integrations",
     "nodes",
     "styles",
-    "types"
+    "types",
+	"!integrations/hugo/renderer/hugo_renderer.wasm",
+	"!integrations/hugo/hugo-module/assets/_cloudcannon"
   ],
   "exports": {
     "./*": null,
@@ -87,6 +95,10 @@
       }
     },
     "./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
+    "./hugo/browser": {
+		"types": "./types/hugo.d.ts",
+		"default": "./integrations/hugo/browser/index.ts"
+	},
     "./internal/components": "./components/index.js",
     "./internal/styles": "./styles/index.js"
   },

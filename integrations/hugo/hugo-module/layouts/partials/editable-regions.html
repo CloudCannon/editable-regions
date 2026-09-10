@@ -1,0 +1,6 @@
+{{- $bundle := partialCached "editable-regions/resources.html" . -}}
+<script type="module" crossorigin="anonymous" defer>
+  if (window.inEditorMode) {
+    await import("{{ $bundle.RelPermalink }}");
+  }
+</script>

@@ -1,0 +1,137 @@
+{{/*
+  Template-builtin battery for the browser-bundle tests (builtins.test.ts).
+  Every row is `<div data-k="...">OUTPUT</div>`; the test queries rows by key.
+
+  Two conventions keep this stable across Hugo versions:
+  - Direct-call argument order for funcs whose signature is (LIST|STRING, ...OPTS):
+    `substr "x" 6 5`, `delimit LIST ","`, `sort LIST "key" "desc"`. Piping into
+    those mis-routes args in this Hugo line (the piped value lands in the last
+    slot instead of the collection slot) — a real gotcha worth knowing.
+  - Explicit-UTC or date-only time inputs so results don't depend on the
+    renderer's local timezone (= UTC in wasm; the native dev binary differs).
+*/}}
+{{/* ---- CONTENT / TRANSFORM ---- */}}
+<div data-k="markdownify">{{ "Bold **markdown** here." | markdownify }}</div>
+<div data-k="plainify">{{ "Text with <b>bold</b> and <a href='/x'>link</a>." | plainify }}</div>
+<div data-k="htmlUnescape">{{ "&lt;b&gt; &amp; &quot;quoted&quot;" | htmlUnescape }}</div>
+<div data-k="htmlEscape">{{ "<b>&amp;</b>" | htmlEscape }}</div>
+<div data-k="safeHTML">{{ "<span>raw</span>" | safeHTML }}</div>
+<div data-k="truncate">{{ "The quick brown fox jumps over the lazy dog." | truncate 11 }}</div>
+<div data-k="emojify">{{ ":smile: party :tada:" | emojify }}</div>
+<div data-k="transformUnmarshalYaml">{{ $m := "title: Hello" | transform.Unmarshal }}{{ $m.title }}</div>
+<div data-k="transformUnmarshalJson">{{ $j := "{\"a\":1,\"b\":\"x\"}" | transform.Unmarshal }}a={{ index $j "a" }};b={{ index $j "b" }}</div>
+<div data-k="transformRemarshal">{{ "a: 1\nb: hi" | transform.Remarshal "json" }}</div>
+<div data-k="highlight">{{ transform.Highlight "console.log('hi')" "js" }}</div>
+
+{{/* ---- STRINGS ---- */}}
+<div data-k="upper">{{ "HeLLo World" | upper }}</div>
+<div data-k="lower">{{ "HeLLo World" | lower }}</div>
+<div data-k="title">{{ "the quick brown fox" | title }}</div>
+<div data-k="chomp">{{ "  padded  \n" | chomp }}</div>
+<div data-k="trim">{{ trim "xpaddingx" "x" }}</div>
+<div data-k="replace">{{ replace "foo-bar-foo" "foo" "baz" }}</div>
+<div data-k="replaceRE">{{ "ab12cd34" | replaceRE "[0-9]+" "_" }}</div>
+<div data-k="substr">{{ substr "Hello World" 6 5 }}</div>
+<div data-k="strings.Split">{{ delimit (strings.Split "a,b,,c" ",") "|" }}</div>
+<div data-k="strings.Repeat">{{ strings.Repeat 3 "ab" }}</div>
+<div data-k="strings.Contains">{{ strings.Contains "haystack" "ay" }}</div>
+<div data-k="strings.HasPrefix">{{ strings.HasPrefix "haystack" "hay" }}</div>
+<div data-k="strings.TrimSpace">{{ "   hi   " | strings.TrimSpace }}</div>
+ {{/* strings.Count is (substr, s) — the haystack comes second. */}}
+ <div data-k="strings.Count">{{ strings.Count "e" "cheese" }}</div>
+<div data-k="slicestr">{{ slicestr "Hello World" 6 }}</div>
+<div data-k="countwords">{{ "hello brave new world" | countwords }}</div>
+<div data-k="countrunes">{{ "héllo wörld" | countrunes }}</div>
+<div data-k="findRE">{{ delimit (findRE "[0-9]+" "ab12cd34ef5") "," }}</div>
+<div data-k="anchorize">{{ "My Big Heading!" | anchorize }}</div>
+<div data-k="urlize">{{ "My First Post!" | urlize }}</div>
+<div data-k="humanize">{{ "first-post-slug" | humanize }}</div>
+<div data-k="pluralize">{{ "cat" | pluralize }}</div>
+<div data-k="singularize">{{ "criteria" | singularize }}</div>
+
+{{/* ---- COLLECTIONS ---- */}}
+<div data-k="slice">{{ delimit (slice "b" "a" "c") "-" }}</div>
+<div data-k="append">{{ delimit (slice "a" "b" | append "c" "d") "-" }}</div>
+<div data-k="first">{{ delimit (first 2 (slice "a" "b" "c")) "," }}</div>
+<div data-k="last">{{ delimit (last 2 (slice "a" "b" "c")) "," }}</div>
+<div data-k="after">{{ delimit (after 1 (slice "a" "b" "c")) "," }}</div>
+<div data-k="uniq">{{ delimit (slice "a" "b" "a" "c" "b" | uniq) "," }}</div>
+<div data-k="sort">{{ delimit (slice "c" "a" "b" | sort) "," }}</div>
+<div data-k="sortDesc">{{ $db := slice (dict "n" 1 "s" "a") (dict "n" 3 "s" "c") (dict "n" 2 "s" "b") }}{{ range sort $db "n" "desc" }}{{ .s }}{{ end }}</div>
+<div data-k="collections.Reverse">{{ delimit (slice "a" "b" "c" | collections.Reverse) "," }}</div>
+<div data-k="in">{{ in (slice "a" "b" "c") "b" }}</div>
+<div data-k="dict">{{ $d := dict "k1" "v1" "k2" "v2" }}{{ $d.k1 }}{{ index $d "k2" }}</div>
+<div data-k="mergeWar">{{ dict "a" 1 "b" 2 | merge (dict "b" 3 "c" 4) | jsonify }}</div>
+<div data-k="jsonifyMap">{{ dict "b" 2 "a" 1 | jsonify }}</div>
+<div data-k="jsonifySlice">{{ slice 1 "two" 3.5 | jsonify }}</div>
+<div data-k="seq">{{ delimit (seq 1 4) "," }}</div>
+<div data-k="complement">{{ delimit (complement (slice "b") (slice "a" "b" "c")) "," }}</div>
+<div data-k="intersect">{{ delimit (intersect (slice "a" "b" "c") (slice "b" "c" "d")) "," }}</div>
+<div data-k="symdiff">{{ delimit (symdiff (slice "a" "b" "c") (slice "c" "d")) "," }}</div>
+<div data-k="where">{{ $items := slice (dict "url" "/" "label" "Home") (dict "url" "/about" "label" "About") }}{{ with where $items "url" "/" }}{{ (index . 0).label }}{{ end }}</div>
+<div data-k="sortKeyed">{{ $items := slice (dict "n" 2 "name" "b") (dict "n" 1 "name" "a") }}{{ range sort $items "n" }}{{ .name }}{{ end }}</div>
+<div data-k="apply">{{ delimit (apply (slice "hi" "bye") "upper" ".") "," }}</div>
+<div data-k="default">{{ default "fallback" "" }}</div>
+<div data-k="defaultNum">{{ default 42 0 }}</div>
+<div data-k="querify">{{ querify "a" "b c" "d" "e" }}</div>
+
+{{/* ---- COMPARE / LOGIC ---- */}}
+<div data-k="eq">{{ eq 5 5 }}</div>
+<div data-k="neq">{{ ne 5 6 }}</div>
+<div data-k="lt">{{ lt 2 5 }}</div>
+<div data-k="le">{{ le 5 5 }}</div>
+<div data-k="gt">{{ gt 7 3 }}</div>
+<div data-k="ge">{{ ge 3 3 }}</div>
+<div data-k="cond">{{ cond true "yes" "no" }}</div>
+<div data-k="or">{{ or false "x" }}</div>
+<div data-k="not">{{ not false }}</div>
+
+{{/* ---- MATH ---- */}}
+<div data-k="mathAdd">{{ math.Add 10 2 }}</div>
+<div data-k="mathAddFloats">{{ math.Add 1.5 1.5 }}</div>
+<div data-k="mathSub">{{ math.Sub 10 2 }}</div>
+<div data-k="mathMul">{{ math.Mul 6 7 }}</div>
+<div data-k="mathDivInt">{{ math.Div 10 4 }}</div>
+<div data-k="mathDivFloat">{{ math.Div 7.5 2.5 }}</div>
+<div data-k="mathMod">{{ math.Mod 10 3 }}</div>
+<div data-k="mathModBool">{{ math.ModBool 10 3 }};{{ math.ModBool 10 2 }}</div>
+<div data-k="mathCeil">{{ math.Ceil 2.1 }}</div>
+<div data-k="mathFloor">{{ math.Floor 2.9 }}</div>
+<div data-k="mathRound">{{ math.Round 2.5 }};{{ math.Round 2.4 }}</div>
+<div data-k="mathMax">{{ math.Max 4 9 }}</div>
+<div data-k="mathMin">{{ math.Min 4 9 }}</div>
+<div data-k="mathPow">{{ math.Pow 2 10 }}</div>
+<div data-k="mathAbs">{{ math.Abs -7 }}</div>
+<div data-k="mathSqrt">{{ math.Sqrt 16 }}</div>
+
+{{/* ---- CAST / CONVERSION ---- */}}
+<div data-k="castToString">{{ cast.ToString 42 }}</div>
+<div data-k="castToInt">{{ cast.ToInt "42" }}</div>
+<div data-k="castToFloat">{{ cast.ToFloat "1.25" }}</div>
+
+{{/* ---- TIME ---- */}}
+<div data-k="timeFormat">{{ (time "2024-01-15") | dateFormat "Jan 2, 2006" }}</div>
+<div data-k="dateFormat">{{ dateFormat "2006-01-02 15:04" (time "2024-01-15T10:30:00Z") }}</div>
+<div data-k="timeAsTimeFormat">{{ time.AsTime "2024-03-05T08:45:00Z" | dateFormat "15:04 02/01/2006" }}</div>
+
+{{/* ---- PATHS / URLS ---- */}}
+<div data-k="pathJoin">{{ path.Join "a" "b/c" "d.html" }}</div>
+<div data-k="pathBase">{{ path.Base "a/b/c.html" }}</div>
+<div data-k="pathExt">{{ path.Ext "a/b/c.html" }}</div>
+<div data-k="urlsParse">{{ (urls.Parse "https://example.com/a?x=1").Host }}</div>
+<div data-k="relURL">{{ relURL "css/style.css" }}</div>
+
+{{/* ---- HASH / ENCODING ---- */}}
+<div data-k="sha256">{{ "hello" | sha256 }}</div>
+<div data-k="md5">{{ "hello" | md5 }}</div>
+<div data-k="fnv32a">{{ hash.FNV32a "hello" }}</div>
+<div data-k="hmac">{{ hmac "sha256" "secret-key" "hello" }}</div>
+<div data-k="base64Encode">{{ "hello" | base64Encode }}</div>
+<div data-k="base64Decode">{{ "aGVsbG8=" | base64Decode }}</div>
+
+{{/* ---- PRINT / TEMPLATES ---- */}}
+<div data-k="printf">{{ printf "%s=%d" "count" 99 }}</div>
+<div data-k="len">{{ len (slice 1 2 3) }}</div>
+<div data-k="indexString">{{ index "abcdef" 1 }}</div>
+<div data-k="templatesExists">{{ templates.Exists "partials/static.html" }}</div>
+<div data-k="templatesExistsMissing">{{ templates.Exists "partials/builtin-does-not-exist.html" }}</div>
