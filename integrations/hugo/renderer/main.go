@@ -132,32 +132,45 @@ func (builder *editorSiteBuilder) createSites() error {
 }
 
 func (builder *editorSiteBuilder) build() error {
+	var events []fsnotify.Event
 	if builder.Sites == nil {
 		if err := builder.createSites(); err != nil {
 			return err
 		}
+	} else {
+		events = builder.changeEvents()
 	}
 
-	err := builder.Sites.Build(hugolib.BuildCfg{NoBuildLock: true}, builder.changeEvents()...)
+	err := builder.Sites.Build(hugolib.BuildCfg{NoBuildLock: true}, events...)
+	if err != nil {
+		return err
+	}
 
 	builder.changedFiles = nil
 	builder.removedFiles = nil
 
-	if err == nil {
-		if n := builder.Sites.NumLogErrors(); n > 0 {
-			err = fmt.Errorf("logged %d errors", n)
-		}
+	if n := builder.Sites.NumLogErrors(); n > 0 {
+		err = fmt.Errorf("logged %d errors", n)
 	}
 	return err
 }
 
-// buildIfDirty runs an incremental build only when files changed since the
-// last build, so renders with nothing pending skip the build entirely.
+// buildIfDirty runs the initial build when the site doesn't exist yet, then
+// an incremental build only when files changed since the last build, so
+// renders with nothing pending skip the build entirely.
 func (builder *editorSiteBuilder) buildIfDirty() error {
+	if builder.Sites == nil {
+		return builder.build()
+	}
+
 	if len(builder.changedFiles) == 0 && len(builder.removedFiles) == 0 {
 		return nil
 	}
-	return builder.build()
+
+	if err := builder.build(); err != nil {
+		return fmt.Errorf("build after pending content changes: %w", err)
+	}
+	return nil
 }
 
 func (builder *editorSiteBuilder) writeFile(filename, content string) {
@@ -294,23 +307,6 @@ func initHugoEditorSite(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func (builder *editorSiteBuilder) ensureBuilt() error {
-	if builder.Sites != nil {
-		return nil
-	}
-
-	if err := builder.createSites(); err != nil {
-		return fmt.Errorf("failed to create site: %w", err)
-	}
-
-	builder.changedFiles = nil
-	builder.removedFiles = nil
-	if err := builder.build(); err != nil {
-		return fmt.Errorf("initial build failed: %w", err)
-	}
-	return nil
-}
-
 // renderRequests is the browser's queued batch: the one render target every
 // request shares, plus the requests to render against it.
 type renderRequests struct {
@@ -352,11 +348,8 @@ func renderHugoPartials(this js.Value, args []js.Value) interface{} {
 	if len(reqs) == 0 {
 		return errorValue("renderHugoPartials requires at least one request")
 	}
-	if err := builder.ensureBuilt(); err != nil {
-		return errorValue("editor site build failed: %s", err)
-	}
 	if err := builder.buildIfDirty(); err != nil {
-		return errorValue("editor site build failed after pending content changes: %s", err)
+		return errorValue("editor site build failed: %s", err)
 	}
 
 	for _, req := range reqs {

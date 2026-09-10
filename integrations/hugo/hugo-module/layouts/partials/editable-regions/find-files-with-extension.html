@@ -2,23 +2,25 @@
 {{- $exts := .exts -}}
 {{- $ignore := .ignore | default slice -}}
 {{- $files := dict -}}
-{{- with os.Stat $dir -}}
-  {{- if .IsDir -}}
-    {{- range $entry := readDir $dir -}}
-      {{- $path := path.Join $dir $entry.Name -}}
-      {{- if $entry.IsDir -}}
-        {{- if in $ignore $entry.Name -}}
-          {{ continue }}
-        {{- end -}}
-        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
-      {{- else -}}
-        {{- if in $exts (path.Ext $entry.Name) -}}
-          {{- $files = merge $files (dict $path (readFile $path)) -}}
+{{- if os.FileExists $dir -}}
+  {{- with os.Stat $dir -}}
+    {{- if .IsDir -}}
+      {{- range $entry := readDir $dir -}}
+        {{- $path := path.Join $dir $entry.Name -}}
+        {{- if $entry.IsDir -}}
+          {{- if in $ignore $entry.Name -}}
+            {{ continue }}
+          {{- end -}}
+          {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
+        {{- else -}}
+          {{- if in $exts (path.Ext $entry.Name) -}}
+            {{- $files = merge $files (dict $path (readFile $path)) -}}
+          {{- end -}}
         {{- end -}}
       {{- end -}}
+    {{- else if in $exts (path.Ext $dir) -}}
+      {{- $files = merge $files (dict $dir (readFile $dir)) -}}
     {{- end -}}
-  {{- else if in $exts (path.Ext $dir) -}}
-    {{- $files = merge $files (dict $dir (readFile $dir)) -}}
   {{- end -}}
 {{- end -}}
 

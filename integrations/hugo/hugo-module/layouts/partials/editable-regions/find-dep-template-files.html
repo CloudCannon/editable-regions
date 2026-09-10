@@ -22,8 +22,7 @@
 {{- range $candidate := slice "hugo.toml" "hugo.yaml" "hugo.yml" "hugo.json" "config.toml" "config.yaml" "config.yml" "config.json" -}}
   {{- $cfgPath := path.Join $dir $candidate -}}
   {{- if os.FileExists $cfgPath -}}
-    {{- $ext := strings.TrimPrefix "." (path.Ext $candidate) -}}
-    {{- $conf = os.ReadFile $cfgPath | transform.Unmarshal (dict "format" $ext) -}}
+    {{- $conf = os.ReadFile $cfgPath | resources.FromString $cfgPath | transform.Unmarshal -}}
     {{- break -}}
   {{- end -}}
 {{- end -}}
