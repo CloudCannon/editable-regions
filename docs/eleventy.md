@@ -59,7 +59,7 @@ After every build the plugin emits `register-components.js` into your output dir
 
 ## Registering components
 
-There's no registration step: the editor resolves component names the same way your templates resolve includes. A component name is an include name — `{% include "author-card" %}` matches `data-component="author-card"` — rendered against your component directories (see [`componentDirs`](#liquid-options)).
+There's no registration step: the editor resolves component names the same way your templates resolve includes. A component name is an include name, so `{% include "author-card" %}` matches `data-component="author-card"`.
 
 To pin an explicit component name, or register a template outside your component directories, use the `components` option:
 

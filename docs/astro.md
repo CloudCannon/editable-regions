@@ -71,7 +71,7 @@ import "@cloudcannon/editable-regions/astro-svelte-renderer";
 import "@cloudcannon/editable-regions/astro-vue-renderer";
 ```
 
-To use a React, Svelte, or Vue component as a top-level editable component — not nested inside an Astro component — register it with that framework's own integration instead:
+To use a React, Svelte, or Vue component as a top-level editable component register it with that framework's own integration instead:
 
 ```js
 import { registerReactComponent } from "@cloudcannon/editable-regions/react";
@@ -112,7 +112,7 @@ Imports from `astro:assets` keep working inside editable components, but build-t
 | `getImage(options)` | Resolves `src` and returns a result shape compatible with `Image`/`Picture` — without processing or `srcSet` generation. |
 | `inferRemoteSize()` | Not supported in editable components. Logs a warning and resolves to `{}` — use a visual editor fallback instead. |
 
-Use the [`data-prop-*` attributes](../README.md#image) on the surrounding markup to make an image's source editable.
+Use an [image editable region](../README.md#image) on the surrounding markup to make an image's source editable.
 
 ## Env vars with `astro:env`
 
