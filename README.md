@@ -16,7 +16,6 @@ Editable Regions let you mark up any HTML output with attributes (or web compone
   - [React](#react)
   - [Svelte](#svelte)
   - [Vue](#vue)
-- [Integration reference](#integration-reference)
 - [How editable regions work](#how-editable-regions-work)
   - [Defining editable regions](#defining-editable-regions)
   - [Passing values to editable regions](#passing-values-to-editable-regions)
