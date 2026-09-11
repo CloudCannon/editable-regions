@@ -1,9 +1,3 @@
-/**
- * Parser for the chained template errors the Hugo renderer returns; ground
- * truth is a real bookshop → grid → shortcode → GetRemote failure from the
- * petite-dahlia site.
- */
-
 import { describe, expect, test } from "vitest";
 
 import {
@@ -11,18 +5,18 @@ import {
 	parseHugoTemplateError,
 } from "../../../integrations/hugo/browser/errors.ts";
 
-const PETITE_DAHLIA_ERROR = [
+const SAMPLE_ERROR = [
 	'template: __cc-dispatch.html:14:58: executing "__cc-dispatch.html" at : error calling partial: "_vendor/github.com/cloudcannon/bookshop/hugo/v3/core/bookshop.html:55:8": execute of template failed: ',
 	'template: _partials/bookshop.html:55:8: executing "_partials/bookshop.html" at : error calling partial: "_vendor/github.com/cloudcannon/bookshop/hugo/v3/core/helpers/component.html:34:3": execute of template failed: ',
 	'template: _partials/_bookshop/helpers/component.html:34:3: executing "_partials/_bookshop/helpers/component.html" at : error calling partial: "component-library/components/grid/grid.hugo.html:45:131": execute of template failed: ',
 	'template: _partials/bookshop/components/grid/grid.hugo.html:45:131: executing "_partials/bookshop/components/grid/grid.hugo.html" at : error calling markdownify: "content/en/_index.md:1:1": failed to render shortcode "figure": failed to process shortcode: "layouts/shortcodes/figure.html:28:7": execute of template failed: ',
 	'template: _shortcodes/figure.html:28:7: executing "_shortcodes/figure.html" at : error calling partial: "layouts/partials/img.html:63:41": execute of template failed: ',
-	'template: _partials/img.html:63:41: executing "_partials/img.html" at : error calling GetRemote: Get "https://cdn.nddmed.com/pages/nycskyline.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
+	'template: _partials/img.html:63:41: executing "_partials/img.html" at : error calling GetRemote: Get "https://assets.example.com/images/hero.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
 ].join("");
 
 describe("parseHugoTemplateError", () => {
 	test("flattens the chain into outermost-first template refs", () => {
-		const parsed = parseHugoTemplateError(PETITE_DAHLIA_ERROR);
+		const parsed = parseHugoTemplateError(SAMPLE_ERROR);
 		expect(parsed.frames).toEqual([
 			"__cc-dispatch.html:14:58",
 			"_partials/bookshop.html:55:8",
@@ -34,10 +28,10 @@ describe("parseHugoTemplateError", () => {
 	});
 
 	test("the leaf is the underlying error with the failing call named", () => {
-		const parsed = parseHugoTemplateError(PETITE_DAHLIA_ERROR);
+		const parsed = parseHugoTemplateError(SAMPLE_ERROR);
 		expect(parsed.call).toBe("GetRemote");
 		expect(parsed.message).toBe(
-			'Get "https://cdn.nddmed.com/pages/nycskyline.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
+			'Get "https://assets.example.com/images/hero.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
 		);
 	});
 
@@ -64,9 +58,9 @@ describe("parseHugoTemplateError", () => {
 
 describe("enhanceHugoError", () => {
 	test("leads with the root cause and carries the env_client hint separately", () => {
-		const error = enhanceHugoError(PETITE_DAHLIA_ERROR, "grid");
+		const error = enhanceHugoError(SAMPLE_ERROR, "grid");
 		expect(error.message).toBe(
-			'Failed to render Hugo component "grid": GetRemote: Get "https://cdn.nddmed.com/pages/nycskyline.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
+			'Failed to render Hugo component "grid": GetRemote: Get "https://assets.example.com/images/hero.jpg": net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.',
 		);
 		expect(error.hint).toBe(
 			"The partial errored while rendering in the editor. If the code " +
@@ -78,7 +72,7 @@ describe("enhanceHugoError", () => {
 	});
 
 	test("replaces the JS stack with the template callstack, innermost first", () => {
-		const error = enhanceHugoError(PETITE_DAHLIA_ERROR, "grid");
+		const error = enhanceHugoError(SAMPLE_ERROR, "grid");
 		expect(error.stack).toBe(
 			[
 				"    at _partials/img.html:63:41",

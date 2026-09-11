@@ -4,8 +4,10 @@
  */
 import { Tokenizer } from "liquidjs";
 
+/** @param {any} _liquidEngine */
 export default function repeatTagFactory(_liquidEngine) {
 	return {
+		/** @this {any} @param {any} tagToken */
 		parse(tagToken) {
 			const tokenizer = new Tokenizer(
 				tagToken.args,

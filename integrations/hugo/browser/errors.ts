@@ -43,7 +43,13 @@ export function parseHugoTemplateError(raw: string): ParsedHugoError {
 	return { frames, call, message: rest };
 }
 
-export function enhanceHugoError(message: string, componentKey: string): Error {
+/** An error enhanced with an optional editor-context hint. */
+export type HugoError = Error & { hint?: string };
+
+export function enhanceHugoError(
+	message: string,
+	componentKey: string,
+): HugoError {
 	const parsed = parseHugoTemplateError(message);
 
 	let hint = "";
@@ -76,7 +82,7 @@ export function enhanceHugoError(message: string, componentKey: string): Error {
 
 	const error = new Error(
 		`Failed to render Hugo component "${componentKey}": ${sentence}`,
-	) as Error & { hint?: string };
+	) as HugoError;
 
 	if (hint) {
 		error.hint = hint;

@@ -35,7 +35,7 @@ const navFile = mkFile("/data/nav.yaml", {
 	],
 });
 const socialFile = mkFile("/data/social.json", {
-	twitter: "https://twitter.com/cloudcannon",
+	twitter: "https://twitter.com/example",
 });
 
 setMockFiles([navFile, socialFile]);
@@ -94,7 +94,7 @@ test("the dataset files (a yaml + a json) are accessible as site data", async ()
 	const el = await window.cc_components?.["globals-data"]({});
 
 	expect(lines(el)).toBe(
-		"Home;Blog;\nhttps://twitter.com/cloudcannon\nsiteDataLen=2",
+		"Home;Blog;\nhttps://twitter.com/example\nsiteDataLen=2",
 	);
 });
 

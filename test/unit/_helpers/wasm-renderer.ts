@@ -140,6 +140,6 @@ export function render(
 	partial: string,
 	props: unknown = {},
 	target = "",
-): { html?: string; error?: string } {
+): Promise<{ html?: string; error?: string }> {
 	return renderBatch([{ id: "cc-render-0", partial, props }], target);
 }

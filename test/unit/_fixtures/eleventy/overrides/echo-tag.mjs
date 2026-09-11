@@ -5,8 +5,10 @@
  */
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 
+/** @param {any} _liquidEngine */
 export default function echoTagFactory(_liquidEngine) {
 	return {
+		/** @this {any} @param {any} tagToken */
 		parse(tagToken) {
 			const tokenizer = new Tokenizer(
 				tagToken.args,
@@ -17,6 +19,7 @@ export default function echoTagFactory(_liquidEngine) {
 				throw new Error("echo: missing value argument");
 			}
 		},
+		/** @this {any} @param {any} context */
 		async render(context) {
 			const value = await toPromise(evalToken(this.valueToken, context));
 			return `<span data-echo>${value}</span>`;

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { cwd } from "node:process";
+// @ts-expect-error — @11ty/eleventy ships no type declarations
 import { EleventyRenderPlugin } from "@11ty/eleventy";
 import editableRegions from "@cloudcannon/editable-regions/eleventy";
 import fakeNodePlugin from "./fake-node-plugin.cjs";
@@ -22,6 +23,7 @@ const buildEnv = `${process.platform}@${typeof cwd()}`;
 // with no override because the real config is bundled.
 const buildInfo = { stamp: `fixture@${Date.now()}` };
 
+/** @param {any} eleventyConfig */
 export default function (eleventyConfig) {
 	// (2) Chained through a property — needs a chainable recorder stand-in, or
 	// `.add` is undefined and the replay dies before mirroring anything.
@@ -40,13 +42,18 @@ export default function (eleventyConfig) {
 	// --- Filters ---
 
 	// Auto-mirror: plain pure function.
-	eleventyConfig.addFilter("shout", (s) => String(s).toUpperCase());
+	eleventyConfig.addFilter("shout", (/** @type {any} */ s) =>
+		String(s).toUpperCase(),
+	);
 
 	// Auto-mirror: closes over buildInfo (closure survives bundling).
-	eleventyConfig.addFilter("stamp", (s) => `${s} [${buildInfo.stamp}]`);
+	eleventyConfig.addFilter(
+		"stamp",
+		(/** @type {any} */ s) => `${s} [${buildInfo.stamp}]`,
+	);
 
 	// Auto-mirror: async filter (addAsyncFilter).
-	eleventyConfig.addAsyncFilter("asyncReverse", async (s) =>
+	eleventyConfig.addAsyncFilter("asyncReverse", async (/** @type {any} */ s) =>
 		String(s).split("").reverse().join(""),
 	);
 
@@ -56,12 +63,21 @@ export default function (eleventyConfig) {
 
 	// Layer precedence: register the same name as both universal and
 	// Liquid-specific. The Liquid layer should win.
-	eleventyConfig.addFilter("doubler", (n) => `universal:${n * 2}`);
-	eleventyConfig.addLiquidFilter("doubler", (n) => `liquid:${n * 2}`);
+	eleventyConfig.addFilter(
+		"doubler",
+		(/** @type {number} */ n) => `universal:${n * 2}`,
+	);
+	eleventyConfig.addLiquidFilter(
+		"doubler",
+		(/** @type {number} */ n) => `liquid:${n * 2}`,
+	);
 
 	// Builtin name collision: registering a filter named "slug" — the
 	// builtin browser port should win (config version is skipped).
-	eleventyConfig.addFilter("slug", (s) => `config-slug:${s}`);
+	eleventyConfig.addFilter(
+		"slug",
+		(/** @type {any} */ s) => `config-slug:${s}`,
+	);
 
 	// --- Shortcodes ---
 
@@ -85,27 +101,28 @@ export default function (eleventyConfig) {
 	// Auto-mirror: plain paired shortcode.
 	eleventyConfig.addPairedShortcode(
 		"highlight",
-		(content, color = "yellow") =>
+		(/** @type {any} */ content, color = "yellow") =>
 			`<mark style="background:${color}">${content}</mark>`,
 	);
 
 	// Auto-mirror: paired shortcode closing over buildInfo.
 	eleventyConfig.addPairedShortcode(
 		"box",
-		(content) =>
+		(/** @type {any} */ content) =>
 			`<div class="box" data-stamp="${buildInfo.stamp}">${content}</div>`,
 	);
 
 	// Auto-mirror: async paired shortcode.
 	eleventyConfig.addPairedAsyncShortcode(
 		"asyncWrap",
-		async (content) => `<aside class="async-wrap">${content}</aside>`,
+		async (/** @type {any} */ content) =>
+			`<aside class="async-wrap">${content}</aside>`,
 	);
 
 	// Non-portable paired shortcode: reads from disk. Browser override.
 	eleventyConfig.addPairedShortcode(
 		"diskWrap",
-		(content) =>
+		(/** @type {any} */ content) =>
 			`<div data-size="${fs.statSync("README.md").size}">${content}</div>`,
 	);
 
