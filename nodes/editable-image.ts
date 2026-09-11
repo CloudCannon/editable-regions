@@ -185,87 +185,92 @@ export default class EditableImage extends Editable {
 		this.configuredTitle =
 			!!this.element.dataset.propTitle || !!this.element.dataset.prop;
 
-		this.loadInputConfig().then(() => {
-			this.imageEl?.addEventListener("click", async (e) => {
-				e.preventDefault();
+		// Loading the input config costs a round trip per configured prop, so the
+		// listener is attached up front and the click waits for it. Attaching after
+		// the load resolves instead leaves a window where clicks are dropped.
+		const inputConfigLoaded = this.loadInputConfig();
 
-				if (!this.value) {
-					throw new Error("Value is not defined");
-				}
+		this.imageEl?.addEventListener("click", async (e) => {
+			e.preventDefault();
 
-				const data: this["value"] = {};
-				if ("src" in this.value) {
-					data.src = this.value.src;
-				}
-				if ("alt" in this.value) {
-					data.alt = this.value.alt;
-				}
-				if ("title" in this.value) {
-					data.title = this.value.title;
-				}
+			await inputConfigLoaded;
 
-				this.panelId = await CloudCannon.createCustomDataPanel({
-					title: "Edit Image",
-					data,
-					position: this.imageEl?.getBoundingClientRect(),
-					config: {
-						_inputs: {
-							src: {
-								label: "Image",
-								type: "image",
-								...this.inputConfig.src,
-							},
-							alt: {
-								comment:
-									"A description which provides information about this image if for some reason it cannot be viewed.",
-								...this.inputConfig.alt,
-							},
-							title: {
-								comment: "Displayed when hovering over the image.",
-								...this.inputConfig.title,
-							},
+			if (!this.value) {
+				throw new Error("Value is not defined");
+			}
+
+			const data: this["value"] = {};
+			if ("src" in this.value) {
+				data.src = this.value.src;
+			}
+			if ("alt" in this.value) {
+				data.alt = this.value.alt;
+			}
+			if ("title" in this.value) {
+				data.title = this.value.title;
+			}
+
+			this.panelId = await CloudCannon.createCustomDataPanel({
+				title: "Edit Image",
+				data,
+				position: this.imageEl?.getBoundingClientRect(),
+				config: {
+					_inputs: {
+						src: {
+							label: "Image",
+							type: "image",
+							...this.inputConfig.src,
+						},
+						alt: {
+							comment:
+								"A description which provides information about this image if for some reason it cannot be viewed.",
+							...this.inputConfig.alt,
+						},
+						title: {
+							comment: "Displayed when hovering over the image.",
+							...this.inputConfig.title,
 						},
 					},
-					onChange: (value): void => {
-						if (!value || typeof value !== "object") {
-							throw new Error("Invalid image data");
-						}
+				},
+				onChange: (value): void => {
+					if (!value || typeof value !== "object") {
+						throw new Error("Invalid image data");
+					}
 
-						if (
-							"src" in value &&
-							this.configuredSrc &&
-							value.src !== this.value?.src
-						) {
-							this.dispatchSet(
-								this.element.dataset.propSrc ??
-									`${this.element.dataset.prop}.src`,
-								value.src,
-							);
-						}
-						if (
-							"alt" in value &&
-							this.configuredAlt &&
-							value.alt !== this.value?.alt
-						) {
-							this.dispatchSet(
-								this.element.dataset.propAlt ??
-									`${this.element.dataset.prop}.alt`,
-								value.alt,
-							);
-						}
-						if (
-							"title" in value &&
-							this.configuredTitle &&
-							value.title !== this.value?.title
-						) {
-							this.dispatchSet(
-								this.element.dataset.propTitle ??
-									`${this.element.dataset.prop}.title`,
-								value.title,
-							);
-						}
-					},
-				});
+					if (
+						"src" in value &&
+						this.configuredSrc &&
+						value.src !== this.value?.src
+					) {
+						this.dispatchSet(
+							this.element.dataset.propSrc ??
+								`${this.element.dataset.prop}.src`,
+							value.src,
+						);
+					}
+					if (
+						"alt" in value &&
+						this.configuredAlt &&
+						value.alt !== this.value?.alt
+					) {
+						this.dispatchSet(
+							this.element.dataset.propAlt ??
+								`${this.element.dataset.prop}.alt`,
+							value.alt,
+						);
+					}
+					if (
+						"title" in value &&
+						this.configuredTitle &&
+						value.title !== this.value?.title
+					) {
+						this.dispatchSet(
+							this.element.dataset.propTitle ??
+								`${this.element.dataset.prop}.title`,
+							value.title,
+						);
+					}
+				},
 			});
 		});
 	}
