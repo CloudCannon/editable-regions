@@ -42,8 +42,8 @@ function keyedDiv(html: string, id: string): string {
 	return html.slice(start + open.length, end);
 }
 
-test("one batched call renders every request keyed by id, in order", () => {
-	const { html = "", error } = renderBatch(
+test("one batched call renders every request keyed by id, in order", async () => {
+	const { html = "", error } = await renderBatch(
 		[
 			{
 				id: "cc-render-0",
@@ -72,8 +72,8 @@ test("one batched call renders every request keyed by id, in order", () => {
 	expect(html.indexOf("static")).toBeLessThan(html.indexOf("Second"));
 });
 
-test("a partial that errors at render time fails only its own keyed div", () => {
-	const { html = "", error } = renderBatch(
+test("a partial that errors at render time fails only its own keyed div", async () => {
+	const { html = "", error } = await renderBatch(
 		[
 			{
 				id: "cc-render-0",
@@ -96,8 +96,8 @@ test("a partial that errors at render time fails only its own keyed div", () => 
 	expect(keyedDiv(html, "cc-render-1")).toContain('<p class="s">static</p>');
 });
 
-test("a missing partial marks only its own keyed div", () => {
-	const { html = "", error } = renderBatch(
+test("a missing partial marks only its own keyed div", async () => {
+	const { html = "", error } = await renderBatch(
 		[
 			{
 				id: "cc-render-0",
@@ -118,8 +118,8 @@ test("a missing partial marks only its own keyed div", () => {
 	expect(keyedDiv(html, "cc-render-1")).toContain('<p class="s">static</p>');
 });
 
-test("a batch whose target matches no page renders page-less together", () => {
-	const { html = "", error } = renderBatch(
+test("a batch whose target matches no page renders page-less together", async () => {
+	const { html = "", error } = await renderBatch(
 		[
 			{
 				id: "cc-render-0",

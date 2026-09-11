@@ -53,8 +53,8 @@ afterAll(restoreRendererStdout);
 
 // --- Renders -------------------------------------------------------------
 
-test("renders props into a partial", () => {
-	const { html, error } = render("card.html", {
+test("renders props into a partial", async () => {
+	const { html, error } = await render("card.html", {
 		title: "Hello World",
 		body: "Some **bold** text",
 		tags: ["a", "b"],
@@ -66,35 +66,35 @@ test("renders props into a partial", () => {
 	expect(html).toContain("<em>a</em><em>b</em>");
 });
 
-test("a later render is fresh and drops stale props", () => {
-	const { html, error } = render("card.html", { title: "Second Render" });
+test("a later render is fresh and drops stale props", async () => {
+	const { html, error } = await render("card.html", { title: "Second Render" });
 	expect(error).toBeUndefined();
 	expect(html).toContain("Second Render");
 	expect(html).not.toContain("Hello World");
 });
 
-test("nested partials render", () => {
-	const { html, error } = render("wrapper.html", { title: "Nested" });
+test("nested partials render", async () => {
+	const { html, error } = await render("wrapper.html", { title: "Nested" });
 	expect(error).toBeUndefined();
 	expect(html).toMatch(/<h2>Nested<\/h2>/);
 });
 
-test("ENV_CLIENT is true in the renderer, beating site config", () => {
-	const { html, error } = render("envprobe.html");
+test("ENV_CLIENT is true in the renderer, beating site config", async () => {
+	const { html, error } = await render("envprobe.html");
 	expect(error).toBeUndefined();
 	expect(html).toContain("env=[true]");
 });
 
-test("site data files resolve", () => {
-	const { html, error } = render("nav.html");
+test("site data files resolve", async () => {
+	const { html, error } = await render("nav.html");
 	expect(error).toBeUndefined();
 	expect(html).toContain('<a href="/blog/">Blog</a>');
 	expect(html).toContain('<a href="/">Home</a>');
 });
 
-test("a 20-render burst stays fresh on the incremental path", () => {
+test("a 20-render burst stays fresh on the incremental path", async () => {
 	for (let i = 0; i < 20; i++) {
-		const { html, error } = render("card.html", { title: `Burst ${i}` });
+		const { html, error } = await render("card.html", { title: `Burst ${i}` });
 		expect(error).toBeUndefined();
 		expect(html).toContain(`Burst ${i}`);
 	}
@@ -102,23 +102,27 @@ test("a 20-render burst stays fresh on the incremental path", () => {
 
 // --- Render target resolution ---------------------------------------------
 
-test("with no target, renders with an empty page context", () => {
-	const { html, error } = render("pageprobe.html");
+test("with no target, renders with an empty page context", async () => {
+	const { html, error } = await render("pageprobe.html");
 	expect(error).toBeUndefined();
 	// No content at all and no target, so `page` binds to Hugo's empty page:
 	// zero values, front matter params unset.
 	expect(html).toContain("|x|");
 });
 
-test("a target file path resolves to that page's built output", () => {
+test("a target file path resolves to that page's built output", async () => {
 	// The renderer looks the target up by File().Path(), not by any computed
 	// page path.
-	const { html, error } = render("pageprobe.html", {}, "content/notes/one.md");
+	const { html, error } = await render(
+		"pageprobe.html",
+		{},
+		"content/notes/one.md",
+	);
 	expect(error).toBeUndefined();
 	expect(html).toContain("Target One|x|/notes/one/");
 });
 
-test("an edit to an existing page resolves through the incremental rebuild", () => {
+test("an edit to an existing page resolves through the incremental rebuild", async () => {
 	// Post-boot writes fold into the next render batch's rebuild, like the
 	// browser's change events.
 	renderer().writeHugoFiles(
@@ -126,22 +130,26 @@ test("an edit to an existing page resolves through the incremental rebuild", () 
 			"content/notes/one.md": "---\ntitle: Target One Edited\n---\n",
 		}),
 	);
-	const { html, error } = render("pageprobe.html", {}, "content/notes/one.md");
+	const { html, error } = await render(
+		"pageprobe.html",
+		{},
+		"content/notes/one.md",
+	);
 	expect(error).toBeUndefined();
 	expect(html).toContain("Target One Edited|x|/notes/one/");
 });
 
-test("an unmatched target renders with an empty page context", () => {
+test("an unmatched target renders with an empty page context", async () => {
 	// A non-content file (e.g. a data file) matches no page — the render is
 	// page-less.
-	const { html, error } = render("pageprobe.html", {}, "data/nav.yaml");
+	const { html, error } = await render("pageprobe.html", {}, "data/nav.yaml");
 	expect(error).toBeUndefined();
 	expect(html).toContain("|x|");
 });
 
 // --- File surface --------------------------------------------------------
 
-test("readHugoFiles returns written contents and skips missing paths", () => {
+test("readHugoFiles returns written contents and skips missing paths", async () => {
 	const r = renderer();
 	r.writeHugoFiles(JSON.stringify({ "scratch.txt": "hello" }));
 	expect(r.readHugoFiles(JSON.stringify(["scratch.txt", "nope.txt"]))).toEqual({
@@ -149,7 +157,7 @@ test("readHugoFiles returns written contents and skips missing paths", () => {
 	});
 });
 
-test("removeHugoFiles deletes a file", () => {
+test("removeHugoFiles deletes a file", async () => {
 	const r = renderer();
 	r.removeHugoFiles(JSON.stringify(["scratch.txt"]));
 	expect(r.readHugoFiles(JSON.stringify(["scratch.txt"]))).toEqual({});
@@ -157,30 +165,30 @@ test("removeHugoFiles deletes a file", () => {
 
 // --- Errors --------------------------------------------------------------
 
-test("a missing partial renders the marker instead of a raw Hugo error", () => {
+test("a missing partial renders the marker instead of a raw Hugo error", async () => {
 	// The dispatch layout's templates.Exists check emits a marker the runtime
 	// turns into the clean component error; the build stays green so no Hugo
 	// execution trace leaks through.
-	const { html, error } = render("does-not-exist.html");
+	const { html, error } = await render("does-not-exist.html");
 	expect(error).toBeUndefined();
 	expect(html).toMatch(/<cc-missing-partial data-name="does-not-exist\.html"/);
 });
 
-test("renders recover after an error", () => {
-	const { html, error } = render("card.html", { title: "After Error" });
+test("renders recover after an error", async () => {
+	const { html, error } = await render("card.html", { title: "After Error" });
 	expect(error).toBeUndefined();
 	expect(html).toContain("After Error");
 });
 
 // --- Live updates --------------------------------------------------------
 
-test("template updates take effect (the editor rewrites partials)", () => {
+test("template updates take effect (the editor rewrites partials)", async () => {
 	renderer().writeHugoFiles(
 		JSON.stringify({
 			"layouts/partials/card.html": "<div>UPDATED {{ .title }}</div>",
 		}),
 	);
-	const { html, error } = render("card.html", { title: "Template" });
+	const { html, error } = await render("card.html", { title: "Template" });
 	expect(error).toBeUndefined();
 	expect(html).toContain("UPDATED Template");
 });

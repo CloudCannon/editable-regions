@@ -29,6 +29,7 @@ declare global {
 	interface HugoRuntimeMeta {
 		generator?: string;
 		wasmUrl?: string;
+		workerUrl?: string;
 		verbose?: boolean;
 		env?: string;
 	}
@@ -53,7 +54,7 @@ declare global {
 		CloudCannonAPI?: CloudCannonVisualEditorAPIRouter;
 		/** The installed v0/v1 CloudCannon API for this page. */
 		CloudCannon?: CloudCannonVisualEditorAPIV0 | CloudCannonVisualEditorAPIV1;
-		/** Emitter metadata: generator, wasmUrl, verbose, env. */
+		/** Emitter metadata: generator, wasmUrl, workerUrl, verbose, env. */
 		cc_hugo?: HugoRuntimeMeta;
 		/** Template/config snapshot keyed by physical path. */
 		cc_hugo_files?: Record<string, string>;
@@ -65,5 +66,8 @@ declare global {
 	function removeHugoFiles(json: string): HugoEditorResult | null;
 	function readHugoFiles(json: string): Record<string, string>;
 	function initHugoEditorSite(): HugoEditorResult | null;
-	function renderHugoPartials(json: string): HugoRenderResult | null;
+	function renderHugoPartials(
+		json: string,
+		callback: (result: HugoRenderResult) => void,
+	): void;
 }

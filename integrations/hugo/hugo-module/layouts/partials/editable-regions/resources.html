@@ -71,15 +71,26 @@
     {{- end -}}
   {{- end -}}
 
+{{- $workerSrc := resources.Get "integrations/hugo/browser/worker.ts" -}}
+{{- $workerUrl := "" -}}
+{{- if $workerSrc -}}
+  {{- $workerUrl = ($workerSrc | js.Build (dict
+    "minify" (not hugo.IsDevelopment)
+    "targetPath" "_cloudcannon/hugo-worker.js"
+  ) | fingerprint).RelPermalink -}}
+{{- end -}}
+
 {{- $ctx := dict
   "meta" (dict
     "generator" (printf "Hugo %s" hugo.Version)
     "wasmUrl" $wasmUrl
+    "workerUrl" $workerUrl
     "verbose" ($cfg.verbose | default false)
     "env" (hugo.Environment | default "production")
   )
   "files" (merge $templateFiles $configFiles $additionalFiles)
 -}}
+
 {{- $entry := resources.Get "integrations/hugo/browser/entry.js" -}}
 {{- if not $entry -}}
   {{- errorf "editable-regions: integrations/hugo/browser/entry.js not found in assets — is the editable-regions module imported and mounted?" -}}

@@ -43,25 +43,29 @@ beforeAll(async () => {
 
 afterAll(restoreRendererStdout);
 
-test("a render target under the learned contentDir resolves to that page's output", () => {
-	const { html, error } = render("pageprobe.html", {}, "notes/blog/one.md");
+test("a render target under the learned contentDir resolves to that page's output", async () => {
+	const { html, error } = await render(
+		"pageprobe.html",
+		{},
+		"notes/blog/one.md",
+	);
 	expect(error).toBeUndefined();
 	expect(html).toContain("Target One|x|/blog/one/");
 });
 
-test("dataset files under the learned dataDir resolve via site.Data", () => {
-	const { html, error } = render("dataprobe.html");
+test("dataset files under the learned dataDir resolve via site.Data", async () => {
+	const { html, error } = await render("dataprobe.html");
 	expect(error).toBeUndefined();
 	expect(html).toContain("Custom Data Brand");
 });
 
-test("with no target, renders with an empty page context", () => {
-	const { html, error } = render("pageprobe.html");
+test("with no target, renders with an empty page context", async () => {
+	const { html, error } = await render("pageprobe.html");
 	expect(error).toBeUndefined();
 	expect(html).toContain("|x|");
 });
 
-test("removeHugoFiles deletes content files plainly", () => {
+test("removeHugoFiles deletes content files plainly", async () => {
 	const r = renderer();
 	r.removeHugoFiles(JSON.stringify(["notes/blog/one.md"]));
 	expect(
