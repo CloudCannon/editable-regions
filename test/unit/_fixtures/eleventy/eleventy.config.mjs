@@ -42,10 +42,15 @@ export default function (eleventyConfig) {
 	// --- Filters ---
 
 	// Auto-mirror: plain pure function.
-	eleventyConfig.addFilter("shout", (/** @type {any} */ s) => String(s).toUpperCase());
+	eleventyConfig.addFilter("shout", (/** @type {any} */ s) =>
+		String(s).toUpperCase(),
+	);
 
 	// Auto-mirror: closes over buildInfo (closure survives bundling).
-	eleventyConfig.addFilter("stamp", (/** @type {any} */ s) => `${s} [${buildInfo.stamp}]`);
+	eleventyConfig.addFilter(
+		"stamp",
+		(/** @type {any} */ s) => `${s} [${buildInfo.stamp}]`,
+	);
 
 	// Auto-mirror: async filter (addAsyncFilter).
 	eleventyConfig.addAsyncFilter("asyncReverse", async (/** @type {any} */ s) =>
@@ -58,12 +63,21 @@ export default function (eleventyConfig) {
 
 	// Layer precedence: register the same name as both universal and
 	// Liquid-specific. The Liquid layer should win.
-	eleventyConfig.addFilter("doubler", (/** @type {number} */ n) => `universal:${n * 2}`);
-	eleventyConfig.addLiquidFilter("doubler", (/** @type {number} */ n) => `liquid:${n * 2}`);
+	eleventyConfig.addFilter(
+		"doubler",
+		(/** @type {number} */ n) => `universal:${n * 2}`,
+	);
+	eleventyConfig.addLiquidFilter(
+		"doubler",
+		(/** @type {number} */ n) => `liquid:${n * 2}`,
+	);
 
 	// Builtin name collision: registering a filter named "slug" — the
 	// builtin browser port should win (config version is skipped).
-	eleventyConfig.addFilter("slug", (/** @type {any} */ s) => `config-slug:${s}`);
+	eleventyConfig.addFilter(
+		"slug",
+		(/** @type {any} */ s) => `config-slug:${s}`,
+	);
 
 	// --- Shortcodes ---
 
@@ -101,7 +115,8 @@ export default function (eleventyConfig) {
 	// Auto-mirror: async paired shortcode.
 	eleventyConfig.addPairedAsyncShortcode(
 		"asyncWrap",
-		async (/** @type {any} */ content) => `<aside class="async-wrap">${content}</aside>`,
+		async (/** @type {any} */ content) =>
+			`<aside class="async-wrap">${content}</aside>`,
 	);
 
 	// Non-portable paired shortcode: reads from disk. Browser override.

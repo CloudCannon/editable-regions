@@ -4,7 +4,10 @@ import editableRegions from "@cloudcannon/editable-regions/eleventy";
 
 /** @param {any} eleventyConfig */
 export default function (eleventyConfig) {
-	eleventyConfig.addFilter("customConfigFilter", (/** @type {any} */ s) => `custom:${s}`);
+	eleventyConfig.addFilter(
+		"customConfigFilter",
+		(/** @type {any} */ s) => `custom:${s}`,
+	);
 
 	eleventyConfig.addPlugin(editableRegions, {
 		liquid: {
