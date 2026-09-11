@@ -32,7 +32,10 @@ export interface RendererGlobals {
 	removeHugoFiles(json: string): { error?: string } | null;
 	readHugoFiles(json: string): Record<string, string>;
 	initHugoEditorSite(): { error?: string } | null;
-	renderHugoPartials(json: string): { html?: string; error?: string } | null;
+	renderHugoPartials(
+		json: string,
+		callback: (result: { html?: string; error?: string }) => void,
+	): void;
 }
 
 export function renderer(): RendererGlobals {
@@ -117,8 +120,8 @@ export function renderBatch(
 		props?: unknown;
 	}>,
 	target = "",
-): { html?: string; error?: string } {
-	return (
+): Promise<{ html?: string; error?: string }> {
+	return new Promise((resolve) => {
 		renderer().renderHugoPartials(
 			JSON.stringify({
 				target,
@@ -127,8 +130,9 @@ export function renderBatch(
 					...req,
 				})),
 			}),
-		) ?? {}
-	);
+			resolve,
+		);
+	});
 }
 
 /** Renders one partial through the batched surface (array of one). */
