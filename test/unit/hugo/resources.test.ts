@@ -36,17 +36,18 @@ const siteFiles = {
 	].join("\n"),
 	"layouts/partials/remote-slow-probe.html": [
 		'<div data-k="remoteSlow">{{ with resources.GetRemote "https://assets.example.com/slow.txt" }}{{ .Content }}{{ else }}MISSING{{ end }}</div>',
-		"<div data-k=\"plainNeighbor\">neighbor</div>",
+		'<div data-k="plainNeighbor">neighbor</div>',
 	].join("\n"),
 	"layouts/_default/_markup/render-image.html": [
-		'{{ $remote := resources.GetRemote .Destination }}',
+		"{{ $remote := resources.GetRemote .Destination }}",
 		'<img src="{{ .Destination }}" data-remote="{{ with $remote }}{{ .Content }}{{ else }}no-remote{{ end }}">',
 	].join(""),
 	"content/notes/hooked.md":
 		"---\ntitle: Hooked\n---\n\n![Hero](https://assets.example.com/hero.txt)\n",
 	"content/notes/hooked-missing.md":
 		"---\ntitle: Hooked Missing\n---\n\n![Hero](https://assets.example.com/missing.txt)\n",
-	"layouts/partials/hook-probe.html": '<div data-k="hooked">{{ page.Content }}</div>',
+	"layouts/partials/hook-probe.html":
+		'<div data-k="hooked">{{ page.Content }}</div>',
 };
 
 beforeAll(async () => {
