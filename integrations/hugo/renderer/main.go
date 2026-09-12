@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall/js"
 	_ "time/tzdata"
 
@@ -96,6 +98,7 @@ func (builder *editorSiteBuilder) loadConfig() error {
 	cfg.Base.WorkingDir = ""
 	cfg.Base.Internal.Running = true
 	cfg.Base.Internal.Watch = true
+	cfg.Base.EnableGitInfo = false
 
 	for _, languageConfig := range cfg.LanguageConfigMap {
 		languageConfig.Internal.Running = true
@@ -235,6 +238,8 @@ func normalizeMemfsPath(p string) string {
 
 var builder editorSiteBuilder
 
+var renderMutex sync.Mutex
+
 func main() {
 	builder = editorSiteBuilder{Afs: afero.NewMemMapFs()}
 
@@ -340,32 +345,54 @@ func (builder *editorSiteBuilder) targetPage(target string) page.Page {
 }
 
 func renderHugoPartials(this js.Value, args []js.Value) interface{} {
+	if len(args) != 2 || args[1].Type() != js.TypeFunction {
+		return errorValue("renderHugoPartials requires a callback function argument")
+	}
+	callback := args[1]
+
+	deliver := func(html string, err error) {
+		result := map[string]interface{}{}
+		if err != nil {
+			result["error"] = err.Error()
+		} else {
+			result["html"] = html
+		}
+		callback.Invoke(js.ValueOf(result))
+	}
+
 	var payload renderRequests
 	if err := json.Unmarshal([]byte(args[0].String()), &payload); err != nil {
-		return errorValue("bad renderHugoPartials payload: %s", err)
+		deliver("", fmt.Errorf("bad renderHugoPartials payload: %s", err))
+		return nil
 	}
 	reqs := payload.Requests
 	if len(reqs) == 0 {
-		return errorValue("renderHugoPartials requires at least one request")
+		deliver("", errors.New("renderHugoPartials requires at least one request"))
+		return nil
 	}
-	if err := builder.buildIfDirty(); err != nil {
-		return errorValue("editor site build failed: %s", err)
-	}
-
 	for _, req := range reqs {
 		if req.Partial == "" {
-			return errorValue("renderHugoPartials requires a \"partial\" name on every request")
+			deliver("", errors.New("renderHugoPartials requires a \"partial\" name on every request"))
+			return nil
 		}
 	}
 
-	html, err := builder.renderBatch(payload.Target, reqs)
-	if err != nil {
-		return errorValue("%s", err)
-	}
+	go func() {
+		html, err := builder.buildAndRender(payload.Target, reqs)
+		deliver(html, err)
+	}()
 
-	return js.ValueOf(map[string]interface{}{
-		"html": html,
-	})
+	return nil
+}
+
+func (builder *editorSiteBuilder) buildAndRender(target string, reqs []renderRequest) (string, error) {
+	renderMutex.Lock()
+	defer renderMutex.Unlock()
+
+	if err := builder.buildIfDirty(); err != nil {
+		return "", fmt.Errorf("editor site build failed: %s", err)
+	}
+	return builder.renderBatch(target, reqs)
 }
 
 func (builder *editorSiteBuilder) renderBatch(target string, reqs []renderRequest) (string, error) {

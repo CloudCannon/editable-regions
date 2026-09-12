@@ -39,16 +39,24 @@ beforeAll(async () => {
 
 afterAll(restoreRendererStdout);
 
-test("the config dir's contentDir wins over the root candidates (natively resolved)", () => {
-	const { html, error } = render("pageprobe.html", {}, "dirnotes/blog/one.md");
+test("the config dir's contentDir wins over the root candidates (natively resolved)", async () => {
+	const { html, error } = await render(
+		"pageprobe.html",
+		{},
+		"dirnotes/blog/one.md",
+	);
 	expect(error).toBeUndefined();
 	expect(html).toContain("Dir One|x|/blog/one/");
 });
 
-test("content outside the winning contentDir matches no page and renders page-less", () => {
+test("content outside the winning contentDir matches no page and renders page-less", async () => {
 	// hdir lost the root slot and the dir lost to config/_default, so this file
 	// is outside the editor's contentDir — the render is page-less.
-	const { html, error } = render("pageprobe.html", {}, "hdir/blog/two.md");
+	const { html, error } = await render(
+		"pageprobe.html",
+		{},
+		"hdir/blog/two.md",
+	);
 	expect(error).toBeUndefined();
 	expect(html).toContain("|x|");
 });

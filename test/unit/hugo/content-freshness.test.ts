@@ -78,7 +78,7 @@ const nav = mkFile("/data/nav.yaml", {
 	],
 });
 const social = mkFile("/data/social.json", {
-	twitter: "https://twitter.com/cloudcannon",
+	twitter: "https://twitter.com/example",
 });
 
 const bootFiles = [home, blogIndex, one, two, about];
@@ -231,7 +231,7 @@ test("deleting a dataset file drops it from site data", async () => {
 	await vi.waitFor(async () => {
 		const el = await render("globals-data");
 		// social.json is gone (twitter renders empty) while nav keeps rendering.
-		expect(lines(el)).not.toContain("https://twitter.com/cloudcannon");
+		expect(lines(el)).not.toContain("https://twitter.com/example");
 		expect(lines(el)).toContain("siteDataLen=");
 	});
 });

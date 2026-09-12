@@ -25,7 +25,7 @@ export interface FreshnessCheck {
 	/** The built file that tests would load. */
 	artifact: string;
 	/** Files/dirs (walked recursively) the artifact is built from. */
-	sources: string[];
+	sources?: string[];
 	/** When set, the artifact must be byte-identical to this original. */
 	copiedFrom?: string;
 	/** Extra dir/file names skipped while walking `sources`. */
