@@ -7,13 +7,10 @@
     The Unreleased block will also be used for the GitHub release notes.
 -->
 
-## Unreleased
-
-- Fixed an issue where clicking an image editable region did nothing if its input config was still loading
-
 ## 0.0.20
 
 - Added support for Hugo partials in editable regions
+- Fixed an issue where clicking an image editable region did nothing if its input config was still loading
 
 ## 0.0.19
 
