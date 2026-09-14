@@ -22,6 +22,8 @@ export interface MockFile {
 	get: () => Promise<string>;
 	/** Returns file contents via the CC API shape (`file.content.get()`). */
 	content: { get: () => Promise<string> };
+	/** Answers `get-input-config` API calls for a slug in this file. */
+	getInputConfig?: (options: { slug?: string }) => Promise<any>;
 }
 
 const state = {
@@ -30,6 +32,7 @@ const state = {
 	currentFile: null as MockFile | null,
 	collectionsList: null as MockCollection[] | null,
 	datasetsList: null as MockDataset[] | null,
+	customDataPanels: [] as any[],
 };
 
 /** Site-wide change/delete listeners, keyed by event name. */
@@ -132,9 +135,13 @@ export const resetMock = (): void => {
 	state.currentFile = null;
 	state.collectionsList = null;
 	state.datasetsList = null;
+	state.customDataPanels = [];
 	siteListeners.change.clear();
 	siteListeners.delete.clear();
 };
+
+/** The options every `CloudCannon.createCustomDataPanel()` call was given, in order. */
+export const getMockCustomDataPanels = (): any[] => state.customDataPanels;
 
 /**
  * Emits a site-wide `change` event with the given source path, as the real
@@ -219,4 +226,12 @@ export const createMockApi = (): CloudCannonVisualEditorAPIV1 =>
 		},
 		// Used by EditableComponent.realizeAPIValue.
 		engage: () => Promise.resolve(),
+		// Used by EditableImage: `update()` resolves each src through the host, and
+		// clicking an image asks the host to open a data panel for its props.
+		getPreviewUrl: (src: string) => Promise.resolve(src),
+		createCustomDataPanel: (options: any) => {
+			state.customDataPanels.push(options);
+			return Promise.resolve(`panel-${state.customDataPanels.length}`);
+		},
+		destroyCustomDataPanel: () => undefined,
 	}) as any;
