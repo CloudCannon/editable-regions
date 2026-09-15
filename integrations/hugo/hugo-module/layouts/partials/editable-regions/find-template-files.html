@@ -1,5 +1,5 @@
 {{- $files := dict -}}
-{{- $subDirs := slice "partials" "_default/_markup" "shortcodes" -}}
+{{- $subDirs := slice "partials" "shortcodes" -}}
 
 {{- $deps := .deps -}}
 {{- $exts := .exts -}}
@@ -34,10 +34,13 @@
       {{ continue }}
     {{- end -}}
 
-    {{- range $subDir := $subDirs -}}
-      {{- $subPath := path.Join $path $subDir -}}
-      {{- if os.FileExists $subPath -}}
-        {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $subPath "exts" $exts "ignore" $ignore)) -}}
+    {{- if in $subDirs $entry.Name -}}
+      {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
+    {{- else if eq $entry.Name "_default" -}}
+      {{- range $defaultEntry := readDir $path -}}
+        {{- if eq $defaultEntry.Name "_markup" -}}
+          {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" (path.Join $path "_markup") "exts" $exts "ignore" $ignore)) -}}
+        {{- end -}}
       {{- end -}}
     {{- end -}}
 
