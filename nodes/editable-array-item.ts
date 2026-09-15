@@ -18,7 +18,7 @@ export const hasEditableArrayItem = <T extends object>(
 export default class EditableArrayItem extends EditableComponent {
 	parent: EditableArray | null = null;
 
-	protected declare controlsElement?: EditableArrayItemControls;
+	declare protected controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 	private structureStrings: string[] = [];
