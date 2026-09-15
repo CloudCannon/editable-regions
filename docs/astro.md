@@ -17,6 +17,12 @@ The Astro integration lets you live edit Astro components, including components 
 
 ## Adding the plugin to your config
 
+Install the package from npm:
+
+```sh
+npm install @cloudcannon/editable-regions
+```
+
 Add the integration to `astro.config.mjs`:
 
 ```js

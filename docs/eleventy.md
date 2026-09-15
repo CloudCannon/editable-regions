@@ -14,8 +14,15 @@ The Eleventy integration is an Eleventy plugin. On every build it walks your tem
 - [Liquid options](#liquid-options)
   - [Alternatives for helpers that can't run in the browser](#alternatives-for-helpers-that-cant-run-in-the-browser)
   - [Stubbing packages out of the browser bundle](#stubbing-packages-out-of-the-browser-bundle)
+- [Page building](#page-building)
 
 ## Adding the plugin to your config
+
+Install the package from npm:
+
+```sh
+npm install @cloudcannon/editable-regions
+```
 
 Add the plugin to `eleventy.config.mjs`:
 
@@ -204,3 +211,44 @@ eleventyConfig.addPlugin(editableRegions, {
 `browserStub` also covers a Node-only package your config *calls* at config time — for example a plugin factory in `addPlugin(pluginFactory({ ... }))`. The argument is evaluated before `addPlugin` is reached, so stubbing the module is the only way to stop it aborting the mirror.
 
 A stubbed module called while the mirror runs is skipped with a warning; the same call from a rendered helper still throws.
+
+## Page building
+
+Combining the heterogeneous array setup with include-name components gives you page building: each item in the array is a content block, and editors can add, reorder, and edit blocks to compose the page. See [structural regions](../README.md#arrays-and-array-items) for the array mechanics.
+
+Each block is an include template, and each item's component is chosen by its `_name`:
+
+```liquid
+<main
+  data-editable="array"
+  data-prop="contentBlocks"
+  data-id-key="_name"
+  data-component-key="_name"
+>
+  {% for block in contentBlocks %}
+    <section data-editable="array-item" data-id="{{ block._name }}" data-component="{{ block._name }}">
+      {% includeWith block._name, block %}
+    </section>
+  {% endfor %}
+</main>
+```
+
+With front matter like:
+
+```yaml
+contentBlocks:
+  - _name: blocks/hero
+    title: We're on a mission
+    description: Lorem ipsum dolor sit amet…
+  - _name: blocks/stats
+    stats:
+      - figure: $200m
+        text: Venture capital raised
+      - figure: 40+
+        text: Amazing team members
+  - _name: blocks/contact
+    text: Want to get in contact with us?
+    button: Click here
+```
+
+Each `_name` is the include path relative to your includes directory, without extension, and doubles as both the item's id and its component name. Editors can add any block type, reorder them, and edit each one's contents.

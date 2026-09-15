@@ -49,6 +49,12 @@ Install the package from npm:
 npm install @cloudcannon/editable-regions
 ```
 
+For Hugo sites, install the module at a pinned version:
+
+```sh
+hugo mod get github.com/CloudCannon/editable-regions@<version>
+```
+
 ## Quickstart
 
 ### Astro
@@ -120,7 +126,7 @@ export default function (eleventyConfig) {
 }
 ```
 
-On a CommonJS config, use require instead (needs Node 20.19+, the oldest release that can `require()` this package):
+On a CommonJS config, use require instead:
 
 ```js
 const editableRegions = require("@cloudcannon/editable-regions/eleventy");
@@ -183,8 +189,8 @@ Include the partial in your site `<head>`:
 The module automatically registers your Hugo partials as components.
 
 ```html
-<div data-editable="component" data-component="card.html" data-prop="card">
-  {{- partial "card.html" .Params.card -}}
+<div data-editable="component" data-component="card" data-prop="card">
+  {{- partial "card" .Params.card -}}
 </div>
 ```
 

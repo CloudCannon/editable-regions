@@ -9,13 +9,20 @@ The Hugo integration is a Hugo module. At build time it discovers your templates
 - [Resolving component names](#resolving-component-names)
 - [Adding the markup](#adding-the-markup)
 - [Collections and datasets in components](#collections-and-datasets-in-components)
-- [Options](#options)
 - [Vendoring modules](#vendoring-modules)
+- [Options](#options)
 - [Bundling additional files](#bundling-additional-files)
 - [Overriding templates with editor-friendly versions](#overriding-templates-with-editor-friendly-versions)
 - [Visual editor fallbacks with `ENV_CLIENT`](#visual-editor-fallbacks-with-env_client)
+- [Page building](#page-building)
 
 ## Adding the plugin to your config
+
+Install the module at a pinned version:
+
+```sh
+hugo mod get github.com/CloudCannon/editable-regions@<version>
+```
 
 Add the module to `hugo.toml`:
 
@@ -23,6 +30,8 @@ Add the module to `hugo.toml`:
 [module]
   [[module.imports]]
     path = "github.com/CloudCannon/editable-regions"
+    # Requires Hugo 0.150.0 or later
+    version = "<version>"
 ```
 
 ## Including the editable regions in your layout
@@ -35,15 +44,15 @@ Include the partial in your site `<head>`:
 
 ## Resolving component names
 
-There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/`, with or without the file extension, so`data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html`.
+There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/`, with or without the file extension, so `data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html`.
 
 ## Adding the markup
 
 Wrap the partial in an editable component region:
 
 ```html
-<div data-editable="component" data-component="card.html" data-prop="card">
-  {{- partial "card.html" .Params.card -}}
+<div data-editable="component" data-component="card" data-prop="card">
+  {{- partial "card" .Params.card -}}
 </div>
 ```
 
@@ -71,6 +80,16 @@ To point a region's props at a collection or dataset directly, use an `@` refere
 </ul>
 ```
 
+## Vendoring modules
+
+The editor rebuilds your site from the files bundled at build time, so module imports resolve only against files inside your project. Themes in `themes/` are covered automatically; modules from the module cache aren't. Vendor them first:
+
+```sh
+hugo mod vendor
+```
+
+Vendored templates are discovered like your own, and the module graph file (`_vendor/modules.txt`) is bundled so the editor can resolve your module imports.
+
 ## Options
 
 All options live under `params.editable_regions` in your Hugo configuration.
@@ -90,16 +109,6 @@ All options live under `params.editable_regions` in your Hugo configuration.
 | `wasm_base_url` | `string` |  | Base URL for release downloads. Defaults to the GitHub releases of `CloudCannon/editable-regions`. |
 | `_version` | `string` |  | Overrides the resolved module version used to locate a WASM release asset. |
 | `verbose` | `boolean` |  | Enable verbose logging in the renderer. |
-
-## Vendoring modules
-
-The editor rebuilds your site from the files bundled at build time, so module imports resolve only against files inside your project. Themes in `themes/` are covered automatically; modules from the module cache aren't. Vendor them first:
-
-```sh
-hugo mod vendor
-```
-
-Vendored templates are discovered like your own, and the module graph file (`_vendor/modules.txt`) is bundled so the editor can resolve your module imports.
 
 ## Bundling additional files
 
@@ -139,3 +148,44 @@ The module defines `ENV_CLIENT` as a site parameter: `false` in a normal build, 
   {{ partial "weather-widget" . }}
 {{ end }}
 ```
+
+## Page building
+
+Combining the heterogeneous array setup with auto-registered partials gives you page building: each item in the array is a content block, and editors can add, reorder, and edit blocks to compose the page. See [structural regions](../README.md#arrays-and-array-items) for the array mechanics.
+
+Each block is a partial, and each item's component is chosen by its `_name`:
+
+```html
+<main
+  data-editable="array"
+  data-prop="contentBlocks"
+  data-id-key="_name"
+  data-component-key="_name"
+>
+  {{- range .Params.contentBlocks -}}
+    <section data-editable="array-item" data-id="{{ ._name }}" data-component="{{ ._name }}">
+      {{- partial ._name . -}}
+    </section>
+  {{- end -}}
+</main>
+```
+
+With front matter like:
+
+```yaml
+contentBlocks:
+  - _name: blocks/hero
+    title: We're on a mission
+    description: Lorem ipsum dolor sit amet…
+  - _name: blocks/stats
+    stats:
+      - figure: $200m
+        text: Venture capital raised
+      - figure: 40+
+        text: Amazing team members
+  - _name: blocks/contact
+    text: Want to get in contact with us?
+    button: Click here
+```
+
+Each `_name` is the partial path relative to `layouts/partials/`, with or without the file extension, and doubles as both the item's id and its component name. Editors can add any block type, reorder them, and edit each one's contents.
