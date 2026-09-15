@@ -46,8 +46,8 @@
     "nodes",
     "styles",
     "types",
-	"!integrations/hugo/renderer/hugo_renderer.wasm",
-	"!integrations/hugo/hugo-module/assets/_cloudcannon"
+    "!integrations/hugo/renderer/hugo_renderer.wasm",
+    "!integrations/hugo/hugo-module/assets/_cloudcannon"
   ],
   "exports": {
     "./*": null,
@@ -96,9 +96,9 @@
     },
     "./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
     "./hugo/browser": {
-		"types": "./types/hugo.d.ts",
-		"default": "./integrations/hugo/browser/index.ts"
-	},
+      "types": "./types/hugo.d.ts",
+      "default": "./integrations/hugo/browser/index.ts"
+    },
     "./internal/components": "./components/index.js",
     "./internal/styles": "./styles/index.js"
   },
@@ -124,7 +124,7 @@
     "slugify": "1.6.9",
     "svelte": "5.57.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.10",
+    "vitest": "^4.1.11",
     "vue": "3.5.42",
     "vue-tsc": "3.3.11"
   },
