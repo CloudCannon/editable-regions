@@ -1,32 +1,38 @@
 /// <reference path="./cloudcannon.d.ts" />
 
-import type { HTMLAttributes, RefAttributes } from "react";
+import type { FC, HTMLAttributes, RefAttributes } from "react";
 
 export function registerReactComponent(key: string, component: unknown): void;
+
+export const EditableRegions: FC<
+	HTMLAttributes<HTMLElement> & {
+		tag?: string;
+	}
+>;
 
 declare global {
 	namespace React.JSX {
 		interface IntrinsicElements {
 			"editable-component": RefAttributes<HTMLElement> &
-				Omit<HTMLAttributes<HTMLElement>, "className"> & {
+				HTMLAttributes<HTMLElement> & {
 					class?: string;
 					"data-prop": string;
 					"data-component": string;
 				};
 			"editable-text": RefAttributes<HTMLElement> &
-				Omit<HTMLAttributes<HTMLElement>, "className"> & {
+				HTMLAttributes<HTMLElement> & {
 					class?: string;
 					"data-prop": string;
 					"data-type"?: "block" | "text" | "span";
 				};
 			"editable-source": RefAttributes<HTMLElement> &
-				Omit<HTMLAttributes<HTMLElement>, "className"> & {
+				HTMLAttributes<HTMLElement> & {
 					class?: string;
 					"data-path": string;
 					"data-key": string;
 				};
 			"editable-array": RefAttributes<HTMLElement> &
-				Omit<HTMLAttributes<HTMLElement>, "className"> & {
+				HTMLAttributes<HTMLElement> & {
 					class?: string;
 					"data-prop": string;
 					"data-id-key"?: string;
@@ -39,10 +45,18 @@ declare global {
 						| "row-reverse";
 				};
 			"editable-array-item": RefAttributes<HTMLElement> &
-				Omit<HTMLAttributes<HTMLElement>, "className"> & {
+				HTMLAttributes<HTMLElement> & {
 					class?: string;
 					"data-id"?: string;
 					"data-component"?: string;
+				};
+			"editable-image": RefAttributes<HTMLElement> &
+				HTMLAttributes<HTMLElement> & {
+					class?: string;
+					"data-prop"?: string;
+					"data-prop-src"?: string;
+					"data-prop-alt"?: string;
+					"data-prop-title"?: string;
 				};
 		}
 	}
