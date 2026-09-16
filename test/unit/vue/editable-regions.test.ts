@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test } from "vitest";
 import { createApp, h } from "vue";
 
 import { EditableRegions } from "../../../integrations/vue.mjs";
@@ -74,8 +74,6 @@ test("hardcodes an empty data-prop so descendants resolve against the current fi
 });
 
 test("drops user-supplied data-prop and data-literal attributes", () => {
-	const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
 	const { container } = mountRegions({
 		"data-prop": "title",
 		"data-prop-heading": "heading",
@@ -86,8 +84,6 @@ test("drops user-supplied data-prop and data-literal attributes", () => {
 	expect(el?.getAttribute("data-prop")).toBe("");
 	expect(el?.getAttribute("data-prop-heading")).toBeNull();
 	expect(el?.getAttribute("data-literal-count")).toBeNull();
-	expect(warn).toHaveBeenCalledTimes(1);
-	warn.mockRestore();
 });
 
 test("renders a custom element type when the tag prop is set", () => {

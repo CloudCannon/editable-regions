@@ -11,8 +11,7 @@
 <div>
 	<h1>Editable regions — SvelteKit harness</h1>
 	<p>
-		One page per region type. Open each in the CloudCannon Visual Editor and
-		record the result in <code>README.md</code>.
+		One page per region type. Open each in the CloudCannon Visual Editor.
 	</p>
 
 	<ul>

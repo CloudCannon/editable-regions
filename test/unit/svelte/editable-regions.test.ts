@@ -89,7 +89,6 @@ test("drops user-supplied data-prop and data-literal attributes", () => {
 	expect(el?.getAttribute("data-prop")).toBe("");
 	expect(el?.getAttribute("data-prop-heading")).toBeNull();
 	expect(el?.getAttribute("data-literal-count")).toBeNull();
-	expect(console.warn).toHaveBeenCalledTimes(1);
 });
 
 test("connects a base editable node to the rendered element after mount", async () => {

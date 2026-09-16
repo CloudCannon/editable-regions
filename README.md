@@ -299,7 +299,7 @@ stays out of production bundles:
 
 import { useEffect } from "react";
 import { registerReactComponent } from "@cloudcannon/editable-regions/react";
-import CTA from "./components/CTA.jsx";
+import CTA from "./CTA.jsx";
 
 export default function CloudCannon() {
   useEffect(() => {
