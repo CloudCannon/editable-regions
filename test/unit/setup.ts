@@ -5,6 +5,8 @@
  */
 import { createMockApi } from "./_mocks/cloudcannon";
 
-(window as any).CloudCannonAPI = {
-	useVersion: () => createMockApi(),
-};
+if (typeof window !== "undefined") {
+	(window as any).CloudCannonAPI = {
+		useVersion: () => createMockApi(),
+	};
+}

@@ -14,24 +14,26 @@
  * }} ExtendedWindow
  */
 
-/** @type {ExtendedWindow} */
-const extendedWindow = /** @type {any} */ (window);
+/** @type {ExtendedWindow | undefined} */
+const extendedWindow = /** @type {any} */ (
+	typeof window === "undefined" ? undefined : window
+);
 
-/** @type {CloudCannonVisualEditorAPIV1} */
+/** @type {CloudCannonVisualEditorAPIV1 | undefined} */
 let _cloudcannon;
 
 /** @type {Promise<void>} */
 export const apiLoadedPromise = new Promise((resolve) => {
-	if (extendedWindow.CloudCannonAPI) {
+	if (extendedWindow?.CloudCannonAPI) {
 		_cloudcannon = /** @type {any} */ (
 			extendedWindow.CloudCannonAPI.useVersion("v1", true)
 		);
 		resolve();
-	} else {
+	} else if (typeof document !== "undefined") {
 		document.addEventListener(
 			"cloudcannon:load",
 			() => {
-				if (extendedWindow.CloudCannonAPI) {
+				if (extendedWindow?.CloudCannonAPI) {
 					_cloudcannon = /** @type {any} */ (
 						extendedWindow.CloudCannonAPI.useVersion("v1", true)
 					);
