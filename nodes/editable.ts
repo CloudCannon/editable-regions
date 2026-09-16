@@ -187,7 +187,7 @@ export default class Editable {
 			return false;
 		}
 
-		return this.parentMounted() && this.value !== undefined;
+		return this.value !== undefined;
 	}
 
 	getLiteralProps() {
@@ -311,21 +311,21 @@ export default class Editable {
 			contexts,
 		);
 
-		if (typeof newValue === "undefined" || !this.shouldUpdate(newValue)) {
+		if (
+			typeof newValue === "undefined" ||
+			!this.shouldUpdate(newValue) ||
+			!this.parentMounted()
+		) {
 			return;
 		}
 
-		if (this.connected && !this.mounted) {
-			if (!this.parentMounted()) {
-				return;
-			}
-
+		this.value = newValue;
+		if (this.connected && this.shouldMount()) {
 			this.mounted = true;
 			this.mount();
 		}
 
 		if (this.mounted) {
-			this.value = newValue;
 			return this.update(partialSubtree);
 		}
 	}
@@ -455,7 +455,7 @@ export default class Editable {
 		this.connectPromise = apiLoadedPromise.then(() => {
 			this.setupListeners();
 			this.connected = true;
-			if (this.shouldMount()) {
+			if (this.parentMounted() && this.shouldMount()) {
 				this.mounted = true;
 				this.mount();
 				this.update();
