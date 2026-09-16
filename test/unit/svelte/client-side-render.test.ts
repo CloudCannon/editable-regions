@@ -1,7 +1,7 @@
 import { flushSync } from "svelte";
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte.mjs";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
 import { EditableComponent } from "../../../nodes/index.ts";
 import { InteractiveCounter } from "../_fixtures/svelte/components";
 

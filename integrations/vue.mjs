@@ -35,23 +35,8 @@ export const registerVueComponent = (key, component) => {
 };
 
 /**
- * Root editable region component. Renders a configurable element (default
- * `div`) marked with `data-editable="_dynamic"`, and connects a base editable
- * node to it only once the surrounding Vue app has mounted. This keeps
- * editable regions from mutating the DOM before frameworks like Nuxt finish
- * hydrating.
- *
- * The editable node classes are not bundled with this component: in the
- * CloudCannon editor they are exposed as `window.editableRegions` by the
- * editable regions script, which also dispatches `editable-regions:load`
- * when they become available. Outside the editor this component renders
- * its element and does nothing.
- *
- * The component hardcodes `data-editable="_dynamic"` and `data-prop=""` on its
- * element: the resulting editable node resolves the current file and passes it
- * through to descendant editable regions, which resolve their own relative
- * `data-prop` paths against it. User-supplied `data-prop*` and `data-literal*`
- * attributes are ignored.
+ * Root editable region component for Vue.
+ * Keeps editable regions from mutating the DOM before frameworks like Nuxt finish hydrating.
  *
  * @param {string} [props.tag] - Element type to render. Defaults to "div".
  * All other props and attributes are forwarded to the rendered element.
@@ -114,20 +99,11 @@ export const EditableRegions = defineComponent({
 			editable = null;
 		});
 
-		/** @type {boolean} */
-		let hasWarned = false;
-
 		return () => {
 			/** @type {Record<string, any>} */
 			const forwarded = {};
 			for (const [name, value] of Object.entries(attrs)) {
 				if (/^data-(prop|literal)/i.test(name)) {
-					if (!hasWarned) {
-						hasWarned = true;
-						console.warn(
-							`[EditableRegions] Ignoring the '${name}' attribute: data-prop and data-literal attributes are controlled by the component itself, which resolves the current file's data.`,
-						);
-					}
 					continue;
 				}
 				forwarded[name] = value;

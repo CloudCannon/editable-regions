@@ -9,7 +9,6 @@
 	let editable = null;
 	/** @type {HTMLElement | undefined} */
 	let element;
-	let hasWarned = false;
 	/** @type {(() => void) | null} */
 	let pendingLoadHandler = null;
 
@@ -21,12 +20,6 @@
 		const filtered = {};
 		for (const [name, value] of Object.entries(props)) {
 			if (/^data-(prop|literal)/i.test(name)) {
-				if (!hasWarned) {
-					hasWarned = true;
-					console.warn(
-						`[EditableRegions] Ignoring the '${name}' attribute: data-prop and data-literal attributes are controlled by the component itself, which resolves the current file's data.`,
-					);
-				}
 				continue;
 			}
 
@@ -48,14 +41,12 @@
 			editable.connect();
 		};
 
-		const onLoad = () => {
-			connectEditable(window.editableRegions);
-		};
-
 		if (window.editableRegions) {
 			connectEditable(window.editableRegions);
 		} else {
-			pendingLoadHandler = onLoad;
+			pendingLoadHandler = () => {
+			    connectEditable(window.editableRegions);
+		    };
 			document.addEventListener(
 				"editable-regions:load",
 				pendingLoadHandler,

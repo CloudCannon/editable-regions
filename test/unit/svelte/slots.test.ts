@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte.mjs";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
 import { SlotParent, SlotShell } from "../_fixtures/svelte/components";
 
 test("a component with a children snippet renders its shell gracefully when no child is provided", async () => {
