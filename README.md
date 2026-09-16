@@ -16,6 +16,9 @@ Editable Regions let you mark up any HTML output with attributes (or web compone
   - [React](#react)
   - [Svelte](#svelte)
   - [Vue](#vue)
+  - [Next.js](#nextjs)
+  - [SvelteKit](#sveltekit)
+  - [Nuxt](#nuxt)
 - [How editable regions work](#how-editable-regions-work)
   - [Defining editable regions](#defining-editable-regions)
   - [Passing values to editable regions](#passing-values-to-editable-regions)
@@ -252,6 +255,204 @@ Then mark up your templates:
 <editable-component data-component="cta" data-prop="cta">
   <CTA v-bind="cta" />
 </editable-component>
+```
+
+### Next.js
+
+In a Next.js app, wrap your page content in the `EditableRegions` root component. Editable
+regions inside it connect only after the app has finished hydrating:
+
+```jsx
+// app/layout.js
+import { EditableRegions } from "@cloudcannon/editable-regions/react";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <EditableRegions tag="main">{children}</EditableRegions>
+      </body>
+    </html>
+  );
+}
+```
+
+Then mark up your templates — pages stay server components, the region markup is plain HTML:
+
+```jsx
+// app/page.js
+export default function Page() {
+  return (
+    <h1>
+      <editable-text data-prop="title">Hello from Next.js</editable-text>
+    </h1>
+  );
+}
+```
+
+Register your components from a client component, gated on `window.inEditorMode` so the code
+stays out of production bundles:
+
+```jsx
+// app/components/CloudCannon.js
+"use client";
+
+import { useEffect } from "react";
+import { registerReactComponent } from "@cloudcannon/editable-regions/react";
+import CTA from "./components/CTA.jsx";
+
+export default function CloudCannon() {
+  useEffect(() => {
+    if (window.inEditorMode) {
+      registerReactComponent("cta", CTA);
+    }
+  }, []);
+
+  return null;
+}
+```
+
+For a fully static site, export the pages as plain HTML — the build writes the static site to
+`out/` with no server runtime needed:
+
+```js
+// next.config.js
+const nextConfig = {
+  output: "export",
+};
+
+export default nextConfig;
+```
+
+### SvelteKit
+
+In a SvelteKit app, wrap the routed page in the `EditableRegions` root component in the root
+layout. Editable regions inside it connect only after the app has finished hydrating:
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { onMount } from "svelte";
+  import {
+    EditableRegions,
+    registerSvelteComponent,
+  } from "@cloudcannon/editable-regions/svelte";
+  import CTA from "$lib/components/CTA.svelte";
+
+  let { children } = $props();
+
+  onMount(() => {
+    if (window.inEditorMode) {
+      registerSvelteComponent("cta", CTA);
+    }
+  });
+</script>
+
+<EditableRegions tag="main">
+  {@render children()}
+</EditableRegions>
+```
+
+Then mark up your templates:
+
+```svelte
+<!-- src/routes/+page.svelte -->
+<h1>
+  <editable-text data-prop="title">Hello from SvelteKit</editable-text>
+</h1>
+```
+
+For a fully static site, use the static adapter and prerender every route — the build writes the
+static site to `build/`:
+
+```js
+// svelte.config.js
+import adapter from "@sveltejs/adapter-static";
+
+const config = {
+  kit: {
+    adapter: adapter(),
+  },
+};
+
+export default config;
+```
+
+```js
+// src/routes/+layout.js
+export const prerender = true;
+```
+
+### Nuxt
+
+In a Nuxt app, wrap the routed page in the `EditableRegions` root component in the layout.
+Editable regions inside it connect only after the app has finished hydrating:
+
+```vue
+<!-- app/layouts/default.vue -->
+<script setup>
+import { EditableRegions } from "@cloudcannon/editable-regions/vue";
+</script>
+
+<template>
+  <EditableRegions tag="main">
+    <slot />
+  </EditableRegions>
+</template>
+```
+
+Tell Vue to treat the `editable-*` elements as native elements rather than components:
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag) => tag.startsWith("editable-"),
+    },
+  },
+});
+```
+
+Then mark up your templates:
+
+```vue
+<!-- app/pages/index.vue -->
+<template>
+  <h1>
+    <editable-text data-prop="title">Hello from Nuxt</editable-text>
+  </h1>
+</template>
+```
+
+Register your components from a client plugin, gated on `window.inEditorMode` so the code stays
+out of production bundles:
+
+```ts
+// app/plugins/cloudcannon.client.ts
+import { registerVueComponent } from "@cloudcannon/editable-regions/vue";
+import CTA from "../components/CTA.vue";
+
+export default defineNuxtPlugin(() => {
+  if (window.inEditorMode) {
+    registerVueComponent("cta", CTA);
+  }
+});
+```
+
+For a fully static site, configure Nitro to prerender the site by crawling from the index page,
+then build with `nuxt generate` — the build writes the static site to `.output/public`:
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  nitro: {
+    prerender: {
+      crawlLinks: true,
+      routes: ["/"],
+    },
+  },
+});
 ```
 
 ## How editable regions work

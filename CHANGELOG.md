@@ -1,16 +1,13 @@
 # Changelog
 
-<!--
-    Add changes to the Unreleased section during development.
-    Do not change this header — the GitHub action that releases
-    this project will edit this file and add the version header for you.
-    The Unreleased block will also be used for the GitHub release notes.
--->
-
 ## 0.0.20
 
 - Added support for Hugo partials in editable regions
 - Fixed an issue where clicking an image editable region did nothing if its input config was still loading
+- Added an `EditableRegions` component to the React, Vue, and Svelte integrations. Use this component at the root of your component tree to coordinate editable region hydration with the framework's hydration.
+- Added `window.editableRegions` and an `editable-regions:load` event which fires once `window.editableRegions` is set. You can use these to dynamically create editable region nodes.
+- Added `_dynamic` to the supported values for `data-editable`. Elements with `data-editable="_dynamic"` will not be hydrated automatically, but will still be detected as editable regions. This means you can attach editable region nodes to them dynamically via scripts.
+- Fixed an issue where nested editable regions could hydrate before their parent if they had absolute data paths.
 
 ## 0.0.19
 
