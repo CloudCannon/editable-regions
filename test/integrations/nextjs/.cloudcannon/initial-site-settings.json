@@ -1,0 +1,9 @@
+{
+	"ssg": "nextjs",
+	"build": {
+		"install_command": "npm i",
+		"build_command": "npm run build",
+		"output_path": "out",
+		"node_version": "file"
+	}
+}

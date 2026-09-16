@@ -1,0 +1,27 @@
+{
+	"tagline": "A deliberately ugly harness for CloudCannon editable regions in Next.js.",
+	"columns": [
+		{
+			"heading": "Primitives",
+			"links": [
+				{ "label": "Text", "href": "/text/" },
+				{ "label": "Image", "href": "/image/" },
+				{ "label": "Array", "href": "/array/" }
+			]
+		},
+		{
+			"heading": "Components",
+			"links": [
+				{ "label": "Component", "href": "/component/" },
+				{ "label": "Page builder", "href": "/page-builder/" }
+			]
+		},
+		{
+			"heading": "Other",
+			"links": [
+				{ "label": "Data files", "href": "/data/" },
+				{ "label": "Source", "href": "/source/" }
+			]
+		}
+	]
+}

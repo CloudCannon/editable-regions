@@ -1,0 +1,8 @@
+{
+	"heading": "Shared call to action",
+	"description": "This block is backed by data/cta.json and rendered through a registered Svelte component, so sidebar edits should re-render it live on every page.",
+	"button_label": "Read the docs",
+	"button_url": "https://cloudcannon.com/documentation/",
+	"show_button": true,
+	"theme": "dark"
+}

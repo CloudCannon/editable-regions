@@ -1,0 +1,9 @@
+{
+	"ssg": "nuxtjs",
+	"build": {
+		"install_command": "npm i",
+		"build_command": "npm run generate",
+		"output_path": ".output/public",
+		"node_version": "file"
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"brand": "Editable Regions — Next.js Harness",
+	"items": [
+		{ "label": "Home", "href": "/" },
+		{ "label": "Text", "href": "/text/" },
+		{ "label": "Image", "href": "/image/" },
+		{ "label": "Array", "href": "/array/" },
+		{ "label": "Data", "href": "/data/" },
+		{ "label": "Component", "href": "/component/" },
+		{ "label": "Page builder", "href": "/page-builder/" },
+		{ "label": "Source", "href": "/source/" },
+		{ "label": "Landing (composed)", "href": "/landing/" }
+	]
+}
