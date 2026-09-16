@@ -18,13 +18,13 @@ export const hasEditableArrayItem = <T extends object>(
 export default class EditableArrayItem extends EditableComponent {
 	parent: EditableArray | null = null;
 
-	declare protected controlsElement?: EditableArrayItemControls;
+	protected declare controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 	private structureStrings: string[] = [];
 
 	shouldMount(): boolean {
-		return this.value !== undefined;
+		return super.shouldMount();
 	}
 
 	validateConfiguration(): boolean {
