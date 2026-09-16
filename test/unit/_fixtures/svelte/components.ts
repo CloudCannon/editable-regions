@@ -1,4 +1,5 @@
 export { default as CounterComponent } from "./counter.svelte";
+export { default as EditableRegionsShell } from "./editable-regions-shell.svelte";
 export { default as InteractiveCounter } from "./interactive-counter.svelte";
 export { default as SlotParent } from "./slot-parent.svelte";
 export { default as SlotShell } from "./slot-shell.svelte";
