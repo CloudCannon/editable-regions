@@ -61,6 +61,21 @@ test("custom componentDirs only inlines files from the specified directories", (
 	expect(keys).not.toContain("src/ignored/ignored-file.liquid");
 });
 
+// --- Windows path separators ---
+
+test("generated paths use forward slashes, never Windows separators", () => {
+	// `path.join` yields "\" on Windows. Interpolated raw into the generated
+	// double-quoted `import` strings those become escape sequences esbuild
+	// can't resolve, and `cc_liquid_files` keys must stay "/"-separated for
+	// liquid/fs.mjs (`sep: "/"`).
+	const bundle = readBundle("component-dirs");
+
+	expect(bundle).not.toMatch(/from "\.\/[^"]*\\/);
+	for (const key of getLiquidFileKeys(bundle)) {
+		expect(key).not.toContain("\\");
+	}
+});
+
 // --- ignoreDirectories ---
 
 test("ignoreDirectories skips files in the matching directories", () => {

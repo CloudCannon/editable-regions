@@ -368,9 +368,10 @@ async function generateLiveEditingSource(
 
 		for (const [i, filePath] of allLiquidFiles.entries()) {
 			const id = `liquidFile_${i}`;
-			source += `import ${id} from "./${filePath}";
+			const importPath = toPosixPath(filePath);
+			source += `import ${id} from ${JSON.stringify(`./${importPath}`)};
 
-      window.cc_liquid_files["${filePath}"] = ${id};
+      window.cc_liquid_files[${JSON.stringify(importPath)}] = ${id};
       `;
 		}
 
@@ -538,6 +539,14 @@ async function findAllLiquidFiles(
 }
 
 /**
+ * @param {string} filePath
+ * @returns {string}
+ */
+function toPosixPath(filePath) {
+	return filePath.split(path.sep).join("/");
+}
+
+/**
  * @param {Object} options
  * @param {string} options.directory
  * @param {string[]} [options.extensions]
@@ -625,7 +634,8 @@ function emitImportRegistrations(liquidOptions) {
 			liquidOptions?.[optionKey] ?? {},
 		).entries()) {
 			const id = `${optionKey}_${i}`;
-			imports += `\nimport ${id} from "./${file}";\n`;
+			const importPath = toPosixPath(String(file));
+			imports += `\nimport ${id} from ${JSON.stringify(`./${importPath}`)};\n`;
 			body += `${registerFn}(${JSON.stringify(name)}, ${id});\n`;
 		}
 	}
