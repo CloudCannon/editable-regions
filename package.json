@@ -37,7 +37,8 @@
     "test:build-astro-fixture": "npm --prefix test/unit/_fixtures/astro install --silent && npm --prefix test/unit/_fixtures/astro run build",
     "test:build-eleventy-fixture": "npm --prefix test/unit/_fixtures/eleventy install --silent && npm --prefix test/unit/_fixtures/eleventy run build",
     "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build",
-    "test:build-hugo-fixture": "npm --prefix test/unit/_fixtures/hugo run build"
+    "test:build-hugo-fixture": "npm --prefix test/unit/_fixtures/hugo run build",
+    "test:integration": "npm run build:hugo && bash run-integration-tests.sh"
   },
   "files": [
     "components",

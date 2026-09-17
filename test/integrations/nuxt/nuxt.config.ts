@@ -7,6 +7,12 @@ export default defineNuxtConfig({
 	// enough to prerender the whole site to static HTML.
 	nitro: {
 		minify: false,
+		// Nitro's prerender caches write via tmp-file + rename, which throws
+		// EPERM on Windows when a key is written twice. They only need to
+		// live for this build, so keep them in memory instead of on disk.
+		storage: {
+			"internal:nuxt:prerender": { driver: "memory" },
+		},
 		prerender: {
 			crawlLinks: true,
 			routes: ["/"],

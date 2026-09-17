@@ -10,8 +10,38 @@ on:
   workflow_call:
 
 jobs:
-  test:
+  build-hugo-renderer:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: integrations/hugo/renderer/go.mod
+          cache-dependency-path: integrations/hugo/renderer/go.sum
+      - name: Build the renderer WASM
+        run: npm run build:hugo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hugo-renderer-wasm
+          path: integrations/hugo/hugo-module/assets/_cloudcannon/hugo_renderer.wasm.gz
+          if-no-files-found: error
+
+  test:
+    needs: build-hugo-renderer
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    env:
+      # The fixture npm scripts use POSIX shell syntax (`rm -rf`, inline
+      # `VAR=x`). Git Bash ships on every runner, so point npm at it rather
+      # than making the scripts cross-platform. Node's `path` still resolves as
+      # win32 on Windows, so Windows-specific path bugs are still exercised.
+      npm_config_script_shell: bash
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -21,33 +51,30 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Download the renderer WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: hugo-renderer-wasm
+          path: integrations/hugo/hugo-module/assets/_cloudcannon
+
       - name: Lint
         run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
 
-      # The Hugo unit tests boot the real renderer WASM (built with Go) and
-      # the fixture site (built with Hugo), so set up both tools before the
-      # suite runs. Go and Hugo are pinned to the versions the renderer
-      # targets.
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: integrations/hugo/renderer/go.mod
-          cache-dependency-path: integrations/hugo/renderer/go.sum
-
+      # The Hugo unit tests boot the renderer WASM and the fixture sites are
+      # built with the real Hugo, so Hugo must be available before the suites
+      # run.
       - name: Set up Hugo
         uses: peaceiris/actions-hugo@v3
         with:
           hugo-version: "0.164.0"
           extended: true
 
-      - name: Build the renderer WASM
-        run: npm run build:hugo
-
       - name: Unit tests
         run: npm run test:build-fixtures && npm test
 
       - name: Integration tests
         run: bash run-integration-tests.sh
+        shell: bash

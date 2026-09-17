@@ -1,0 +1,4 @@
+# Normalize line endings to LF in the working tree on every platform. Windows
+# defaults to core.autocrlf=true, which would otherwise check files out as CRLF
+# and break formatting checks and fixture comparisons.
+* text=auto eol=lf

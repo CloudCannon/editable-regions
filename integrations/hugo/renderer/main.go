@@ -334,7 +334,9 @@ func (builder *editorSiteBuilder) targetPage(target string) page.Page {
 				if f == nil {
 					continue
 				}
-				if filepath.Join(builder.Cfg.Base.ContentDir, f.Path()) != target {
+				// `target` is slash-normalized; `filepath.Join` uses the OS
+				// separator, so normalize it too or Windows never matches.
+				if filepath.ToSlash(filepath.Join(builder.Cfg.Base.ContentDir, f.Path())) != target {
 					continue
 				}
 				return p
