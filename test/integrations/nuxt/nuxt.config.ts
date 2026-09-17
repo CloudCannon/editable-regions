@@ -6,6 +6,7 @@ export default defineNuxtConfig({
 	// Every harness page is linked from the index, so crawling from "/" is
 	// enough to prerender the whole site to static HTML.
 	nitro: {
+		minify: false,
 		prerender: {
 			crawlLinks: true,
 			routes: ["/"],
@@ -23,4 +24,11 @@ export default defineNuxtConfig({
 	},
 
 	css: ["~/assets/site.css"],
+
+	sourcemap: true,
+	vite: {
+		build: {
+			minify: false,
+		},
+	},
 });

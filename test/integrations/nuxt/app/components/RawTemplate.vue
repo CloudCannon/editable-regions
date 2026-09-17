@@ -1,5 +1,5 @@
 <script lang="ts">
-import { defineComponent, h } from "vue";
+import { createStaticVNode, defineComponent } from "vue";
 
 /**
  * Emits a real `<template>` element carrying an array blueprint.
@@ -30,12 +30,12 @@ import { defineComponent, h } from "vue";
  * them next to the rows they mirror so the two stay in sync.
  */
 export default defineComponent({
-	name: "RawTemplate",
-	props: {
-		html: { type: String, required: true },
-	},
-	setup(props) {
-		return () => h("template", { innerHTML: props.html });
-	},
+    name: "RawTemplate",
+    props: {
+        html: { type: String, required: true },
+    },
+    setup(props) {
+        return () => createStaticVNode(`<template>${props.html}</template>`, 1);
+    },
 });
 </script>

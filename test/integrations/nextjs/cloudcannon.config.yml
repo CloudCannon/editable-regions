@@ -10,7 +10,7 @@ collections_config:
     path: content/pages
     glob:
       - "*.md"
-    url: "/[slug]/"
+    url: "/[slug].html"
     icon: wysiwyg
     # The test pages are a fixed matrix — editors don't add to them. There is
     # deliberately no schema: a single `default` schema for a collection whose

@@ -223,8 +223,10 @@ export default class Editable {
 		contexts?: { [key: string]: EditableContext },
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
+		let shouldValidate = false;
 
 		if (typeof path === "string") {
+			shouldValidate = true;
 			const { value: resolvedValue, context: newContext } =
 				await this.lookupPathAndContext(path, value, contexts);
 
@@ -267,6 +269,7 @@ export default class Editable {
 			({ key }) => !!key,
 		);
 		if (filteredSpecialPropsListener.length > 0) {
+			shouldValidate = true;
 			newValue = filteredSpecialPropsListener.reduce(
 				(acc, { key, path }) => {
 					if (key && path) {
@@ -283,6 +286,7 @@ export default class Editable {
 		}
 
 		if (Object.entries(literalProps).length > 0) {
+			shouldValidate = true;
 			newValue = Object.entries(literalProps).reduce(
 				(acc, [key, val]) => {
 					(acc as any)[key] = structuredClone(val);
@@ -294,7 +298,11 @@ export default class Editable {
 			);
 		}
 
-		return this.validateValue(newValue);
+		if (shouldValidate) {
+			newValue = this.validateValue(newValue);
+		}
+
+		return newValue;
 	}
 
 	async pushValue(
