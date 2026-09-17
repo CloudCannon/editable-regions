@@ -24,6 +24,10 @@ export default class EditableArrayItem extends EditableComponent {
 	private structureStrings: string[] = [];
 
 	shouldMount(): boolean {
+		if (this.mounted) {
+			return false;
+		}
+
 		return this.value !== undefined;
 	}
 

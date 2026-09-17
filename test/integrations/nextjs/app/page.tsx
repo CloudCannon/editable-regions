@@ -1,17 +1,33 @@
-'use client'
+import Link from "next/link";
 
-import { useEffect } from 'react';
+import nav from "../data/nav.json";
 
-export default function Home() {
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('../live-editing')
-    }
-  }, []);
+/**
+ * Deliberately has no editable regions and no content file. Its only job is
+ * to give the prerenderer links to crawl, and to give a human a way into
+ * each test page.
+ */
+const tests = nav.items.filter((item) => item.href !== "/");
 
-  return (
-    <div>
-      <p>Welcome to Nextjs!</p>
-    </div>
-  );
+export const metadata = {
+	title: "Editable regions — Next.js harness",
+};
+
+export default function IndexPage() {
+	return (
+		<div>
+			<h1>Editable regions — Next.js harness</h1>
+			<p>
+				One page per region type. Open each in the CloudCannon Visual Editor.
+			</p>
+
+			<ul>
+				{tests.map((test) => (
+					<li key={test.href}>
+						<Link href={test.href}>{test.label}</Link>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
 }

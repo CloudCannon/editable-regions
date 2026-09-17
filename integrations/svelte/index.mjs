@@ -1,4 +1,6 @@
-import { addEditableComponentRenderer } from "../helpers/cloudcannon.mjs";
+export { default as EditableRegions } from "./EditableRegions.svelte";
+
+import { addEditableComponentRenderer } from "../../helpers/cloudcannon.mjs";
 
 /** @type{((component: any, args: { target: HTMLElement, props: unknown }) => void) | undefined} */
 let mount;

@@ -1,8 +1,14 @@
 /// <reference path="./cloudcannon.d.ts" />
 
-import type { HTMLAttributes } from "vue";
+import type { DefineComponent, HTMLAttributes } from "vue";
 
 export function registerVueComponent(key: string, component: unknown): void;
+
+export const EditableRegions: DefineComponent<
+	Omit<HTMLAttributes, "data-prop"> & {
+		tag?: string;
+	}
+>;
 
 declare global {
 	namespace JSX {
@@ -16,6 +22,13 @@ declare global {
 				class?: string;
 				"data-prop": string;
 				"data-type"?: "block" | "text" | "span";
+			};
+			"editable-image": HTMLAttributes & {
+				class?: string;
+				"data-prop"?: string;
+				"data-prop-src"?: string;
+				"data-prop-alt"?: string;
+				"data-prop-title"?: string;
 			};
 			"editable-source": HTMLAttributes & {
 				class?: string;

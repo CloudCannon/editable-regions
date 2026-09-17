@@ -77,7 +77,8 @@
     },
     "./svelte": {
       "types": "./types/svelte.d.ts",
-      "default": "./integrations/svelte.mjs"
+      "svelte": "./integrations/svelte/index.mjs",
+      "default": "./integrations/svelte/index.mjs"
     },
     "./vue": {
       "types": "./types/vue.d.ts",

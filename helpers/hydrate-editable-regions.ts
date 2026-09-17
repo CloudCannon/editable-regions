@@ -10,6 +10,8 @@ import {
 import { hasEditable } from "../nodes/editable.js";
 import { isEditableWebcomponent } from "./checks";
 
+const DYNAMIC_EDITABLE_TYPE = "_dynamic";
+
 const baseEditableMap: Record<string, typeof Editable | undefined> = {
 	array: EditableArray,
 	"array-item": EditableArrayItem,
@@ -20,12 +22,23 @@ const baseEditableMap: Record<string, typeof Editable | undefined> = {
 };
 
 export const dehydrateDataEditableRegions = (root: Element) => {
-	if (root instanceof HTMLElement && hasEditable(root)) {
+	if (
+		root instanceof HTMLElement &&
+		hasEditable(root) &&
+		root.dataset.editable !== DYNAMIC_EDITABLE_TYPE
+	) {
 		root.editable.disconnect();
 	}
 
 	root.querySelectorAll("[data-editable]").forEach((element) => {
-		if (element instanceof HTMLElement && hasEditable(element)) {
+		if (
+			!(element instanceof HTMLElement) ||
+			element.dataset.editable === DYNAMIC_EDITABLE_TYPE
+		) {
+			return;
+		}
+
+		if (hasEditable(element)) {
 			element.editable.disconnect();
 		}
 	});
@@ -39,6 +52,7 @@ export const hydrateDataEditableRegions = (root: Element) => {
 	if (
 		root instanceof HTMLElement &&
 		root.dataset.editable &&
+		root.dataset.editable !== DYNAMIC_EDITABLE_TYPE &&
 		!isEditableWebcomponent(root)
 	) {
 		if ("editable" in root && root.editable instanceof Editable) {
@@ -61,6 +75,10 @@ export const hydrateDataEditableRegions = (root: Element) => {
 			typeof element.dataset.editable !== "string" ||
 			typeof element.dataset.cloudcannonIgnore === "string"
 		) {
+			return;
+		}
+
+		if (element.dataset.editable === DYNAMIC_EDITABLE_TYPE) {
 			return;
 		}
 
@@ -95,4 +113,19 @@ export const hydrateDataEditableRegions = (root: Element) => {
 	});
 };
 
-(window as any).hydrateDataEditableRegions = hydrateDataEditableRegions;
+const extendedWindow = /** @type {any} */ (window);
+
+Object.assign(extendedWindow, {
+	editableRegions: {
+		Editable,
+		EditableArray,
+		EditableArrayItem,
+		EditableComponent,
+		EditableImage,
+		EditableSource,
+		EditableText,
+	},
+	hydrateDataEditableRegions,
+});
+
+document.dispatchEvent(new CustomEvent("editable-regions:load"));

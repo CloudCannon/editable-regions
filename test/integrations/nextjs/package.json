@@ -5,16 +5,20 @@
 	"scripts": {
 		"dev": "next dev",
 		"build": "next build",
-		"start": "next start",
-		"lint": "eslint"
+		"start": "next start"
 	},
 	"dependencies": {
 		"@cloudcannon/editable-regions": "file:../../..",
 		"next": "16.2.11",
 		"react": "19.2.0",
-		"react-dom": "19.2.0"
+		"react-dom": "19.2.0",
+		"js-yaml": "^4.1.0",
+		"markdown-it": "^14.3.0"
 	},
 	"devDependencies": {
-		"typescript": "^5.9.3"
-	}
+		"typescript": "^5.9.3",
+		"@types/js-yaml": "^4.0.9",
+		"@types/markdown-it": "^14.1.2"
+	},
+	"description": "Next.js harness for testing the @cloudcannon/editable-regions React integration."
 }

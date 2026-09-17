@@ -174,7 +174,19 @@ export default class Editable {
 		return true;
 	}
 
+	private parentMounted(): boolean {
+		if (this.parent) {
+			return this.parent.mounted;
+		}
+
+		return !this.pendingParentElement;
+	}
+
 	shouldMount() {
+		if (this.mounted) {
+			return false;
+		}
+
 		return this.value !== undefined;
 	}
 
@@ -211,8 +223,10 @@ export default class Editable {
 		contexts?: { [key: string]: EditableContext },
 	): Promise<unknown> {
 		const { key, path } = listener ?? {};
+		let shouldValidate = false;
 
 		if (typeof path === "string") {
+			shouldValidate = true;
 			const { value: resolvedValue, context: newContext } =
 				await this.lookupPathAndContext(path, value, contexts);
 
@@ -255,6 +269,7 @@ export default class Editable {
 			({ key }) => !!key,
 		);
 		if (filteredSpecialPropsListener.length > 0) {
+			shouldValidate = true;
 			newValue = filteredSpecialPropsListener.reduce(
 				(acc, { key, path }) => {
 					if (key && path) {
@@ -271,6 +286,7 @@ export default class Editable {
 		}
 
 		if (Object.entries(literalProps).length > 0) {
+			shouldValidate = true;
 			newValue = Object.entries(literalProps).reduce(
 				(acc, [key, val]) => {
 					(acc as any)[key] = structuredClone(val);
@@ -282,7 +298,11 @@ export default class Editable {
 			);
 		}
 
-		return this.validateValue(newValue);
+		if (shouldValidate) {
+			newValue = this.validateValue(newValue);
+		}
+
+		return newValue;
 	}
 
 	async pushValue(
@@ -299,15 +319,18 @@ export default class Editable {
 			contexts,
 		);
 
-		if (typeof newValue === "undefined" || !this.shouldUpdate(newValue)) {
+		if (
+			typeof newValue === "undefined" ||
+			!this.shouldUpdate(newValue) ||
+			!this.parentMounted()
+		) {
 			return;
 		}
 
 		this.value = newValue;
-		if (this.connected && !this.mounted) {
+		if (this.connected && this.shouldMount()) {
 			this.mounted = true;
 			this.mount();
-			return this.update(partialSubtree);
 		}
 
 		if (this.mounted) {
@@ -440,7 +463,7 @@ export default class Editable {
 		this.connectPromise = apiLoadedPromise.then(() => {
 			this.setupListeners();
 			this.connected = true;
-			if (!this.mounted && this.shouldMount()) {
+			if (this.parentMounted() && this.shouldMount()) {
 				this.mounted = true;
 				this.mount();
 				this.update();

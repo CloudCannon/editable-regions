@@ -25,13 +25,19 @@ export default class EditableComponent extends Editable {
 	}
 
 	shouldMount(): boolean {
-		if (super.shouldMount()) {
+		if (this.mounted) {
+			return false;
+		}
+
+		const hasNoProps = Object.keys(this.element.dataset).every(
+			(key) => !key.startsWith("prop"),
+		);
+
+		if (hasNoProps) {
 			return true;
 		}
 
-		return !Object.keys(this.element.dataset).some((key) =>
-			key.startsWith("prop"),
-		);
+		return super.shouldMount();
 	}
 
 	validateConfiguration(): boolean {

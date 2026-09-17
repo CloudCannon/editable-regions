@@ -1,0 +1,501 @@
+name: SvelteKit editable regions harness
+
+paths:
+  static: static
+  uploads: static/uploads
+
+collections_config:
+  pages:
+    name: Test pages
+    path: content/pages
+    glob:
+      - "*.md"
+    url: "/[slug]/"
+    icon: wysiwyg
+    # The test pages are a fixed matrix — editors don't add to them. There is
+    # deliberately no schema: a single `default` schema for a collection whose
+    # entries have deliberately different shapes surfaces every other page's
+    # fields (portrait, card, counter…) on every page. Per-page schemas would
+    # be the alternative; with `disable_add` there is nothing for them to seed.
+    disable_add: true
+    disable_add_folder: true
+    _enabled_editors:
+      - visual
+    # Toolbars for the inline regions. The `content` editable and the sidebar
+    # markdown inputs are independent channels — configuring one does not
+    # configure the other.
+    _editables:
+      content:
+        bold: true
+        italic: true
+        link: true
+        bulletedlist: true
+        numberedlist: true
+        blockquote: true
+        format: p h2 h3
+      block:
+        bold: true
+        italic: true
+        link: true
+        bulletedlist: true
+        numberedlist: true
+        format: p h2 h3
+      text:
+        bold: true
+        italic: true
+        link: true
+    _inputs:
+      title:
+        type: text
+        options:
+          required: true
+      standfirst:
+        type: markdown
+        comment: Inline rich text — bound to a data-type="text" region.
+        options:
+          bold: true
+          italic: true
+          link: true
+      intro:
+        type: markdown
+        comment: Block rich text — bound to a data-type="block" region.
+        options:
+          bold: true
+          italic: true
+          link: true
+          bulletedlist: true
+          numberedlist: true
+          blockquote: true
+          format: p h2 h3
+      hero_src:
+        type: image
+      hero_alt:
+        type: text
+      wrapped:
+        type: object
+        options:
+          preview:
+            icon: image
+      portrait:
+        type: object
+        options:
+          preview:
+            icon: image
+      src:
+        type: image
+      alt:
+        type: text
+      description:
+        type: textarea
+      features:
+        type: array
+        options:
+          structures: _structures.features
+      features[*].icon:
+        type: image
+      tags:
+        type: array
+        options:
+          structures: _structures.tags
+      empty_list:
+        type: array
+        comment: Starts empty on purpose — exercises the <template> blueprint path.
+        options:
+          structures: _structures.tags
+      panel:
+        type: object
+        options:
+          preview:
+            icon: dashboard
+      heading:
+        type: text
+      body:
+        type: textarea
+      card:
+        type: object
+        options:
+          preview:
+            icon: dashboard
+      badge:
+        type: text
+      highlighted:
+        type: switch
+      card.items:
+        type: array
+        options:
+          structures: _structures.card_items
+      counter:
+        type: object
+        options:
+          preview:
+            icon: dashboard
+      label:
+        type: text
+      step:
+        type: number
+      content_blocks:
+        type: array
+        options:
+          structures: _structures.content_blocks
+      content_blocks[*].items:
+        type: array
+        options:
+          structures: _structures.block_items
+      _type:
+        hidden: true
+      subheading:
+        type: textarea
+      image:
+        type: image
+      image_alt:
+        type: text
+      button_label:
+        type: text
+      button_url:
+        type: text
+      theme:
+        type: select
+        options:
+          values:
+            - dark
+            - light
+
+      # --- Composed landing page (src/routes/landing/+page.svelte) ---
+      hero:
+        type: object
+        options:
+          preview:
+            icon: dashboard
+      hero.actions:
+        type: array
+        options:
+          structures: _structures.hero_actions
+      href:
+        type: text
+      variant:
+        type: select
+        options:
+          values:
+            - primary
+            - secondary
+      feature_grid:
+        type: object
+        options:
+          preview:
+            icon: list
+      feature_grid.items:
+        type: array
+        options:
+          structures: _structures.feature_items
+      feature_grid.items[*].icon:
+        type: image
+      feature_grid.items[*].bullets:
+        type: array
+        options:
+          structures: _structures.text_list_item
+      testimonial:
+        type: object
+        options:
+          preview:
+            icon: format_quote
+      quote:
+        type: textarea
+      author:
+        type: text
+      role:
+        type: text
+      avatar:
+        type: image
+      featured:
+        type: switch
+      pricing:
+        type: object
+        options:
+          preview:
+            icon: payments
+      pricing.tiers:
+        type: array
+        options:
+          structures: _structures.pricing_tiers
+      pricing.tiers[*].perks:
+        type: array
+        options:
+          structures: _structures.text_list_item
+      name:
+        type: text
+      price:
+        type: text
+      faq:
+        type: object
+        options:
+          preview:
+            icon: help
+      faq.items:
+        type: array
+        options:
+          structures: _structures.faq_items
+      question:
+        type: text
+      answer:
+        type: markdown
+        options:
+          bold: true
+          italic: true
+          link: true
+
+  # The page's text lives in the template, so the template itself is the file
+  # editors open. Only the source page's +page.svelte is in the glob — no other
+  # file has source regions.
+  source_pages:
+    name: Source-editable pages
+    path: src/routes
+    glob:
+      - "source/+page.svelte"
+    url: "/source/"
+    icon: code
+    disable_add: true
+    disable_add_folder: true
+    disable_file_actions: true
+    include_developer_files: true
+    _enabled_editors:
+      - visual
+
+data_config:
+  nav:
+    path: data/nav.json
+  cta:
+    path: data/cta.json
+  footer:
+    path: data/footer.json
+
+file_config:
+  - glob: data/nav.json
+    _inputs:
+      brand:
+        type: text
+      items:
+        type: array
+        options:
+          structures: _structures.nav_items
+      label:
+        type: text
+      href:
+        type: text
+
+  - glob: data/footer.json
+    _inputs:
+      tagline:
+        type: textarea
+      columns:
+        type: array
+        options:
+          structures: _structures.footer_columns
+      heading:
+        type: text
+      links:
+        type: array
+        options:
+          structures: _structures.nav_items
+      label:
+        type: text
+      href:
+        type: text
+
+  - glob: data/cta.json
+    _inputs:
+      heading:
+        type: text
+      description:
+        type: markdown
+        options:
+          bold: true
+          italic: true
+          link: true
+      button_label:
+        type: text
+      button_url:
+        type: text
+      show_button:
+        type: switch
+        comment: Hides the button entirely — a conditional only a component region can re-render.
+      theme:
+        type: select
+        options:
+          values:
+            - dark
+            - light
+
+_structures:
+  features:
+    values:
+      - label: Feature
+        icon: list
+        preview:
+          text:
+            - key: title
+            - Feature
+          icon: list
+        value:
+          title: ""
+          description: ""
+          icon: ""
+
+  tags:
+    values:
+      - label: Tag
+        icon: label
+        value: ""
+
+  card_items:
+    values:
+      - label: Item
+        icon: label
+        value: ""
+
+  block_items:
+    values:
+      - label: Item
+        icon: list
+        preview:
+          text:
+            - key: title
+            - Item
+          icon: list
+        value:
+          title: ""
+          description: ""
+
+  nav_items:
+    values:
+      - label: Link
+        icon: link
+        preview:
+          text:
+            - key: label
+            - Link
+          icon: link
+        value:
+          label: ""
+          href: "/"
+
+  footer_columns:
+    values:
+      - label: Column
+        icon: list
+        preview:
+          text:
+            - key: heading
+            - Column
+          icon: list
+        value:
+          heading: ""
+          links: []
+
+  # --- Composed landing page ---
+  text_list_item:
+    values:
+      - label: Item
+        icon: label
+        value: ""
+
+  hero_actions:
+    values:
+      - label: Button
+        icon: ads_click
+        preview:
+          text:
+            - key: label
+            - Button
+          icon: ads_click
+        value:
+          label: ""
+          href: "/"
+          variant: primary
+
+  feature_items:
+    values:
+      - label: Feature
+        icon: list
+        preview:
+          text:
+            - key: title
+            - Feature
+          icon: list
+        value:
+          title: ""
+          description: ""
+          icon: ""
+          bullets: []
+
+  pricing_tiers:
+    values:
+      - label: Plan
+        icon: payments
+        preview:
+          text:
+            - key: name
+            - Plan
+          icon: payments
+        value:
+          name: ""
+          price: ""
+          badge: ""
+          highlighted: false
+          perks: []
+
+  faq_items:
+    values:
+      - label: Question
+        icon: help
+        preview:
+          text:
+            - key: question
+            - Question
+          icon: help
+        value:
+          question: ""
+          answer: ""
+
+  content_blocks:
+    values:
+      - label: Hero
+        icon: dashboard
+        preview:
+          text:
+            - key: heading
+            - Hero
+          icon: dashboard
+        value:
+          _type: hero
+          heading: ""
+          subheading: ""
+          image: ""
+          image_alt: ""
+
+      - label: Features
+        icon: list
+        preview:
+          text:
+            - key: heading
+            - Features
+          icon: list
+        value:
+          _type: features
+          heading: ""
+          items: []
+
+      - label: Call to action
+        icon: ads_click
+        preview:
+          text:
+            - key: heading
+            - Call to action
+          icon: ads_click
+        value:
+          _type: cta
+          heading: ""
+          button_label: ""
+          button_url: "/"
+          theme: light
+
+timezone: Pacific/Auckland
