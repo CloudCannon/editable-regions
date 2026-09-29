@@ -1,6 +1,7 @@
 import {
 	apiLoadedPromise,
 	CloudCannon,
+	getRenderData,
 } from "../../../helpers/cloudcannon.mjs";
 import { HugoRenderer } from "./hugo-renderer.ts";
 import { log, setVerbose, warn } from "./logger.ts";
@@ -67,7 +68,7 @@ async function loadAPIData(engine: HugoRenderer): Promise<void> {
 	for (const collection of collections) {
 		collection.addEventListener("change", async (event) => {
 			const path = event.detail.sourcePath;
-			const frontMatter = await CloudCannon.file(path).data.get();
+			const frontMatter = await getRenderData(CloudCannon.file(path));
 			if (!frontMatter || typeof frontMatter !== "object") {
 				return;
 			}
@@ -86,7 +87,7 @@ async function loadAPIData(engine: HugoRenderer): Promise<void> {
 
 		const items = await collection.items();
 		for (const file of items) {
-			const frontMatter = await file.data.get();
+			const frontMatter = await getRenderData(file);
 			if (!frontMatter || typeof frontMatter !== "object") continue;
 			files[file.path] = `---\n${JSON.stringify(frontMatter)}\n---\n`;
 		}
@@ -95,7 +96,9 @@ async function loadAPIData(engine: HugoRenderer): Promise<void> {
 	const datasets = await CloudCannon.datasets();
 	for (const dataset of datasets) {
 		dataset.addEventListener("change", async (event) => {
-			const data = await CloudCannon.file(event.detail.sourcePath).data.get();
+			const data = await getRenderData(
+				CloudCannon.file(event.detail.sourcePath),
+			);
 			if (data === undefined || data === null) return;
 			engine.writeFiles(
 				JSON.stringify({
@@ -111,7 +114,7 @@ async function loadAPIData(engine: HugoRenderer): Promise<void> {
 
 		const result = await dataset.items();
 		for (const file of Array.isArray(result) ? result : [result]) {
-			const data = await file.data.get();
+			const data = await getRenderData(file);
 			if (data === undefined || data === null) continue;
 			files[datasetPath(file.path)] = `${JSON.stringify(data)}\n`;
 		}

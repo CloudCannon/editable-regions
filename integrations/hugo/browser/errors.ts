@@ -68,10 +68,10 @@ export function enhanceHugoError(
 			"`{{ if not site.Params.env_client }}`, " +
 			"or supply an editor-safe version via " +
 			"`params.editable_regions.templates_overrides`.";
-	} else if (/logged \d+ errors/i.test(message)) {
+	} else if (/logged \d+ error/i.test(message)) {
 		hint =
-			"Hugo logged errors during the render — open the browser console " +
-			"for the underlying messages.";
+			"Hugo logged errors while building the site, often from front " +
+			"matter or data it couldn't parse. The browser console has the full log.";
 	}
 
 	const primary =

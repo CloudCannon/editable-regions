@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed an issue where unquoted datetimes in front matter or data files broke Hugo components in the visual editor, and showed as invalid or missing dates in Astro and Eleventy components
+- Fixed an issue where one failed Hugo build in the visual editor made every later render fail
+- Hugo build errors in the visual editor now show Hugo's error message
+
 ## 0.0.20
 
 - Added support for Hugo partials in editable regions

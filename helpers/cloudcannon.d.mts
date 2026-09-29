@@ -8,6 +8,12 @@ export function addEditableSnippetRenderer(key: string, renderer: ComponentRende
 export function getEditableComponentRenderers(): Record<string, ComponentRenderer>;
 export function getEditableSnippetRenderers(): Record<string, ComponentRenderer>;
 export function realizeAPIValue(value: unknown): Promise<unknown>;
+export function toRenderData<T>(data: T): T;
+export function getRenderData(file: {
+    data: {
+        get: () => Promise<any>;
+    };
+}): Promise<any>;
 export { _cloudcannon as CloudCannon };
 export type CloudCannonVisualEditorWindow = import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorWindow;
 export type CloudCannonVisualEditorAPIV1 = import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1;

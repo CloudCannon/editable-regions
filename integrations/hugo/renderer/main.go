@@ -134,26 +134,26 @@ func (builder *editorSiteBuilder) createSites() error {
 	return nil
 }
 
+// build clears pending changes even when it fails, as `hugo server` does.
 func (builder *editorSiteBuilder) build() error {
-	var events []fsnotify.Event
+	events := builder.changeEvents()
+	builder.changedFiles = nil
+	builder.removedFiles = nil
+
 	if builder.Sites == nil {
 		if err := builder.createSites(); err != nil {
 			return err
 		}
-	} else {
-		events = builder.changeEvents()
+		events = nil
 	}
 
+	// Logged errors only surface as "logged N error(s)"; the messages are on
+	// the logger.
 	err := builder.Sites.Build(hugolib.BuildCfg{NoBuildLock: true}, events...)
 	if err != nil {
-		return err
-	}
-
-	builder.changedFiles = nil
-	builder.removedFiles = nil
-
-	if n := builder.Sites.NumLogErrors(); n > 0 {
-		err = fmt.Errorf("logged %d errors", n)
+		if logged := strings.TrimSpace(builder.Sites.Log.Errors()); logged != "" {
+			err = fmt.Errorf("%w:\n%s", err, logged)
+		}
 	}
 	return err
 }

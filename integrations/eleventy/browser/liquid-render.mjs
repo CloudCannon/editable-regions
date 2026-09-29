@@ -10,6 +10,7 @@
 import {
 	apiLoadedPromise,
 	CloudCannon,
+	getRenderData,
 } from "../../../helpers/cloudcannon.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { evaluateArgs, parseArgs } from "../../liquid/shortcodes.mjs";
@@ -143,7 +144,7 @@ export function createRenderFileShortcode(liquidEngine) {
 		try {
 			[body, frontMatter] = await Promise.all([
 				file.content.get(),
-				file.data.get(),
+				getRenderData(file),
 			]);
 		} catch (err) {
 			warnOnce(

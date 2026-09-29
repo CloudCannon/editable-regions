@@ -3,7 +3,12 @@
 // `page` resolves to a plain object; `collections` resolves to an object whose
 // keys are lazy getters, so a template only pays for the collections it reads.
 
-import { apiLoadedPromise, CloudCannon } from "../../helpers/cloudcannon.mjs";
+import {
+	apiLoadedPromise,
+	CloudCannon,
+	getRenderData,
+} from "../../helpers/cloudcannon.mjs";
+import { stripDatetimeAnnotation } from "../../helpers/datetimes.mjs";
 import { getPageMap, normalizeInputPath } from "./page-map.mjs";
 
 /** @type {{ directories?: { output?: string } } | null} */
@@ -93,7 +98,11 @@ function deriveFilePathStem(/** @type {string} */ inputPath) {
 /** Coerces a front-matter date value into a Date, or `undefined`. */
 function toDate(/** @type {unknown} */ raw) {
 	if (!raw) return undefined;
-	const d = new Date(/** @type {any} */ (raw));
+	const d = new Date(
+		typeof raw === "string"
+			? stripDatetimeAnnotation(raw)
+			: /** @type {any} */ (raw),
+	);
 	return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
@@ -116,7 +125,7 @@ function joinOutputPath(
  * @param {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1File} file
  */
 async function materialiseFile(file) {
-	const data = (await file.data.get()) ?? {};
+	const data = (await getRenderData(file)) ?? {};
 	return {
 		url: resolveUrl(data, file.path),
 		outputPath: resolveOutputPath(data, file.path),
@@ -145,7 +154,7 @@ export async function buildPageData() {
 	}
 	if (!file) return {};
 	const inputPath = file.path;
-	const data = (await file.data.get()) ?? {};
+	const data = (await getRenderData(file)) ?? {};
 	return {
 		inputPath,
 		fileSlug: deriveFileSlug(inputPath),

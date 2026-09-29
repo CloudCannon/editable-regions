@@ -11,6 +11,7 @@ import type EditableComponentControls from "../components/ui/editable-component-
 import {
 	getEditableComponentRenderers,
 	realizeAPIValue,
+	toRenderData,
 } from "../helpers/cloudcannon.mjs";
 
 export default class EditableComponent extends Editable {
@@ -143,7 +144,9 @@ export default class EditableComponent extends Editable {
 
 		let rootEl: HTMLElement;
 		try {
-			rootEl = this.santiseComponentOutput(await component(value));
+			rootEl = this.santiseComponentOutput(
+				await component(toRenderData(value)),
+			);
 		} catch (err: unknown) {
 			this.element.classList.add("errored");
 			const error = document.createElement("editable-region-error-card");

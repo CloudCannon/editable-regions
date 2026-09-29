@@ -39,6 +39,10 @@ const mockFiles: MockFile[] = [
 		description: "A news item in a non-configured folder",
 		pubDate: "2024-02-01",
 	}),
+	makeMockFile("/src/content/events/launch.md", {
+		title: "Launch",
+		date: "2026-09-01T10:30:00+10:00[+10:00]",
+	}),
 ];
 
 beforeAll(() => {
@@ -114,4 +118,16 @@ test("the rendered collection list matches the snapshot", async () => {
 	const el = await window.cc_components?.["astro-collection"]({});
 
 	expect(el?.outerHTML).toMatchSnapshot();
+});
+
+test("bare datetimes from the API have their time-zone annotation stripped", async () => {
+	const el = await window.cc_components?.["astro-collection-dates"]({});
+
+	const entry = el?.querySelector(".date-entry");
+	expect(entry?.querySelector(".date-raw")?.textContent).toBe(
+		"2026-09-01T10:30:00+10:00",
+	);
+	expect(entry?.querySelector(".date-iso")?.textContent).toBe(
+		"2026-09-01T00:30:00.000Z",
+	);
 });

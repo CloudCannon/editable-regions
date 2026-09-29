@@ -1,4 +1,4 @@
-import { CloudCannon } from "../../../helpers/cloudcannon.mjs";
+import { CloudCannon, getRenderData } from "../../../helpers/cloudcannon.mjs";
 
 /**
  * @param {string} collectionKey
@@ -16,7 +16,7 @@ export const getCollection = async (collectionKey, filter) => {
 	}
 
 	const promises = files.map(async (file) => {
-		const data = await file.data.get();
+		const data = await getRenderData(file);
 		let id = file.path.replace(`/src/content/${collectionKey}/`, "");
 		let slug = id.replace(/\.[^.]*$/, "");
 		if (!id.match(/\.md(x|oc)?$/)) {

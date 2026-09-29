@@ -94,6 +94,15 @@ describe("enhanceHugoError", () => {
 		expect(error.hint).toBeUndefined();
 	});
 
+	test("Hugo's logged-errors build failure gets the console hint", () => {
+		const error = enhanceHugoError(
+			'build after pending content changes: logged 1 error(s):\nERROR the "date" front matter field is not a parsable date',
+			"card",
+		);
+		expect(error.message).toContain("not a parsable date");
+		expect(error.hint).toContain("browser console");
+	});
+
 	test("the missing-partial hint still applies", () => {
 		const error = enhanceHugoError('partial "nope" not found', "nope");
 		expect(error.hint).toContain(

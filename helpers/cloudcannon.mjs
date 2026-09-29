@@ -1,3 +1,5 @@
+import { stripDatetimeAnnotations } from "./datetimes.mjs";
+
 /**
  * @typedef {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorWindow} CloudCannonVisualEditorWindow
  * @typedef {import("@cloudcannon/visual-editor-api").CloudCannonVisualEditorAPIV1} CloudCannonVisualEditorAPIV1
@@ -97,6 +99,23 @@ export const realizeAPIValue = async (value) => {
 	}
 	return value;
 };
+
+/**
+ * Normalises API data on its way into a renderer. Returns a copy; never use
+ * it on data that's written back to the source.
+ * @template T
+ * @param {T} data
+ * @returns {T}
+ */
+export const toRenderData = (data) => stripDatetimeAnnotations(data);
+
+/**
+ * Reads a file's data for rendering (see `toRenderData`).
+ * @param {{ data: { get: () => Promise<any> } }} file
+ * @returns {Promise<any>}
+ */
+export const getRenderData = async (file) =>
+	toRenderData(await file.data.get());
 
 export const addCustomEditableRegion = (key, region) => {
 	if (!extendedWindow || typeof document === "undefined") {

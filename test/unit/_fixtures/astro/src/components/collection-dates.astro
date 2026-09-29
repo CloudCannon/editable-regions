@@ -1,0 +1,20 @@
+---
+import { getCollection } from "astro:content";
+
+interface Props {
+  collectionName?: string;
+}
+
+const { collectionName = "events" } = Astro.props;
+
+const entries = await getCollection(collectionName);
+---
+
+<ul class="collection-dates">
+  {entries.map((entry) => (
+    <li class="date-entry">
+      <span class="date-raw">{entry.data.date}</span>
+      <time class="date-iso">{new Date(entry.data.date).toISOString()}</time>
+    </li>
+  ))}
+</ul>

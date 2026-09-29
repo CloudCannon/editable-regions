@@ -4,6 +4,7 @@
 
 import sindresorhusSlugify from "@sindresorhus/slugify";
 import simovSlugify from "slugify";
+import { stripDatetimeAnnotation } from "../../../helpers/datetimes.mjs";
 import { warnOnce } from "../../liquid/logger.mjs";
 import { getPageMap, normalizeInputPath } from "../../liquid/page-map.mjs";
 import { createShortcodeTag } from "../../liquid/shortcodes.mjs";
@@ -89,7 +90,9 @@ function toDate(/** @type {any} */ value) {
 
 	if (value === null || value === undefined || value === "") return null;
 
-	const d = new Date(value);
+	const d = new Date(
+		typeof value === "string" ? stripDatetimeAnnotation(value) : value,
+	);
 	return Number.isNaN(d.getTime()) ? null : d;
 }
 

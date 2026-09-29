@@ -93,6 +93,14 @@ test("dateToRfc3339 accepts ISO strings and epoch numbers", () => {
 	expect(dateToRfc3339(1745193600000)).toMatch(/^2025/);
 });
 
+test("date filters parse API datetimes with a time-zone annotation", () => {
+	expect(dateToRfc3339("2026-09-01T10:30:00+10:00[+10:00]")).toBe(
+		"2026-09-01T00:30:00.000Z",
+	);
+	expect(dateToRfc822("2026-09-01T10:30:00+00:00[UTC]")).not.toBe("");
+	expect(htmlDateString("2026-09-01T10:30:00+00:00[UTC]")).toBe("2026-09-01");
+});
+
 test("dateToRfc3339 returns empty string for invalid input", () => {
 	expect(dateToRfc3339("not a date")).toBe("");
 	expect(dateToRfc3339(null as any)).toBe("");

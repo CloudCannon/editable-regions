@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, expect, test } from "vitest";
+import { dateToRfc3339 } from "../../../integrations/eleventy/browser/liquid-builtins.mjs";
 import {
 	buildCollectionsData,
 	buildPageData,
@@ -139,6 +140,35 @@ test("buildPageData returns the page object for the current file", async () => {
 	expect(page.url).toBe("/");
 	expect(page.outputPath).toBe("_site/index.html");
 	expect(page.date).toBeInstanceOf(Date);
+});
+
+test("bare datetimes from the API become valid collection item dates", async () => {
+	const source = { title: "Launch", date: "2026-09-01T10:30:00+10:00[+10:00]" };
+	setMockCollectionsList([
+		makeMockCollection("posts", [makeMockFile("src/posts/launch.md", source)]),
+	]);
+
+	const collections = await buildCollectionsData();
+	const [post] = await collections.posts;
+
+	expect(post.date).toBeInstanceOf(Date);
+	expect(post.date.toISOString()).toBe("2026-09-01T00:30:00.000Z");
+	expect(post.data.date).toBe("2026-09-01T10:30:00+10:00");
+	expect(dateToRfc3339(post.date)).toBe("2026-09-01T00:30:00.000Z");
+	expect(source.date).toBe("2026-09-01T10:30:00+10:00[+10:00]");
+});
+
+test("buildPageData parses a bare datetime from the API", async () => {
+	setMockCurrentFile(
+		makeMockFile("src/index.liquid", {
+			date: "2026-09-01T10:30:00+00:00[UTC]",
+		}),
+	);
+
+	const page = await buildPageData();
+
+	expect(page.date).toBeInstanceOf(Date);
+	expect(page.date.toISOString()).toBe("2026-09-01T10:30:00.000Z");
 });
 
 test("buildPageData returns an empty object when no current file", async () => {
