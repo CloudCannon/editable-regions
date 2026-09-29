@@ -44,7 +44,9 @@ Include the partial in your site `<head>`:
 
 ## Resolving component names
 
-There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/`, with or without the file extension, so `data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html`.
+There's no registration step: the editor resolves component names as partial names against your layouts. A component name renders from `layouts/partials/` (or `layouts/_partials/` in Hugo 0.146+), with or without the file extension, so `data-component="card.html"` and `data-component="card"` both resolve the partial at `layouts/partials/card.html` or `layouts/_partials/card.html`.
+
+Shortcodes and render hooks your partials use are bundled from both the legacy and Hugo 0.146+ directories: `shortcodes/` and `_shortcodes/`, and `_default/_markup/`, `_markup/`, and per-section `<section>/_markup/`.
 
 ## Adding the markup
 
@@ -188,4 +190,4 @@ contentBlocks:
     button: Click here
 ```
 
-Each `_name` is the partial path relative to `layouts/partials/`, with or without the file extension, and doubles as both the item's id and its component name. Editors can add any block type, reorder them, and edit each one's contents.
+Each `_name` is the partial path relative to `layouts/partials/` (or `layouts/_partials/`), with or without the file extension, and doubles as both the item's id and its component name. Editors can add any block type, reorder them, and edit each one's contents.

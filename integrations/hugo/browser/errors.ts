@@ -57,10 +57,9 @@ export function enhanceHugoError(
 	if (/partial .* not found/i.test(message)) {
 		hint =
 			"This partial isn't in the bundled template snapshot. Check that it " +
-			"lives under one of the directories in " +
-			"`params.editable_regions.template_dirs` (by default the partials, " +
-			"render hooks, and shortcodes of your configured layout dir) " +
-			"and rebuild the site.";
+			"lives under `layouts/partials/` or `layouts/_partials/` in your " +
+			"site, theme, or a module (or under one of the directories in " +
+			"`params.editable_regions.template_dirs`, if set) and rebuild the site.";
 	} else if (parsed.frames.length > 0) {
 		hint =
 			"The partial errored while rendering in the editor. If the code " +
@@ -106,7 +105,7 @@ export function missingComponentError(componentKey: string): Error {
 	return new Error(
 		`No Hugo partial found for component "${componentKey}". This partial ` +
 			`isn't captured in the editor's template bundle. Make sure it's a ` +
-			`partial, shortcode, or render hook under your layout tree and ` +
+			`partial under \`layouts/partials/\` or \`layouts/_partials/\` and ` +
 			`rebuild the site.`,
 	);
 }

@@ -36,9 +36,15 @@ const dispatchView = `{{- with .cc_requests -}}
      key-sorted; the browser demuxes by id, not position. */ -}}
   {{- range $id, $req := . -}}
     {{- $partial := $req.partial -}}
-    {{- $found := templates.Exists (printf "partials/%s" $partial) -}}
-    {{- $found = or $found (templates.Exists (printf "partials/%s.html" $partial)) -}}
-    {{- $found = or $found (templates.Exists (printf "partials/%s.htm" $partial)) -}}
+    {{- /* templates.Exists matches exact paths: Hugo registers legacy
+       partials/ files under both partials/ and _partials/, but files in
+       _partials/ (Hugo 0.146+) only under _partials/. */ -}}
+    {{- $found := false -}}
+    {{- range $dir := slice "_partials" "partials" -}}
+      {{- $found = or $found (templates.Exists (printf "%s/%s" $dir $partial)) -}}
+      {{- $found = or $found (templates.Exists (printf "%s/%s.html" $dir $partial)) -}}
+      {{- $found = or $found (templates.Exists (printf "%s/%s.htm" $dir $partial)) -}}
+    {{- end -}}
     {{- if not $found -}}
       <div data-cc-render="{{ $id }}"><cc-missing-partial data-name="{{ $partial }}"></cc-missing-partial></div>
     {{- else -}}
