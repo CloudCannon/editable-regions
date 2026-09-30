@@ -38,6 +38,9 @@ const siteFiles = {
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"layouts/partials/envprobe.html": "<p>env=[{{ site.Params.ENV_CLIENT }}]</p>",
+	// Hugo 0.146+'s partials dir, which templates.Exists only matches by its
+	// own path.
+	"layouts/_partials/newdir.html": '<p class="newdir">from _partials</p>',
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
 	// Boot-time content — the browser writes collections before init.
@@ -161,6 +164,14 @@ test("removeHugoFiles deletes a file", async () => {
 	const r = renderer();
 	r.removeHugoFiles(JSON.stringify(["scratch.txt"]));
 	expect(r.readHugoFiles(JSON.stringify(["scratch.txt"]))).toEqual({});
+});
+
+test("renders a partial from _partials, with or without its extension", async () => {
+	for (const name of ["newdir", "newdir.html"]) {
+		const { html, error } = await render(name);
+		expect(error).toBeUndefined();
+		expect(html).toContain('<p class="newdir">from _partials</p>');
+	}
 });
 
 // --- Errors --------------------------------------------------------------

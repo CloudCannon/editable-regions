@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed an issue where Hugo partials, shortcodes, and render hooks in Hugo 0.146+ template directories (`_partials`, `_shortcodes`, `_markup`) were missing in the visual editor
+- Fixed an issue where render hooks in per-section `_markup` directories, such as `layouts/blog/_markup/`, were skipped in the visual editor
+
 ## 0.0.20
 
 - Added support for Hugo partials in editable regions

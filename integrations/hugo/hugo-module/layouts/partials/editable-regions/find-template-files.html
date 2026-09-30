@@ -1,5 +1,7 @@
 {{- $files := dict -}}
-{{- $subDirs := slice "partials" "shortcodes" -}}
+{{- /* Legacy and Hugo 0.146+ template dir names. `_markup` matches at any
+   depth, covering `_default/_markup`, `_markup`, and `<section>/_markup`. */ -}}
+{{- $subDirs := slice "partials" "shortcodes" "_partials" "_shortcodes" "_markup" -}}
 
 {{- $deps := .deps -}}
 {{- $exts := .exts -}}
@@ -36,12 +38,6 @@
 
     {{- if in $subDirs $entry.Name -}}
       {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" $path "exts" $exts "ignore" $ignore)) -}}
-    {{- else if eq $entry.Name "_default" -}}
-      {{- range $defaultEntry := readDir $path -}}
-        {{- if eq $defaultEntry.Name "_markup" -}}
-          {{- $files = merge $files (partial "editable-regions/find-files-with-extension.html" (dict "dir" (path.Join $path "_markup") "exts" $exts "ignore" $ignore)) -}}
-        {{- end -}}
-      {{- end -}}
     {{- end -}}
 
     {{- $files = merge $files (partial "editable-regions/find-template-files.html" (dict "dir" $path "deps" $deps "exts" $exts "ignore" $ignore)) -}}
