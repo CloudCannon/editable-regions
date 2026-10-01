@@ -105,7 +105,7 @@
     "./internal/styles": "./styles/index.js"
   },
   "devDependencies": {
-    "@astrojs/react": "6.0.5",
+    "@astrojs/react": "7.0.0",
     "@astrojs/svelte": "9.0.1",
     "@astrojs/vue": "7.0.2",
     "@biomejs/biome": "2.5.13",
@@ -125,8 +125,8 @@
     "react-dom": "19.3.0",
     "slugify": "1.6.9",
     "svelte": "5.57.0",
-    "typescript": "6.0.3",
-    "vitest": "^4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1",
     "vue": "3.5.42",
     "vue-tsc": "3.3.11"
   },
