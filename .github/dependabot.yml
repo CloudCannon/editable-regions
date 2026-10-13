@@ -17,3 +17,5 @@ updates:
         applies-to: version-updates
         update-types:
           - "major"
+    ignore:
+      - dependency-name: "typescript"
