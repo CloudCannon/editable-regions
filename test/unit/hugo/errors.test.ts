@@ -54,6 +54,27 @@ describe("parseHugoTemplateError", () => {
 			"renderHugoPartials requires at least one request",
 		);
 	});
+
+	test("a wrapped build error still parses its template chain", () => {
+		const inner = parseHugoTemplateError(SAMPLE_ERROR);
+		const wrapped = parseHugoTemplateError(
+			`editor site build failed: ${SAMPLE_ERROR}`,
+		);
+		expect(wrapped.frames).toEqual(inner.frames);
+		expect(wrapped.call).toBe(inner.call);
+		expect(wrapped.message).toBe(inner.message);
+		expect(wrapped.prefix).toBe("editor site build failed: ");
+	});
+
+	test("a non-template build error keeps the whole message", () => {
+		const raw =
+			'editor site build failed: assemble: "content/broken.md:2:8": ' +
+			"could not find end character of double-quoted text";
+		const parsed = parseHugoTemplateError(raw);
+		expect(parsed.frames).toEqual([]);
+		expect(parsed.message).toBe(raw);
+		expect(parsed.prefix).toBeUndefined();
+	});
 });
 
 describe("enhanceHugoError", () => {
@@ -98,6 +119,18 @@ describe("enhanceHugoError", () => {
 		const error = enhanceHugoError('partial "nope" not found', "nope");
 		expect(error.hint).toContain(
 			"This partial isn't in the bundled template snapshot.",
+		);
+	});
+
+	test("a wrapped build error keeps the wrapper as context", () => {
+		const error = enhanceHugoError(
+			`editor site build failed: ${SAMPLE_ERROR}`,
+			"grid",
+		);
+		expect(error.message).toBe(
+			'Failed to render Hugo component "grid": editor site build failed: ' +
+				'GetRemote: Get "https://assets.example.com/images/hero.jpg": ' +
+				"net/http: fetch() failed: TypeError: NetworkError when attempting to fetch resource.",
 		);
 	});
 });

@@ -203,10 +203,7 @@ func (builder *editorSiteBuilder) buildIfDirty() error {
 		return nil
 	}
 
-	if err := builder.build(); err != nil {
-		return fmt.Errorf("build after pending content changes: %w", err)
-	}
-	return nil
+	return builder.build()
 }
 
 func (builder *editorSiteBuilder) writeFile(filename, content string) {

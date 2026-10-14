@@ -6,6 +6,7 @@
 const TEMPLATE_FRAME_RE =
 	/^template: (.+?): executing ".*?" at .*?: error calling (.+?): /;
 const FAILED_SEPARATOR = ": execute of template failed: ";
+const TEMPLATE_FRAME_START = "template: ";
 
 export interface ParsedHugoError {
 	/** Template refs (file:line:column), outermost call first. */
@@ -14,12 +15,21 @@ export interface ParsedHugoError {
 	call?: string;
 	/** The underlying error, with the template-call chain stripped. */
 	message: string;
+	/** Wrapper text ahead of the first template frame (e.g. a build-error prefix). */
+	prefix?: string;
 }
 
 export function parseHugoTemplateError(raw: string): ParsedHugoError {
+	const trimmed = raw.trim();
+	// Build errors arrive wrapped ("editor site build failed: ...") ahead of the
+	// template chain, so start parsing at the first frame and keep the wrapper
+	// as context.
+	const start = trimmed.indexOf(TEMPLATE_FRAME_START);
+	const prefix = start > 0 ? trimmed.slice(0, start) : "";
+	let rest = start > 0 ? trimmed.slice(start) : trimmed;
+
 	const frames: string[] = [];
 	let call: string | undefined;
-	let rest = raw.trim();
 	for (;;) {
 		const match = rest.match(TEMPLATE_FRAME_RE);
 		if (!match) break;
@@ -35,12 +45,18 @@ export function parseHugoTemplateError(raw: string): ParsedHugoError {
 			const separator = rest.indexOf(FAILED_SEPARATOR);
 			const after =
 				separator === -1 ? "" : rest.slice(separator + FAILED_SEPARATOR.length);
-			if (after.startsWith("template: ")) {
+			if (after.startsWith(TEMPLATE_FRAME_START)) {
 				rest = after;
 			}
 		}
 	}
-	return { frames, call, message: rest };
+
+	// No template chain (a content/config error, say) — keep the whole message.
+	if (frames.length === 0) {
+		return { frames, message: trimmed };
+	}
+
+	return { frames, call, message: rest, prefix: prefix || undefined };
 }
 
 /** An error enhanced with an optional editor-context hint. */
@@ -67,17 +83,14 @@ export function enhanceHugoError(
 			"`{{ if not site.Params.env_client }}`, " +
 			"or supply an editor-safe version via " +
 			"`params.editable_regions.templates_overrides`.";
-	} else if (/logged \d+ errors/i.test(message)) {
-		hint =
-			"Hugo logged errors during the render — open the browser console " +
-			"for the underlying messages.";
 	}
 
 	const primary =
 		parsed.frames.length > 0 && parsed.call
-			? `${parsed.call}: ${parsed.message}`
+			? `${parsed.prefix ?? ""}${parsed.call}: ${parsed.message}`
 			: parsed.message;
-	const sentence = /[.!?]$/.test(primary) ? primary : `${primary}.`;
+	const sentence =
+		primary.includes("\n") || /[.!?]$/.test(primary) ? primary : `${primary}.`;
 
 	const error = new Error(
 		`Failed to render Hugo component "${componentKey}": ${sentence}`,
