@@ -67,6 +67,9 @@ type editorSiteBuilder struct {
 	Sites        *hugolib.HugoSites
 	changedFiles []string
 	removedFiles []string
+	// needsFullRebuild forces the next build to be a full rebuild (no change
+	// events), used to recover from a failed build without replaying events.
+	needsFullRebuild bool
 }
 
 func editorFlags() config.Provider {
@@ -140,28 +143,52 @@ func (builder *editorSiteBuilder) createSites() error {
 	return nil
 }
 
+// build clears pending changes even when it fails, as `hugo server` does, so a
+// failed build can't leave the builder permanently dirty and replay the same
+// failing events on every render.
 func (builder *editorSiteBuilder) build() error {
-	var events []fsnotify.Event
+	events := builder.changeEvents()
+	builder.changedFiles = nil
+	builder.removedFiles = nil
+
 	if builder.Sites == nil {
 		if err := builder.createSites(); err != nil {
 			return err
 		}
-	} else {
-		events = builder.changeEvents()
+		events = nil
+	} else if builder.needsFullRebuild {
+		// A previous build failed, which can leave Hugo's incremental state
+		// inconsistent (replaying events has panicked), so recover with a full
+		// rebuild instead of replaying events.
+		events = nil
 	}
+	builder.needsFullRebuild = false
 
 	err := builder.Sites.Build(hugolib.BuildCfg{NoBuildLock: true}, events...)
 	if err != nil {
-		return err
-	}
+		builder.needsFullRebuild = true
 
-	builder.changedFiles = nil
-	builder.removedFiles = nil
-
-	if n := builder.Sites.NumLogErrors(); n > 0 {
-		err = fmt.Errorf("logged %d errors", n)
+		// Logged errors surface only as "logged N error(s)"; include the
+		// messages so the editor's error card shows the cause.
+		if logged := capErrorLines(strings.TrimSpace(builder.Sites.Log.Errors()), 5); logged != "" {
+			err = fmt.Errorf("%w\n\n%s", err, logged)
+		}
 	}
 	return err
+}
+
+// capErrorLines trims s to at most max lines, noting how many were dropped, so
+// the editor's error card stays readable.
+func capErrorLines(s string, max int) string {
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= max {
+		return s
+	}
+	lines = append(lines[:max:max], fmt.Sprintf("… %d more line(s)", len(lines)-max))
+	return strings.Join(lines, "\n")
 }
 
 // buildIfDirty runs the initial build when the site doesn't exist yet, then
