@@ -6,6 +6,7 @@ import {
 import Editable, { hasEditable } from "./editable.js";
 import { hasEditableText } from "./editable-text.js";
 import "../components/ui/editable-region-error-card.js";
+import { createErrorCard } from "../helpers/error-card.js";
 import "../components/ui/editable-component-controls.js";
 import type EditableComponentControls from "../components/ui/editable-component-controls.js";
 import {
@@ -44,13 +45,12 @@ export default class EditableComponent extends Editable {
 		const key = this.element.dataset.component;
 		if (!key) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render component");
-			error.setAttribute(
-				"message",
-				"Component editable regions require a 'data-component' HTML attribute but none was provided. Please check that this element has a valid 'data-component' attribute.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render component",
+					"Component editable regions require a 'data-component' HTML attribute but none was provided. Please check that this element has a valid 'data-component' attribute.",
+				),
 			);
-			this.element.replaceChildren(error);
 			return false;
 		}
 
@@ -107,10 +107,8 @@ export default class EditableComponent extends Editable {
 
 		if (!component) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render component");
-			error.setAttribute(
-				"message",
+			const error = createErrorCard(
+				"Failed to render component",
 				`Failed to find a registered component with the key "${key}". This may mean that the provided "data-component" attribute is incorrect or that the component hasn't been registered.`,
 			);
 
@@ -146,8 +144,7 @@ export default class EditableComponent extends Editable {
 			rootEl = this.santiseComponentOutput(await component(value));
 		} catch (err: unknown) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", `Failed to render component: ${key}`);
+			const error = createErrorCard(`Failed to render component: ${key}`);
 			error.error = err;
 			this.element.replaceChildren(error);
 			return;

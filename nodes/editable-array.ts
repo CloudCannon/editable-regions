@@ -7,6 +7,7 @@ import type EditableArrayItemComponent from "../components/editable-array-item-c
 import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
 import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import { createErrorCard } from "../helpers/error-card.js";
 import Editable, { type EditableListener } from "./editable.js";
 import type EditableArrayItem from "./editable-array-item.js";
 import "../components/ui/editable-region-button.js";
@@ -105,13 +106,12 @@ export default class EditableArray extends Editable {
 		const prop = this.element.dataset.prop;
 		if (typeof prop !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render array editable");
-			error.setAttribute(
-				"message",
-				"Array editable regions require a 'data-prop' HTML attribute but none was provided. Please check that this element has a valid 'data-prop' attribute.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render array editable",
+					"Array editable regions require a 'data-prop' HTML attribute but none was provided. Please check that this element has a valid 'data-prop' attribute.",
+				),
 			);
-			this.element.replaceChildren(error);
 			return false;
 		}
 
@@ -127,24 +127,15 @@ export default class EditableArray extends Editable {
 			!CloudCannon.isAPIFile(value)
 		) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render array editable");
-			error.setAttribute(
-				"message",
-				`Array editable regions expect to receive a value of type "array" but instead received a value of type '${typeof value}'.`,
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render array editable",
+					`Array editable regions expect to receive a value of type "array" but instead received a value of type '${typeof value}'.`,
+					this.contextBase?.fullPath
+						? `This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`
+						: `This may mean that the 'data-prop' attribute is incorrectly set for this element.`,
+				),
 			);
-			if (this.contextBase?.fullPath) {
-				error.setAttribute(
-					"hint",
-					`This may mean that the 'data-prop' attribute is incorrectly set for this element, the full 'data-prop' path was '${this.contextBase?.fullPath}'.`,
-				);
-			} else {
-				error.setAttribute(
-					"hint",
-					`This may mean that the 'data-prop' attribute is incorrectly set for this element.`,
-				);
-			}
-			this.element.replaceChildren(error);
 			return;
 		}
 		return value;
@@ -304,16 +295,12 @@ export default class EditableArray extends Editable {
 							editable?: EditableArrayItem;
 						};
 					} else {
-						const error = document.createElement("editable-region-error-card");
-						error.setAttribute(
-							"heading",
-							"Failed to render array editable region",
+						this.element.replaceChildren(
+							createErrorCard(
+								"Failed to render array editable region",
+								"Array editable region contains an array item that cannot be rendered. Either a 'data-component' attribute or a 'data-component-key' attribute is required to render array items that weren't previously on the page. Please save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
+							),
 						);
-						error.setAttribute(
-							"message",
-							"Array editable region contains an array item that cannot be rendered. Either a 'data-component' attribute or a 'data-component-key' attribute is required to render array items that weren't previously on the page. Please save and rebuild to see your changes or add a 'data-component' or 'data-component-key' attribute to this element.",
-						);
-						this.element.replaceChildren(error);
 						return;
 					}
 					this.element.appendChild(child);
@@ -431,8 +418,7 @@ export default class EditableArray extends Editable {
 				} else if (clone) {
 					matchingChild = clone.cloneNode(true) as any;
 				} else {
-					const error = document.createElement("editable-region-error-card");
-					error.setAttribute("heading", "Failed to render array item");
+					const error = createErrorCard("Failed to render array item");
 					if (typeof componentKey === "string") {
 						error.setAttribute(
 							"message",

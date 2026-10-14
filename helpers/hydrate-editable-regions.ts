@@ -9,6 +9,7 @@ import {
 } from "../nodes";
 import { hasEditable } from "../nodes/editable.js";
 import { isEditableWebcomponent } from "./checks";
+import { createErrorCard } from "./error-card.js";
 
 const DYNAMIC_EDITABLE_TYPE = "_dynamic";
 
@@ -84,23 +85,19 @@ export const hydrateDataEditableRegions = (root: Element) => {
 
 		const Editable = editableMap[element.dataset.editable];
 		if (!Editable) {
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render editable region");
-			error.setAttribute(
-				"message",
-				`This element has an invalid editable type for the 'data-editable' HTML attribute. The supported editable types are ${Object.keys(
-					editableMap,
-				)
-					.map((type) => `"${type}"`)
-					.join(
-						", ",
-					)} but instead received the type "${element.dataset.editable}". Please make sure that this element has a valid "data-editable" attribute.`,
+			element.replaceWith(
+				createErrorCard(
+					"Failed to render editable region",
+					`This element has an invalid editable type for the 'data-editable' HTML attribute. The supported editable types are ${Object.keys(
+						editableMap,
+					)
+						.map((type) => `"${type}"`)
+						.join(
+							", ",
+						)} but instead received the type "${element.dataset.editable}". Please make sure that this element has a valid "data-editable" attribute.`,
+					"If this is intentional you can use the 'data-cloudcannon-ignore' attribute to exclude this element from editable regions.",
+				),
 			);
-			error.setAttribute(
-				"hint",
-				"If this is intentional you can use the 'data-cloudcannon-ignore' attribute to exclude this element from editable regions.",
-			);
-			element.replaceWith(error);
 			return;
 		}
 

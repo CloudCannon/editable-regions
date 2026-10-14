@@ -6,6 +6,7 @@ import {
 	isEditableElement,
 } from "../helpers/checks.js";
 import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.mjs";
+import { createErrorCard } from "../helpers/error-card.js";
 import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
@@ -18,7 +19,7 @@ export const hasEditableArrayItem = <T extends object>(
 export default class EditableArrayItem extends EditableComponent {
 	parent: EditableArray | null = null;
 
-	declare protected controlsElement?: EditableArrayItemControls;
+	protected declare controlsElement?: EditableArrayItemControls;
 
 	private inputConfig?: any;
 	private structureStrings: string[] = [];
@@ -39,13 +40,12 @@ export default class EditableArrayItem extends EditableComponent {
 
 		if (!parentElement || !isEditableArray(parentElement)) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render array item");
-			error.setAttribute(
-				"message",
-				"Array item editable regions must be nested inside an array editable region but this element has no parent editable region. Please check that this element is inside an array editable region.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render array item",
+					"Array item editable regions must be nested inside an array editable region but this element has no parent editable region. Please check that this element is inside an array editable region.",
+				),
 			);
-			this.element.replaceChildren(error);
 			return false;
 		}
 

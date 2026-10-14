@@ -1,6 +1,7 @@
 import type { CloudCannonVisualEditorAPIV1File } from "@cloudcannon/visual-editor-api";
 import { html as beautifyHtml } from "js-beautify";
 import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import { createErrorCard } from "../helpers/error-card.js";
 import EditableText from "./editable-text.js";
 
 const INDENTATION_REGEX = /^([ \t]+)[^\s]/gm;
@@ -26,6 +27,7 @@ const HTML_VOID_ELEMENT: Record<string, boolean> = {
 
 export default class EditableSource extends EditableText {
 	file?: CloudCannonVisualEditorAPIV1File;
+	inputConfig?: Record<string, unknown>;
 	format = {
 		leading: "",
 		trailing: "",
@@ -60,27 +62,62 @@ export default class EditableSource extends EditableText {
 		const path = this.element.dataset.path;
 		if (typeof path !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render source editable region");
-			error.setAttribute(
-				"message",
-				"Source editable regions require a 'data-path' HTML attribute but none was provided. Please check that this element has a valid 'data-path' attribute.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render source editable region",
+					"Source editable regions require a 'data-path' HTML attribute but none was provided. Please check that this element has a valid 'data-path' attribute.",
+				),
 			);
-			this.element.replaceChildren(error);
 			return false;
 		}
 
 		const key = this.element.dataset.key;
 		if (typeof key !== "string") {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render source editable region");
-			error.setAttribute(
-				"message",
-				"Source editable regions require a 'data-key' HTML attribute but none was provided. Please check that this element has a valid 'data-key' attribute.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render source editable region",
+					"Source editable regions require a 'data-key' HTML attribute but none was provided. Please check that this element has a valid 'data-key' attribute.",
+				),
 			);
-			this.element.replaceChildren(error);
 			return false;
+		}
+
+		const inlineInputConfig = this.element.dataset.inputConfig;
+		if (typeof inlineInputConfig === "string") {
+			try {
+				const inputConfig = JSON.parse(inlineInputConfig);
+				if (
+					!inputConfig ||
+					typeof inputConfig !== "object" ||
+					Array.isArray(inputConfig)
+				) {
+					const actualType = Array.isArray(inputConfig)
+						? "array"
+						: inputConfig === null
+							? "null"
+							: typeof inputConfig;
+					this.element.classList.add("errored");
+					this.element.replaceChildren(
+						createErrorCard(
+							"Failed to render source editable region",
+							`The value provided for the 'data-input-config' HTML attribute is invalid. The value should be of type "object", but instead was a value of type "${actualType}". Please check that this attribute is a valid JSON object.`,
+						),
+					);
+					return false;
+				}
+				this.inputConfig = inputConfig;
+			} catch (err: unknown) {
+				this.element.classList.add("errored");
+				this.element.replaceChildren(
+					createErrorCard(
+						"Failed to render source editable region",
+						"Failed to parse the value provided for the 'data-input-config' HTML attribute as JSON. Please check that this attribute is a valid JSON object.",
+						err instanceof Error ? err.message : String(err),
+					),
+				);
+				return false;
+			}
 		}
 		return true;
 	}
@@ -88,17 +125,13 @@ export default class EditableSource extends EditableText {
 	validateValue(value: unknown): string | null | undefined {
 		if (typeof value !== "string" && value !== null) {
 			this.element.classList.add("errored");
-			const error = document.createElement("editable-region-error-card");
-			error.setAttribute("heading", "Failed to render source editable region");
-			error.setAttribute(
-				"message",
-				"The provided 'data-path' HTML attribute references a file that does not exist. Please check that the file exists and that the 'data-path' attribute on this element is correct.",
+			this.element.replaceChildren(
+				createErrorCard(
+					"Failed to render source editable region",
+					"The provided 'data-path' HTML attribute references a file that does not exist. Please check that the file exists and that the 'data-path' attribute on this element is correct.",
+					`The current value of the "data-path" attribute is "${this.element.dataset.path}"`,
+				),
 			);
-			error.setAttribute(
-				"hint",
-				`The current value of the "data-path" attribute is "${this.element.dataset.path}"`,
-			);
-			this.element.replaceChildren(error);
 			return;
 		}
 
@@ -106,20 +139,13 @@ export default class EditableSource extends EditableText {
 			const keyIndex = value.indexOf(`data-key="${this.element.dataset.key}"`);
 			if (keyIndex === -1) {
 				this.element.classList.add("errored");
-				const error = document.createElement("editable-region-error-card");
-				error.setAttribute(
-					"heading",
-					"Failed to render source editable region",
+				this.element.replaceChildren(
+					createErrorCard(
+						"Failed to render source editable region",
+						"Failed to find an element matching the provided 'data-key' attribute.",
+						`This might mean that your 'data-path' attribute is incorrect. The current value of the "data-path" attribute is "${this.element.dataset.path}" and the current value of the "data-key" attribute is "${this.element.dataset.key}".`,
+					),
 				);
-				error.setAttribute(
-					"message",
-					"Failed to find an element matching the provided 'data-key' attribute.",
-				);
-				error.setAttribute(
-					"hint",
-					`This might mean that your 'data-path' attribute is incorrect. The current value of the "data-path" attribute is "${this.element.dataset.path}" and the current value of the "data-key" attribute is "${this.element.dataset.key}".`,
-				);
-				this.element.replaceChildren(error);
 				return;
 			}
 
@@ -129,20 +155,13 @@ export default class EditableSource extends EditableText {
 			);
 			if (nextKeyIndex !== -1) {
 				this.element.classList.add("errored");
-				const error = document.createElement("editable-region-error-card");
-				error.setAttribute(
-					"heading",
-					"Failed to render source editable region",
+				this.element.replaceChildren(
+					createErrorCard(
+						"Failed to render source editable region",
+						`Source editable regions require that all 'data-key' attributes in the same file have unique values but the current file contains multiple instances of the key '${this.element.dataset.key}'. Please make sure all 'data-key' attributes are unique within the same file.`,
+						`The current value of the 'data-path' attribute is '${this.element.dataset.path}'.`,
+					),
 				);
-				error.setAttribute(
-					"message",
-					`Source editable regions require that all 'data-key' attributes in the same file have unique values but the current file contains multiple instances of the key '${this.element.dataset.key}'. Please make sure all 'data-key' attributes are unique within the same file.`,
-				);
-				error.setAttribute(
-					"hint",
-					`The current value of the 'data-path' attribute is '${this.element.dataset.path}'"'.`,
-				);
-				this.element.replaceChildren(error);
 				return;
 			}
 		}
@@ -228,13 +247,22 @@ export default class EditableSource extends EditableText {
 			return this.editor;
 		}
 
+		if (!this.inputConfig && typeof this.element.dataset.input === "string") {
+			this.inputConfig = await this.file?.getInputConfig({
+				slug: this.element.dataset.input,
+			});
+		}
+
 		this.editor = await CloudCannon.createTextEditableRegion(
 			this.element,
 			this.onChange.bind(this),
 			{
 				elementType: this.element.dataset.type,
 				editableType: "content",
-				inputConfig: { type: "html" },
+				inputConfig: {
+					...this.inputConfig,
+					type: "html",
+				},
 			},
 		);
 
