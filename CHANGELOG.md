@@ -2,8 +2,18 @@
 
 ## Unreleased
 
+## 0.0.22
+
 - Fixed an issue where Hugo partials, shortcodes, and render hooks in Hugo 0.146+ template directories (`_partials`, `_shortcodes`, `_markup`) were missing in the visual editor
 - Fixed an issue where render hooks in per-section `_markup` directories, such as `layouts/blog/_markup/`, were skipped in the visual editor
+- Fixed an issue where the Hugo renderer would fail to recover after encountering a content parsing error
+- Added automated tests for the Hugo integration minimum version
+- Added support for passing custom input configuration to source editable regions, using the `data-input` and `data-input-config` attributes
+
+## 0.0.21
+
+- Fixed an issue where 11ty builds would fail when run on Windows
+- Added automated tests for MacOS and Windows
 
 ## 0.0.20
 
