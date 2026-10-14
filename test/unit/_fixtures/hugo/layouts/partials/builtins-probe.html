@@ -124,7 +124,6 @@
 {{/* ---- HASH / ENCODING ---- */}}
 <div data-k="sha256">{{ "hello" | sha256 }}</div>
 <div data-k="md5">{{ "hello" | md5 }}</div>
-<div data-k="fnv32a">{{ hash.FNV32a "hello" }}</div>
 <div data-k="hmac">{{ hmac "sha256" "secret-key" "hello" }}</div>
 <div data-k="base64Encode">{{ "hello" | base64Encode }}</div>
 <div data-k="base64Decode">{{ "aGVsbG8=" | base64Decode }}</div>

@@ -35,6 +35,15 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+        hugo-version:
+          - "0.164.0"
+        include:
+          # The module declares 0.120.0 as its minimum (hugo.toml
+          # module.hugoVersion.min). Build and test the fixtures against it so
+          # the floor stays accurate. Version support isn't OS-specific, so a
+          # single Linux job covers it.
+          - os: ubuntu-latest
+            hugo-version: "0.120.0"
     runs-on: ${{ matrix.os }}
     env:
       # The fixture npm scripts use POSIX shell syntax (`rm -rf`, inline
@@ -69,7 +78,7 @@ jobs:
       - name: Set up Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: "0.164.0"
+          hugo-version: ${{ matrix.hugo-version }}
           extended: true
 
       - name: Unit tests
