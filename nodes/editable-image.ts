@@ -1,4 +1,5 @@
 import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import { createErrorCard } from "../helpers/error-card.js";
 import Editable from "./editable.js";
 
 export default class EditableImage extends Editable {
@@ -14,12 +15,7 @@ export default class EditableImage extends Editable {
 
 	displayError(heading: string, message: string, hint?: string) {
 		this.element.classList.add("errored");
-		const error = document.createElement("editable-region-error-card");
-		error.setAttribute("heading", heading);
-		error.setAttribute("message", message);
-		if (hint) {
-			error.setAttribute("hint", hint);
-		}
+		const error = createErrorCard(heading, message, hint);
 		if (this.imageEl) {
 			this.imageEl?.replaceWith(error);
 		} else {

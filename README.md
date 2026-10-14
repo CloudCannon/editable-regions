@@ -888,3 +888,5 @@ If you *can* move the value into front matter or a data file, prefer a text regi
 | `data-path` | String | Yes | The template file the text lives in, relative to the site root. A leading `/` is optional. This is a file path, not a selector. |
 | `data-key` | String | Yes | The name identifying this region within the file. Must be unique among all `data-key` values in the same file. |
 | `data-type` | `"span"` \| `"text"` \| `"block"` | No | Controls the rich text editing surface, as with [text regions](#text). Source content is edited as HTML. |
+| `data-input-config` | JSON object | No | Inline input configuration for the editor, as a JSON object. Takes precedence over `data-input`. |
+| `data-input` | String | No | The slug of the CloudCannon input configuration to resolve for this region, used when `data-input-config` isn't set. |

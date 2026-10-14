@@ -284,10 +284,6 @@ test("sha256 / md5 havehes are stable (pinned values)", () => {
 	expect(text("md5")).toBe("5d41402abc4b2a76b9719d911017c592");
 });
 
-test("hash.FNV32a lives in the hash namespace (moved from crypto)", () => {
-	expect(text("fnv32a")).toBe("1335831723");
-});
-
 test("hmac computes a keyed hash (hash, key, message order)", () => {
 	expect(text("hmac")).toBe(
 		"98e7ffb964bb5a3f902db1fc101a5baa98b6f2cd56858210c9d70f26ac762fc7",

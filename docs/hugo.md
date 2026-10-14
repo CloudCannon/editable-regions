@@ -30,7 +30,8 @@ Add the module to `hugo.toml`:
 [module]
   [[module.imports]]
     path = "github.com/CloudCannon/editable-regions"
-    # Requires Hugo 0.150.0 or later
+    # The `version` pin requires Hugo 0.150.0 or later; the module itself
+    # supports Hugo 0.120.0 or later.
     version = "<version>"
 ```
 
