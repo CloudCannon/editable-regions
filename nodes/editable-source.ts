@@ -258,7 +258,7 @@ export default class EditableSource extends EditableText {
 			this.onChange.bind(this),
 			{
 				elementType: this.element.dataset.type,
-				editableType: "content",
+				editableType: this.inputConfig ? undefined : "content",
 				inputConfig: {
 					...this.inputConfig,
 					type: "html",
