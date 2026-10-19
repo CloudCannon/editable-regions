@@ -118,7 +118,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-vue": "6.0.10",
     "astro": "7.4.0",
-    "happy-dom": "20.14.6",
+    "happy-dom": "21.0.1",
     "js-beautify": "2.0.3",
     "liquidjs": "10.30.0",
     "react": "19.3.1",
