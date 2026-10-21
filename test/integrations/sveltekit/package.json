@@ -13,7 +13,7 @@
 	"dependencies": {
 		"@cloudcannon/editable-regions": "file:../../..",
 		"js-yaml": "^4.1.0",
-		"markdown-it": "^14.3.0"
+		"markdown-it": "^14.3.3"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "7.0.1",
