@@ -109,7 +109,7 @@
     "@astrojs/svelte": "9.1.1",
     "@astrojs/vue": "7.1.2",
     "@biomejs/biome": "2.6.2",
-    "@cloudcannon/visual-editor-api": "0.0.20",
+    "@cloudcannon/visual-editor-api": "0.0.21",
     "@sindresorhus/slugify": "3.0.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/js-beautify": "1.14.3",
@@ -131,6 +131,7 @@
     "vue-tsc": "3.3.13"
   },
   "dependencies": {
+    "@cloudcannon/configuration-types": "0.0.66",
     "esbuild": "0.28.2"
   }
 }
