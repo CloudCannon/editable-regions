@@ -108,7 +108,7 @@
     "@astrojs/react": "7.1.1",
     "@astrojs/svelte": "9.1.1",
     "@astrojs/vue": "7.1.2",
-    "@biomejs/biome": "2.6.2",
+    "@biomejs/biome": "2.6.3",
     "@cloudcannon/visual-editor-api": "0.0.21",
     "@sindresorhus/slugify": "3.0.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
