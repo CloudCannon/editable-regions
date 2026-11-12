@@ -1,4 +1,8 @@
-import { ArrayInput, ArrayInputOptions, Structure } from "@cloudcannon/configuration-types";
+import type {
+	ArrayInput,
+	ArrayInputOptions,
+	Structure,
+} from "@cloudcannon/configuration-types";
 import "../components/ui/editable-array-item-controls.js";
 import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
 import {
@@ -12,10 +16,10 @@ import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
 
 interface ArrayItemInputConfig extends ArrayInput {
-  options?: Omit<ArrayInputOptions, 'structures'> & {
-    structures?: Structure;
+	options?: Omit<ArrayInputOptions, "structures"> & {
+		structures?: Structure;
 		__array_subtype?: string;
-	}
+	};
 }
 
 export const hasEditableArrayItem = <T extends object>(
@@ -136,11 +140,8 @@ export default class EditableArrayItem extends EditableComponent {
 		};
 
 		const structures = this.inputConfig?.options?.structures;
-		if (structures?.values?.length && structures.values.length > 0) {
-			const structure = CloudCannon.findStructure(
-				structures,
-				this.value,
-			);
+		if (structures?.values?.length) {
+			const structure = CloudCannon.findStructure(structures, this.value);
 			if (structure) {
 				e.dataTransfer.setData(`structure:${JSON.stringify(structure)}`, "");
 			}

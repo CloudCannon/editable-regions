@@ -44,14 +44,10 @@ async function copyAssets() {
 function runTsc() {
 	// Running tsc via node avoids platform-specific .cmd/.sh shim handling.
 	const tsc = path.join(root, "node_modules", "typescript", "bin", "tsc");
-	const { status } = spawnSync(
-		process.execPath,
-		[tsc, "-p", "tsconfig.json"],
-		{
-			cwd: root,
-			stdio: "inherit",
-		},
-	);
+	const { status } = spawnSync(process.execPath, [tsc, "-p", "tsconfig.json"], {
+		cwd: root,
+		stdio: "inherit",
+	});
 	if (status !== 0) {
 		console.error(
 			`tsc exited with status ${status ?? "unknown"}; build failed.`,

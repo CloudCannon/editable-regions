@@ -1,4 +1,4 @@
-import { Input } from "@cloudcannon/configuration-types";
+import type { Input } from "@cloudcannon/configuration-types";
 import { CloudCannon } from "../helpers/cloudcannon.js";
 import { createErrorCard } from "../helpers/error-card.js";
 import Editable from "./editable.js";

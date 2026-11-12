@@ -1,13 +1,13 @@
 import type { TagToken } from "liquidjs";
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
-import type { TagImplOptions } from "liquidjs/dist/template/tag-options-adapter";
 import { group, groupEnd, log } from "./logger.js";
+import type { LiquidTagImpl } from "./tag-types.js";
 
 export function createShortcodeTag(
 	shortcodeName: string,
 	shortcodeFn: (...args: any[]) => any,
-): TagImplOptions {
-	const tag: TagImplOptions = {
+): LiquidTagImpl {
+	const tag: LiquidTagImpl = {
 		parse(tagToken) {
 			this.argTokens = parseArgs(
 				tagToken.args,
@@ -29,10 +29,10 @@ export function createShortcodeTag(
 export function createPairedShortcodeTag(
 	tagName: string,
 	shortcodeFn: (...args: any[]) => any,
-): TagImplOptions {
+): LiquidTagImpl {
 	const endTagName = `end${tagName}`;
 
-	const tag: TagImplOptions = {
+	const tag: LiquidTagImpl = {
 		parse(tagToken, remainTokens) {
 			this.argTokens = parseArgs(
 				tagToken.args,

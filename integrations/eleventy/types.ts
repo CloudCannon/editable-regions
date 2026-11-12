@@ -1,5 +1,5 @@
 import type { Liquid } from "liquidjs";
-import type { TagImplOptions } from "liquidjs/dist/template/tag-options-adapter";
+import type { LiquidTagImpl } from "../liquid/tag-types.js";
 
 export interface LiquidOptions {
 	/** Defaults to `[directories.includes, directories.input]`. */
@@ -52,7 +52,7 @@ export interface EleventyResult {
 	url?: string;
 }
 
-export type LiquidTagFactory = (liquidEngine: Liquid) => TagImplOptions;
+export type LiquidTagFactory = (liquidEngine: Liquid) => LiquidTagImpl;
 
 export type EleventyEventName =
 	| "eleventy.before"

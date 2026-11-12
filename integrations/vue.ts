@@ -1,5 +1,5 @@
 import "../helpers/globals.js";
-import type { HTMLAttributes } from "vue";
+import type { Component, DefineComponent, HTMLAttributes } from "vue";
 import {
 	createApp,
 	defineComponent,
@@ -52,10 +52,10 @@ declare global {
 	}
 }
 
-export const registerVueComponent = (key: string, component: any): void => {
+export const registerVueComponent = (key: string, component: unknown): void => {
 	const wrappedComponent = (props: any): HTMLElement => {
 		const rootEl = document.createElement("div");
-		const app = createApp({ render: () => h(component, props) });
+		const app = createApp({ render: () => h(component as Component, props) });
 		app.mount(rootEl);
 
 		return rootEl;
@@ -65,12 +65,13 @@ export const registerVueComponent = (key: string, component: any): void => {
 };
 
 // Waits for framework hydration before connecting, so regions aren't mutated mid-hydration.
-export const EditableRegions = defineComponent({
+export const EditableRegions: DefineComponent<
+	Omit<HTMLAttributes, "data-prop"> & { tag?: string }
+> = defineComponent({
 	name: "EditableRegions",
 	props: {
 		tag: {
 			type: String,
-			default: "div",
 		},
 	},
 	inheritAttrs: false,
@@ -127,7 +128,7 @@ export const EditableRegions = defineComponent({
 			}
 
 			return h(
-				props.tag,
+				props.tag ?? "div",
 				{
 					...forwarded,
 					ref: element,

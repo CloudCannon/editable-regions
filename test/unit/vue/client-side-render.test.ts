@@ -3,7 +3,7 @@ import { nextTick } from "vue";
 
 import { registerVueComponent } from "../../../integrations/vue.js";
 import { EditableComponent } from "../../../nodes/index.js";
-import { InteractiveCounter } from "../_fixtures/vue/interactive-counter";
+import { InteractiveCounter } from "../_fixtures/vue/interactive-counter.js";
 
 async function mountComponent(
 	key: string,

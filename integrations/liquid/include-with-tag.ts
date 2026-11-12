@@ -2,11 +2,11 @@
 
 import type { Liquid } from "liquidjs";
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
-import type { TagImplOptions } from "liquidjs/dist/template/tag-options-adapter";
 import { enhanceLiquidError } from "./errors.js";
 import { group, groupEnd, log } from "./logger.js";
+import type { LiquidTagImpl } from "./tag-types.js";
 
-export function createIncludeWithTag(_liquidEngine: Liquid): TagImplOptions {
+export function createIncludeWithTag(_liquidEngine: Liquid): LiquidTagImpl {
 	return {
 		parse(tagToken) {
 			const tokenizer = new Tokenizer(

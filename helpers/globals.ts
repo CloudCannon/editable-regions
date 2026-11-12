@@ -3,6 +3,7 @@ import type {
 	CloudCannonVisualEditorAPIRouter,
 	CloudCannonVisualEditorAPIV0,
 	CloudCannonVisualEditorAPIV1,
+	CloudCannonVisualEditorWindow,
 } from "@cloudcannon/visual-editor-api";
 import type Editable from "../nodes/editable.js";
 import type * as EditableNodes from "../nodes/index.js";
@@ -12,6 +13,11 @@ export type ComponentRenderer = (
 ) => HTMLElement | Promise<HTMLElement>;
 
 export type EditableRegionConstructor = new (element: HTMLElement) => Editable;
+
+export type ExtendedWindow = CloudCannonVisualEditorWindow & {
+	cc_components?: Record<string, ComponentRenderer>;
+	cc_snippets?: Record<string, ComponentRenderer>;
+};
 
 export type EditableRegionsGlobal = {
 	Editable: typeof EditableNodes.Editable;
@@ -39,8 +45,6 @@ declare global {
 		cc_snippets?: Record<string, ComponentRenderer>;
 		editableRegionMap?: Record<string, EditableRegionConstructor>;
 		editableRegions?: EditableRegionsGlobal;
-		hydrateDataEditableRegions: (root: Element) => void;
+		hydrateDataEditableRegions?: (root: Element) => void;
 	}
 }
-
-export {};

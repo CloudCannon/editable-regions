@@ -1,9 +1,9 @@
 {
 	"compilerOptions": {
-		"target": "ES2020",
+		"target": "ES2022",
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"module": "ESNext",
-		"moduleResolution": "bundler",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"allowJs": false,
 		"strict": true,
 		"noImplicitReturns": false,
@@ -14,6 +14,7 @@
 		"jsx": "react-jsx",
 		"jsxImportSource": "react",
 		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
 		"noEmit": false,
 		"outDir": "dist",
 		"rootDir": ".",

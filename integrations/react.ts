@@ -1,5 +1,6 @@
 "use client";
 
+import type { ElementType, FC, HTMLAttributes } from "react";
 import { createElement, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -59,9 +60,12 @@ declare global {
 	}
 }
 
-export const registerReactComponent = (key: string, component: any): void => {
+export const registerReactComponent = (
+	key: string,
+	component: unknown,
+): void => {
 	const wrappedComponent = (props: any): HTMLElement => {
-		const reactNode = createElement(component, props, null);
+		const reactNode = createElement(component as ElementType, props, null);
 		const rootEl = document.createElement("div");
 		const root = createRoot(rootEl);
 
@@ -74,10 +78,9 @@ export const registerReactComponent = (key: string, component: any): void => {
 };
 
 // Waits for framework hydration before connecting, so regions aren't mutated mid-hydration.
-export const EditableRegions = ({
-	tag: Tag = "div",
-	...attrs
-}: { tag?: string } & Record<string, any>) => {
+export const EditableRegions: FC<
+	HTMLAttributes<HTMLElement> & { tag?: string }
+> = ({ tag: Tag = "div", ...attrs }) => {
 	const elementRef = useRef<HTMLElement | null>(null);
 	const editableRef = useRef<any | null>(null);
 

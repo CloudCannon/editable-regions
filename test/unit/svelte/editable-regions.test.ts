@@ -2,7 +2,7 @@ import { mount, unmount } from "svelte";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import EditableRegions from "../../../integrations/svelte/EditableRegions.svelte";
-import { EditableRegionsShell } from "../_fixtures/svelte/components";
+import { EditableRegionsShell } from "../_fixtures/svelte/components.js";
 
 class MockEditable {
 	static instances: MockEditable[] = [];

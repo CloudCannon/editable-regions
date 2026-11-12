@@ -1,13 +1,13 @@
 import type { Liquid } from "liquidjs";
-import type { TagImplOptions } from "liquidjs/dist/template/tag-options-adapter";
 import { apiLoadedPromise, CloudCannon } from "../../../helpers/cloudcannon.js";
 import { warnOnce } from "../../liquid/logger.js";
 import { evaluateArgs, parseArgs } from "../../liquid/shortcodes.js";
+import type { LiquidTagImpl } from "../../liquid/tag-types.js";
 
 const supportedEngines = new Set(["liquid", "html"]);
 
 /** Keeps the body raw so it compiles in the requested engine. */
-export function createRenderTemplateTag(_liquidEngine: Liquid): TagImplOptions {
+export function createRenderTemplateTag(_liquidEngine: Liquid): LiquidTagImpl {
 	return {
 		parse(tagToken, remainTokens) {
 			this.name = tagToken.name;

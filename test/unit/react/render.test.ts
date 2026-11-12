@@ -4,7 +4,7 @@ import { registerReactComponent } from "../../../integrations/react.js";
 import {
 	CounterComponent,
 	StaticComponent,
-} from "../_fixtures/react/components";
+} from "../_fixtures/react/components.js";
 
 test("the registered renderer returns an HTMLElement (a <div> root)", async () => {
 	registerReactComponent("react-static", StaticComponent);

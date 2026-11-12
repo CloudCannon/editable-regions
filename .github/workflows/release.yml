@@ -66,6 +66,8 @@ jobs:
           cache: npm
           node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
+      - name: Install
+        run: npm ci
       - name: Set version in package.json
         run: npm --no-git-tag-version version "${GITHUB_REF_NAME#v}"
       - name: Build

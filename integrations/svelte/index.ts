@@ -23,7 +23,10 @@ try {
 	// Svelte 4 — no mount export
 }
 
-export const registerSvelteComponent = (key: string, component: any): void => {
+export const registerSvelteComponent = (
+	key: string,
+	component: unknown,
+): void => {
 	const wrappedComponent = (props: Record<string, any>) => {
 		const rootEl = document.createElement("div");
 
@@ -33,7 +36,11 @@ export const registerSvelteComponent = (key: string, component: any): void => {
 				props,
 			});
 		} else {
-			new component({ target: rootEl, props });
+			const LegacyComponent = component as new (options: {
+				target: HTMLElement;
+				props: Record<string, any>;
+			}) => unknown;
+			new LegacyComponent({ target: rootEl, props });
 		}
 
 		flushSync();

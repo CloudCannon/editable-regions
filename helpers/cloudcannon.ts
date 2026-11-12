@@ -9,12 +9,13 @@ import type {
 	EditableRegionConstructor,
 } from "./globals.js";
 
-export type { CloudCannonVisualEditorAPIV1, CloudCannonVisualEditorWindow };
 export type {
 	ComponentRenderer,
 	EditableRegionConstructor,
 	EditableRegionsGlobal,
+	ExtendedWindow,
 } from "./globals.js";
+export type { CloudCannonVisualEditorAPIV1, CloudCannonVisualEditorWindow };
 
 const extendedWindow: Window | undefined =
 	typeof window === "undefined" ? undefined : window;
@@ -99,7 +100,7 @@ export const addCustomEditableRegion = (
 	}
 	extendedWindow.editableRegionMap ??= {};
 	extendedWindow.editableRegionMap[key] = region;
-	extendedWindow.hydrateDataEditableRegions(document.body);
+	extendedWindow.hydrateDataEditableRegions?.(document.body);
 };
 
 export const getCustomEditableRegions = (): Record<

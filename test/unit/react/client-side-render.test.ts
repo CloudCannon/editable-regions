@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import { registerReactComponent } from "../../../integrations/react.js";
 import { EditableComponent } from "../../../nodes/index.js";
-import { InteractiveCounter } from "../_fixtures/react/components";
+import { InteractiveCounter } from "../_fixtures/react/components.js";
 
 async function mountComponent(
 	key: string,

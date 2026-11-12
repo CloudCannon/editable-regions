@@ -32,7 +32,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-snapshots": "vitest run -u",
-    "test:build-fixtures": "npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
+    "test:build-fixtures": "npm run build && npm run test:build-astro-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
     "test:build-hugo-custom-dirs": "npm --prefix test/unit/_fixtures/hugo-custom-dirs run build",
     "test:build-hugo-config-options": "npm --prefix test/unit/_fixtures/hugo-config-options run build",
     "test:build-hugo-templates-overrides": "npm --prefix test/unit/_fixtures/hugo-templates-overrides run build",

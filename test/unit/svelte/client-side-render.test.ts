@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 
 import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
 import { EditableComponent } from "../../../nodes/index.js";
-import { InteractiveCounter } from "../_fixtures/svelte/components";
+import { InteractiveCounter } from "../_fixtures/svelte/components.js";
 
 async function mountComponent(
 	key: string,

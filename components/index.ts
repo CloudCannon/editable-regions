@@ -1,4 +1,5 @@
 import "../helpers/globals.js";
+
 export { default as EditableArrayComponent } from "./editable-array-component.js";
 export { default as EditableArrayItemComponent } from "./editable-array-item-component.js";
 export { default as EditableComponentComponent } from "./editable-component-component.js";
