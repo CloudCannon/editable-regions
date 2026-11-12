@@ -6,11 +6,13 @@ import type {
 import type EditableArrayItemComponent from "../components/editable-array-item-component.js";
 import type EditableRegionButton from "../components/ui/editable-region-button.js";
 import { isEditableElement } from "../helpers/checks.js";
-import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import { createErrorCard } from "../helpers/error-card.js";
 import Editable, { type EditableListener } from "./editable.js";
 import type EditableArrayItem from "./editable-array-item.js";
 import "../components/ui/editable-region-button.js";
+
+type ArrayItemElement = HTMLElement & { editable?: EditableArrayItem };
 
 const arrayDirectionValues = [
 	"row",
@@ -185,8 +187,7 @@ export default class EditableArray extends Editable {
 			value = [];
 		}
 
-		const partialChildren: (HTMLElement & { editable?: EditableArrayItem })[] =
-			[];
+		const partialChildren: ArrayItemElement[] = [];
 		if (partialSubtree instanceof HTMLElement) {
 			for (const child of partialSubtree.querySelectorAll(
 				"editable-array-item,[data-editable='array-item']",
@@ -199,20 +200,13 @@ export default class EditableArray extends Editable {
 					continue;
 				}
 
-				partialChildren.push(child as any);
+				partialChildren.push(child as ArrayItemElement);
 			}
 		}
 
 		const templates: {
-			keyed: Record<
-				string,
-				HTMLElement & {
-					editable?: EditableArrayItem;
-				}
-			>;
-			unkeyed?: HTMLElement & {
-				editable?: EditableArrayItem;
-			};
+			keyed: Record<string, ArrayItemElement>;
+			unkeyed?: ArrayItemElement;
 		} = { keyed: {} };
 
 		for (let i = 0; i < this.element.children.length; i += 1) {
@@ -241,7 +235,7 @@ export default class EditableArray extends Editable {
 			}
 		}
 
-		const children: (HTMLElement & { editable?: EditableArrayItem })[] = [];
+		const children: ArrayItemElement[] = [];
 
 		for (const child of this.element.querySelectorAll(
 			"editable-array-item,[data-editable='array-item'],array-placeholder",
@@ -255,7 +249,7 @@ export default class EditableArray extends Editable {
 				continue;
 			}
 
-			children.push(child as any);
+			children.push(child as ArrayItemElement);
 		}
 
 		const key = this.element.dataset.idKey ?? this.element.dataset.componentKey;
@@ -278,22 +272,16 @@ export default class EditableArray extends Editable {
 
 				if (!child) {
 					if (partialChild) {
-						child = partialChild.cloneNode(true) as HTMLElement & {
-							editable?: EditableArrayItem;
-						};
+						child = partialChild.cloneNode(true) as ArrayItemElement;
 					} else if (templates.unkeyed) {
-						child = templates.unkeyed.cloneNode(true) as HTMLElement & {
-							editable?: EditableArrayItem;
-						};
+						child = templates.unkeyed.cloneNode(true) as ArrayItemElement;
 						child.dataset.editable = "array-item";
 					} else if (this.element.dataset.component) {
 						child = document.createElement(
 							"editable-array-item",
 						) as EditableArrayItemComponent;
 					} else if (children[0]) {
-						child = children[0].cloneNode(true) as HTMLElement & {
-							editable?: EditableArrayItem;
-						};
+						child = children[0].cloneNode(true) as ArrayItemElement;
 					} else {
 						this.element.replaceChildren(
 							createErrorCard(
@@ -332,15 +320,15 @@ export default class EditableArray extends Editable {
 			}
 
 			if (data && typeof data === "object" && key) {
-				dataKeys.push(String((data as any)[key]));
+				dataKeys.push(String((data as Record<string, unknown>)[key]));
 			} else {
 				dataKeys.push(null);
 			}
 
 			if (data && typeof data === "object" && componentKey) {
-				const component = (data as any)[componentKey];
+				const component = (data as Record<string, unknown>)[componentKey];
 				if (typeof component !== "undefined" && component !== null) {
-					componentKeys.push(String((data as any)[componentKey]));
+					componentKeys.push(String(component));
 				} else {
 					componentKeys.push(null);
 				}
@@ -407,16 +395,16 @@ export default class EditableArray extends Editable {
 			if (!matchingChild) {
 				const clone = children.find((child) => child.dataset.id === key);
 				if (partialChild) {
-					matchingChild = partialChild.cloneNode(true) as any;
+					matchingChild = partialChild.cloneNode(true) as ArrayItemElement;
 				} else if (templateElement) {
-					matchingChild = templateElement.cloneNode(true) as any;
+					matchingChild = templateElement.cloneNode(true) as ArrayItemElement;
 					matchingChild.dataset.editable = "array-item";
 				} else if (componentKey) {
 					matchingChild = document.createElement(
 						"editable-array-item",
 					) as EditableArrayItemComponent;
 				} else if (clone) {
-					matchingChild = clone.cloneNode(true) as any;
+					matchingChild = clone.cloneNode(true) as ArrayItemElement;
 				} else {
 					const error = createErrorCard("Failed to render array item");
 					if (typeof componentKey === "string") {

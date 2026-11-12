@@ -68,6 +68,8 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Set version in package.json
         run: npm --no-git-tag-version version "${GITHUB_REF_NAME#v}"
+      - name: Build
+        run: npm run build
       - name: Publish package on npm
         run: npm publish --tag ${{ needs.create-github-release.outputs.npm_tag }}
       - uses: actions/setup-node@v6

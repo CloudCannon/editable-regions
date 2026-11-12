@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
 import {
 	CounterComponent,
 	StaticComponent,

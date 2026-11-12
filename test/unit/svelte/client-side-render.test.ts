@@ -1,14 +1,10 @@
 import { flushSync } from "svelte";
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
-import { EditableComponent } from "../../../nodes/index.ts";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
+import { EditableComponent } from "../../../nodes/index.js";
 import { InteractiveCounter } from "../_fixtures/svelte/components";
 
-/**
- * Mounts an EditableComponent on a host element, renders it, and returns
- * the editable so tests can drive re-renders via `update`.
- */
 async function mountComponent(
 	key: string,
 	value: Record<string, unknown> = {},
@@ -61,16 +57,13 @@ test("interactivity still works after a re-render triggered by update", async ()
 	registerSvelteComponent("interactive-counter", InteractiveCounter);
 	const editable = await mountComponent("interactive-counter");
 
-	// Interact once to prove the component is live
 	const button1 =
 		editable.element.querySelector<HTMLButtonElement>(".increment");
 	button1?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 	flushSync();
 	expect(editable.element.querySelector(".count")?.textContent).toBe("1");
 
-	// Re-render creates a fresh Svelte mount, so state resets to 0. But the
-	// original instance survives and stays reactive — a click increments
-	// its surviving state (1→2). See TODO.md for details.
+	// A re-render builds a fresh Svelte mount (state resets to 0) but the old instance stays reactive (1→2).
 	editable.value = {};
 	await editable.update();
 

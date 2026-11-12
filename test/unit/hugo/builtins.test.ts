@@ -1,14 +1,12 @@
-/**
- * Builtins tests rendered through the real WASM renderer against the
- * builtins-probe partial; ground truth captured with native hugo v0.164.0
- * (the version the renderer bundles).
- */
+/** Expected values taken from native hugo v0.164.0 (the bundled version). */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 let probe: HTMLElement | null | undefined;
 
 beforeAll(async () => {
@@ -18,22 +16,17 @@ beforeAll(async () => {
 
 afterAll(restoreRendererStdout);
 
-/** Probe row for a key; rows are data-k divs in the stored probe output. */
 function row(key: string): HTMLElement | null {
 	return probe?.querySelector(`[data-k="${key}"]`) ?? null;
 }
 
-/** Trimmed text content of a probe row (result text minus markup). */
 function text(key: string): string {
 	return (row(key)?.textContent ?? "").trim();
 }
 
-/** Inner HTML of a probe row, for rows whose result is itself HTML. */
 function html(key: string): string {
 	return (row(key)?.innerHTML ?? "").trim();
 }
-
-// --- markup & content transforms ---
 
 test("markdownify renders markdown to HTML", () => {
 	expect(html("markdownify")).toBe("Bold <strong>markdown</strong> here.");
@@ -45,8 +38,7 @@ test("plainify strips HTML, leaving text", () => {
 
 test("htmlUnescape and htmlEscape decode/encode entities", () => {
 	expect(text("htmlUnescape")).toBe('<b> & "quoted"');
-	// htmlEscape returns a plain string, so the template layer escapes it a
-	// second time — pinning the double-escaped form.
+	// htmlEscape returns a plain string, so the template layer escapes it a second time.
 	expect(text("htmlEscape")).toBe("&lt;b&gt;&amp;amp;&lt;/b&gt;");
 });
 
@@ -81,8 +73,6 @@ test("transform.Highlight renders chroma markup with the language set", () => {
 	expect(out).toContain("'hi'");
 });
 
-// --- string functions ---
-
 test("upper, lower, and title transform case", () => {
 	expect(text("upper")).toBe("HELLO WORLD");
 	expect(text("lower")).toBe("hello world");
@@ -95,8 +85,6 @@ test("chomp and trim strip surrounding characters", () => {
 });
 
 test("replace and replaceRE substitute text and regex matches", () => {
-	// replace is another piped-last func: `X | replace "old" "new"` lands X in
-	// the "old" slot, so the probe uses the direct form.
 	expect(text("replace")).toBe("baz-bar-baz");
 	expect(text("replaceRE")).toBe("ab_cd_");
 });
@@ -107,12 +95,12 @@ test("substr and slicestr slice strings (direct-call form)", () => {
 });
 
 test("strings.Split / Repeat / Contains / HasPrefix / TrimSpace / Count", () => {
-	expect(text("strings.Split")).toBe("a|b||c"); // empty mid-element survives
+	expect(text("strings.Split")).toBe("a|b||c");
 	expect(text("strings.Repeat")).toBe("ababab");
 	expect(text("strings.Contains")).toBe("true");
 	expect(text("strings.HasPrefix")).toBe("true");
 	expect(text("strings.TrimSpace")).toBe("hi");
-	expect(text("strings.Count")).toBe("3"); // (substr, s) — haystack second
+	expect(text("strings.Count")).toBe("3");
 });
 
 test("countwords counts fields; countrunes ignores whitespace", () => {
@@ -132,20 +120,18 @@ test("anchorize and urlize slugify; humanize/pluralize/singularize inflect", () 
 	expect(text("singularize")).toBe("criterion");
 });
 
-// --- collections: slicing, ordering, uniqueness ---
-
 test("slice/append/first/last/after shape collections", () => {
 	expect(text("slice")).toBe("b-a-c");
 	expect(text("append")).toBe("a-b-c-d");
-	expect(text("first")).toBe("a,b"); // first 2 of [a,b,c]
-	expect(text("last")).toBe("b,c"); // last 2 of [a,b,c]
-	expect(text("after")).toBe("b,c"); // drop 1, keep the rest
+	expect(text("first")).toBe("a,b");
+	expect(text("last")).toBe("b,c");
+	expect(text("after")).toBe("b,c");
 });
 
 test("uniq de-duplicates; sort orders strings; sort with key+desc orders maps", () => {
 	expect(text("uniq")).toBe("a,b,c");
 	expect(text("sort")).toBe("a,b,c");
-	expect(text("sortDesc")).toBe("cba"); // keyed by `n`, descending
+	expect(text("sortDesc")).toBe("cba");
 	expect(text("sortKeyed")).toBe("ab");
 });
 
@@ -156,8 +142,6 @@ test("collections.Reverse reverses a slice", () => {
 test("in tests membership; index reaches into containers", () => {
 	expect(text("in")).toBe("true");
 });
-
-// --- collections: maps and combining ---
 
 test("dict builds maps; dot and index access both work", () => {
 	expect(text("dict")).toBe("v1v2");
@@ -196,8 +180,6 @@ test("querify builds a URL query string with proper encoding", () => {
 	expect(text("querify")).toBe("a=b+c&d=e");
 });
 
-// --- comparison / logic ---
-
 test("comparison operators evaluate", () => {
 	expect(text("eq")).toBe("true");
 	expect(text("neq")).toBe("true");
@@ -213,8 +195,6 @@ test("cond picks an argument by truthiness; or/not behave", () => {
 	expect(text("not")).toBe("true");
 });
 
-// --- math ---
-
 test("math.Add/Sub/Mul operate on ints and floats", () => {
 	expect(text("mathAdd")).toBe("12");
 	expect(text("mathAddFloats")).toBe("3");
@@ -223,8 +203,8 @@ test("math.Add/Sub/Mul operate on ints and floats", () => {
 });
 
 test("math.Div truncates int division but preserves floats", () => {
-	expect(text("mathDivInt")).toBe("2"); // 10/4 truncates
-	expect(text("mathDivFloat")).toBe("3"); // 7.5/2.5 = 3
+	expect(text("mathDivInt")).toBe("2");
+	expect(text("mathDivFloat")).toBe("3");
 });
 
 test("math.Mod / ModBool compute remainders", () => {
@@ -246,23 +226,17 @@ test("math.Max/Min/Pow/Abs/Sqrt cover the rest of the namespace", () => {
 	expect(text("mathSqrt")).toBe("4");
 });
 
-// --- casts / conversions ---
-
 test("cast.ToString / ToInt / ToFloat convert between types", () => {
 	expect(text("castToString")).toBe("42");
 	expect(text("castToInt")).toBe("42");
 	expect(text("castToFloat")).toBe("1.25");
 });
 
-// --- time ---
-
 test("time + dateFormat format dates (UTC-stable inputs)", () => {
 	expect(text("timeFormat")).toBe("Jan 15, 2024");
 	expect(text("dateFormat")).toBe("2024-01-15 10:30");
 	expect(text("timeAsTimeFormat")).toBe("08:45 05/03/2024");
 });
-
-// --- paths & urls ---
 
 test("path.Join/Base/Ext and urls.Parse manipulate paths", () => {
 	expect(text("pathJoin")).toBe("a/b/c/d.html");
@@ -274,8 +248,6 @@ test("path.Join/Base/Ext and urls.Parse manipulate paths", () => {
 test("relURL resolves against the site baseURL", () => {
 	expect(text("relURL")).toBe("/css/style.css");
 });
-
-// --- hashing & encoding ---
 
 test("sha256 / md5 havehes are stable (pinned values)", () => {
 	expect(text("sha256")).toBe(
@@ -294,8 +266,6 @@ test("base64Encode / base64Decode round-trip", () => {
 	expect(text("base64Encode")).toBe("aGVsbG8=");
 	expect(text("base64Decode")).toBe("hello");
 });
-
-// --- printing & template helpers ---
 
 test("printf formats with the classic verbs", () => {
 	expect(text("printf")).toBe("count=99");

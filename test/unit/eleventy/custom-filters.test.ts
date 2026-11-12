@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 
@@ -27,7 +27,6 @@ test("an auto-mirrored filter that closes over module scope renders correctly", 
 		stampInput: "hello",
 	});
 
-	// The stamp filter closes over `buildInfo` — the closure survives bundling.
 	expect(el?.querySelector("[data-stamp]")?.textContent).toMatch(
 		/^hello \[fixture@/,
 	);
@@ -36,7 +35,6 @@ test("an auto-mirrored filter that closes over module scope renders correctly", 
 test("a filter override (readmeSize) replaces the non-portable server filter", async () => {
 	const el = await window.cc_components?.["filters-demo"]({});
 
-	// Server-side, readmeSize calls fs.statSync. Browser override returns "—".
 	expect(el?.querySelector("[data-readme-size]")?.textContent).toBe("—");
 });
 
@@ -45,8 +43,6 @@ test("layer precedence: Liquid-specific filter wins over universal on name colli
 		doublerInput: 5,
 	});
 
-	// `doubler` is registered via both addFilter (universal) and
-	// addLiquidFilter (liquid). The Liquid layer wins.
 	expect(el?.querySelector("[data-doubler]")?.textContent).toBe("liquid:10");
 });
 
@@ -55,7 +51,5 @@ test("builtin filter names are skipped — config filter doesn't clobber the bro
 		slugInput: "hello world",
 	});
 
-	// The config registers addFilter("slug", ...) but the builtin browser
-	// port wins (config version is skipped during mirroring).
 	expect(el?.querySelector("[data-slug]")?.textContent).toBe("hello-world");
 });

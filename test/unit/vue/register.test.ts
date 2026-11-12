@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerVueComponent } from "../../../integrations/vue.mjs";
+import { registerVueComponent } from "../../../integrations/vue.js";
 import { StaticComponent } from "../_fixtures/vue/components";
 
 test("registerVueComponent adds a renderer under the given key on window.cc_components", () => {

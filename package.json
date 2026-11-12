@@ -21,8 +21,11 @@
     "email": "support@cloudcannon.com"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "typecheck:watch": "tsc --noEmit --watch",
+    "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p test/tsconfig.json",
+    "typecheck:watch": "tsc --noEmit --watch -p tsconfig.json",
+    "typecheck:watch:test": "tsc --noEmit --watch -p test/tsconfig.json",
     "lint-autofix": "biome check --fix",
     "lint": "biome check",
     "build:hugo": "bash integrations/hugo/renderer/build.sh",
@@ -41,75 +44,75 @@
     "test:integration": "npm run build:hugo && bash run-integration-tests.sh"
   },
   "files": [
-    "components",
-    "helpers",
-    "integrations",
-    "nodes",
-    "styles",
-    "types",
-    "!integrations/hugo/renderer/hugo_renderer.wasm",
-    "!integrations/hugo/hugo-module/assets/_cloudcannon"
+    "dist"
   ],
   "exports": {
     "./*": null,
     "./astro": {
-      "types": "./types/astro.d.ts",
-      "default": "./integrations/astro/index.mjs"
+      "types": "./dist/integrations/astro/index.d.ts",
+      "default": "./dist/integrations/astro/index.js"
     },
     "./astro-react-renderer": {
-      "types": "./types/astro.d.ts",
-      "default": "./integrations/astro/react-renderer.mjs"
+      "types": "./dist/integrations/astro/react-renderer.d.ts",
+      "default": "./dist/integrations/astro/react-renderer.js"
     },
     "./astro-svelte-renderer": {
-      "types": "./types/astro.d.ts",
-      "default": "./integrations/astro/svelte-renderer.mjs"
+      "types": "./dist/integrations/astro/svelte-renderer.d.ts",
+      "default": "./dist/integrations/astro/svelte-renderer.js"
     },
     "./astro-vue-renderer": {
-      "types": "./types/astro.d.ts",
-      "default": "./integrations/astro/vue-renderer.mjs"
+      "types": "./dist/integrations/astro/vue-renderer.d.ts",
+      "default": "./dist/integrations/astro/vue-renderer.js"
     },
     "./astro-integration": {
-      "types": "./types/astro.d.ts",
-      "default": "./integrations/astro/astro-integration.mjs"
+      "types": "./dist/integrations/astro/astro-integration.d.ts",
+      "default": "./dist/integrations/astro/astro-integration.js"
     },
     "./react": {
-      "types": "./types/react.d.ts",
-      "default": "./integrations/react.mjs"
+      "types": "./dist/integrations/react.d.ts",
+      "default": "./dist/integrations/react.js"
     },
     "./svelte": {
-      "types": "./types/svelte.d.ts",
-      "svelte": "./integrations/svelte/index.mjs",
-      "default": "./integrations/svelte/index.mjs"
+      "types": "./dist/integrations/svelte/index.d.ts",
+      "svelte": "./dist/integrations/svelte/index.js",
+      "default": "./dist/integrations/svelte/index.js"
     },
     "./vue": {
-      "types": "./types/vue.d.ts",
-      "default": "./integrations/vue.mjs"
+      "types": "./dist/integrations/vue.d.ts",
+      "default": "./dist/integrations/vue.js"
     },
-    "./liquid": "./integrations/liquid/index.mjs",
+    "./liquid": {
+      "types": "./dist/integrations/liquid/index.d.ts",
+      "default": "./dist/integrations/liquid/index.js"
+    },
     "./eleventy": {
       "require": {
-        "types": "./types/eleventy.d.cts",
-        "default": "./integrations/eleventy/index.cjs"
+        "types": "./dist/integrations/eleventy/index.d.cts",
+        "default": "./dist/integrations/eleventy/index.cjs"
       },
       "import": {
-        "types": "./types/eleventy.d.ts",
-        "default": "./integrations/eleventy/index.mjs"
+        "types": "./dist/integrations/eleventy/index.d.ts",
+        "default": "./dist/integrations/eleventy/index.js"
       }
     },
-    "./eleventy/browser": "./integrations/eleventy/browser/index.mjs",
-    "./hugo/browser": {
-      "types": "./types/hugo.d.ts",
-      "default": "./integrations/hugo/browser/index.ts"
+    "./eleventy/browser": {
+      "types": "./dist/integrations/eleventy/browser/index.d.ts",
+      "default": "./dist/integrations/eleventy/browser/index.js"
     },
-    "./internal/components": "./components/index.js",
-    "./internal/styles": "./styles/index.js"
+    "./internal/components": {
+      "types": "./dist/components/index.d.ts",
+      "default": "./dist/components/index.js"
+    },
+    "./internal/styles": {
+      "types": "./dist/styles/index.d.ts",
+      "default": "./dist/styles/index.js"
+    }
   },
   "devDependencies": {
     "@astrojs/react": "7.1.2",
     "@astrojs/svelte": "9.1.2",
     "@astrojs/vue": "7.1.2",
     "@biomejs/biome": "2.6.4",
-    "@cloudcannon/visual-editor-api": "0.0.21",
     "@sindresorhus/slugify": "3.0.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/js-beautify": "1.14.3",
@@ -131,7 +134,8 @@
     "vue-tsc": "3.3.14"
   },
   "dependencies": {
-    "@cloudcannon/configuration-types": "0.0.66",
+    "@cloudcannon/configuration-types": "0.0.67",
+    "@cloudcannon/visual-editor-api": "0.0.22",
     "esbuild": "0.28.2"
   }
 }

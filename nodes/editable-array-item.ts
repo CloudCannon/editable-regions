@@ -1,3 +1,4 @@
+import { ArrayInput, ArrayInputOptions, Structure } from "@cloudcannon/configuration-types";
 import "../components/ui/editable-array-item-controls.js";
 import type EditableArrayItemControls from "../components/ui/editable-array-item-controls.js";
 import {
@@ -5,10 +6,17 @@ import {
 	isEditableArrayItem,
 	isEditableElement,
 } from "../helpers/checks.js";
-import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.mjs";
+import { CloudCannon, realizeAPIValue } from "../helpers/cloudcannon.js";
 import { createErrorCard } from "../helpers/error-card.js";
 import type EditableArray from "./editable-array.js";
 import EditableComponent from "./editable-component.js";
+
+interface ArrayItemInputConfig extends ArrayInput {
+  options?: Omit<ArrayInputOptions, 'structures'> & {
+    structures?: Structure;
+		__array_subtype?: string;
+	}
+}
 
 export const hasEditableArrayItem = <T extends object>(
 	el: T,
@@ -21,7 +29,7 @@ export default class EditableArrayItem extends EditableComponent {
 
 	declare protected controlsElement?: EditableArrayItemControls;
 
-	private inputConfig?: any;
+	private inputConfig?: ArrayItemInputConfig;
 	private structureStrings: string[] = [];
 
 	shouldMount(): boolean {
@@ -127,9 +135,10 @@ export default class EditableArrayItem extends EditableComponent {
 			value: this.value,
 		};
 
-		if (this.inputConfig?.options?.structures?.values?.length > 0) {
+		const structures = this.inputConfig?.options?.structures;
+		if (structures?.values?.length && structures.values.length > 0) {
 			const structure = CloudCannon.findStructure(
-				this.inputConfig?.options?.structures,
+				structures,
 				this.value,
 			);
 			if (structure) {
@@ -301,7 +310,7 @@ export default class EditableArrayItem extends EditableComponent {
 			this.controlsElement = document.createElement(
 				"editable-array-item-controls",
 			);
-			this.controlsElement.addEventListener("edit", (_e: any) => {
+			this.controlsElement.addEventListener("edit", () => {
 				this.dispatchEdit(this.element.dataset.prop);
 			});
 
@@ -385,18 +394,18 @@ export default class EditableArrayItem extends EditableComponent {
 				}
 
 				this.controlsElement.disableReorder =
-					(inputConfig as any)?.options?.disable_reorder ?? false;
+					inputConfig?.options?.disable_reorder ?? false;
 				this.controlsElement.disableRemove =
-					(inputConfig as any)?.options?.disable_remove ?? false;
+					inputConfig?.options?.disable_remove ?? false;
 				this.controlsElement.disableAdd =
-					(inputConfig as any)?.options?.disable_add ?? false;
+					inputConfig?.options?.disable_add ?? false;
 
 				this.inputConfig = inputConfig;
-				if (this.inputConfig?.options?.structures?.values?.length > 0) {
-					this.structureStrings =
-						this.inputConfig.options.structures.values.map((value: unknown) =>
-							JSON.stringify(value).toLowerCase(),
-						);
+				const structures = this.inputConfig?.options?.structures?.values;
+				if (structures && structures.length > 0) {
+					this.structureStrings = structures.map((value) =>
+						JSON.stringify(value).toLowerCase(),
+					);
 				}
 				this.element.append(this.controlsElement);
 			});

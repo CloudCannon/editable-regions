@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerReactComponent } from "../../../integrations/react.mjs";
+import { registerReactComponent } from "../../../integrations/react.js";
 import {
 	CounterComponent,
 	StaticComponent,

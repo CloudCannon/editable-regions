@@ -1,20 +1,15 @@
-/**
- * Bundle-path tests for i18n mirroring: the editor snapshot carries the site's
- * and the theme's translation files so `i18n` calls in captured partials
- * resolve instead of falling back to their keys; project translations shadow
- * theme translations, matching Hugo's lookup priority.
- */
-
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockCollection,
 	setMockCollectionsList,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-/** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
 	return {
 		path,
@@ -31,7 +26,6 @@ const home = mkFile("/content/_index.md", {
 
 setMockCollectionsList([makeMockCollection("content", [home])]);
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 

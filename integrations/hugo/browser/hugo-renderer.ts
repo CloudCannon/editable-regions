@@ -1,7 +1,7 @@
-import { enhanceHugoError, missingComponentError } from "./errors.ts";
-import { HugoWasm } from "./hugo-wasm.ts";
-import { group, groupEnd, log, warn } from "./logger.ts";
-import type { WorkerRequest, WorkerResponse } from "./worker-protocol.ts";
+import { enhanceHugoError, missingComponentError } from "./errors.js";
+import { HugoWasm } from "./hugo-wasm.js";
+import { group, groupEnd, log, warn } from "./logger.js";
+import type { WorkerRequest, WorkerResponse } from "./worker-protocol.js";
 
 export interface EngineTransport {
 	boot(args: {
@@ -108,12 +108,6 @@ export interface HugoRendererOptions {
 	onBooted?: () => Promise<void>;
 }
 
-/**
- * Main-thread facade over the Hugo engine: owns batching, the render-id demux
- * into real elements, and transport selection. Runs the engine in a worker
- * when one is provided and constructible, falling back to an in-page
- * HugoWasm; the interface returns HTMLElements either way.
- */
 export class HugoRenderer {
 	private enginePromise: Promise<void> | null = null;
 	private transportPromise: Promise<EngineTransport> | null = null;

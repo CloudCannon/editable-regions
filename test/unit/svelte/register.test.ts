@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
 import { StaticComponent } from "../_fixtures/svelte/components";
 
 test("registerSvelteComponent adds a renderer under the given key on window.cc_components", () => {

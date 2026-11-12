@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerVueComponent } from "../../../integrations/vue.mjs";
+import { registerVueComponent } from "../../../integrations/vue.js";
 import { CounterComponent, StaticComponent } from "../_fixtures/vue/components";
 
 test("the registered renderer returns an HTMLElement (a <div> root)", async () => {

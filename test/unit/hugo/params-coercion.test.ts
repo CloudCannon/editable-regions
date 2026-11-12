@@ -1,19 +1,13 @@
-/**
- * Bundle-path tests for props-to-renderer coercion: the renderer writes
- * component props as JSON inside YAML fences on the dispatch page. This pins
- * the key-casing and value-type shape Hugo's front-matter processing produces
- * (the JSON round-trip fixed the old float64-everywhere behavior).
- */
-
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** Props covering the coercion-sensitive surface. */
 const props = {
 	camelCaseKey: "camelValue",
 	nested: { NestedKey: "nestedValue" },
@@ -26,7 +20,6 @@ const props = {
 	text: "plain text",
 };
 
-/** The probe partial emits one field per line; strip tags, keep the lines. */
 function lines(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }
@@ -36,17 +29,17 @@ test("props keep exact key casing and numeric types through the front-matter rou
 
 	expect(lines(el)).toBe(
 		[
-			"dotCamel=camelValue", // dotted access matches the exact original key
+			"dotCamel=camelValue",
 			"camelExact=camelValue",
 			"camelLower=camelValue", // `index` is case-insensitive on params
 			"nestedExact=nestedValue",
 			"nestedLower=nestedValue",
-			"date=string=2024-01-15", // date-looking strings stay strings
+			"date=string=2024-01-15",
 			"datetime=string=2024-01-15T10:30:00Z",
 			"count=uint64=7", // whole numbers stay ints (uint64 via YAML parse)
-			"countFmt=7", // and printf "%d" works
-			"ratio=float64=1.5", // fractions remain floats
-			"big=uint64=9999999999", // no scientific notation for large ints
+			"countFmt=7",
+			"ratio=float64=1.5",
+			"big=uint64=9999999999",
 			"flag=bool=true",
 			"text=plain text",
 		].join("\n"),

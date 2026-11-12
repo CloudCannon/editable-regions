@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, expect, test } from "vitest";
-import { createApp, h } from "vue";
+import { type App, createApp, h, type VNode } from "vue";
 
-import { EditableRegions } from "../../../integrations/vue.mjs";
+import { EditableRegions } from "../../../integrations/vue.js";
 
 class MockEditable {
-	static instances = [];
+	static instances: MockEditable[] = [];
 
-	element;
+	element: Element;
 	connectCount = 0;
 	disconnectCount = 0;
 
-	constructor(element) {
+	constructor(element: Element) {
 		this.element = element;
 		MockEditable.instances.push(this);
 	}
@@ -30,9 +30,9 @@ beforeEach(() => {
 	document.body.innerHTML = "";
 });
 
-const mountedApps = [];
+const mountedApps: App[] = [];
 
-const mountRegions = (props, slot) => {
+const mountRegions = (props: Record<string, any>, slot?: VNode) => {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
 	const app = createApp({

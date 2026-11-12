@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	enhanceHugoError,
 	parseHugoTemplateError,
-} from "../../../integrations/hugo/browser/errors.ts";
+} from "../../../integrations/hugo/browser/errors.js";
 
 const SAMPLE_ERROR = [
 	'template: __cc-dispatch.html:14:58: executing "__cc-dispatch.html" at : error calling partial: "_vendor/github.com/cloudcannon/bookshop/hugo/v3/core/bookshop.html:55:8": execute of template failed: ',

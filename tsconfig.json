@@ -1,15 +1,10 @@
 {
 	"compilerOptions": {
 		"target": "ES2020",
-		"lib": [
-			"ES2022",
-			"DOM",
-			"DOM.Iterable"
-		],
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"module": "ESNext",
 		"moduleResolution": "bundler",
-		"allowJs": true,
-		"checkJs": true,
+		"allowJs": false,
 		"strict": true,
 		"noImplicitReturns": false,
 		"skipLibCheck": true,
@@ -19,22 +14,27 @@
 		"jsx": "react-jsx",
 		"jsxImportSource": "react",
 		"isolatedModules": true,
-		"noEmit": true,
-		"allowImportingTsExtensions": true
+		"noEmit": false,
+		"outDir": "dist",
+		"rootDir": ".",
+		"declaration": true,
+		"declarationMap": false,
+		"sourceMap": false,
+		"noEmitOnError": true
 	},
 	"include": [
-		"**/*"
+		"components/**/*.ts",
+		"helpers/**/*.ts",
+		"integrations/**/*.ts",
+		"integrations/**/*.cts",
+		"nodes/**/*.ts",
+		"styles/**/*.ts",
+		"types/**/*.d.ts"
 	],
 	"exclude": [
 		"node_modules",
-		"test/integrations",
-		"test/unit",
-		"test/unit/_fixtures/**/dist/**",
-		"test/unit/_fixtures/**/_site/**",
-		"test/unit/_fixtures/**/public/**",
-		"integrations/hugo/renderer",
-		"integrations/hugo/browser/wasm_exec.js",
-		"integrations/hugo/browser/entry.js",
-		"integrations/hugo/hugo-module"
+		"dist",
+		"test",
+		"integrations/hugo/**"
 	]
 }

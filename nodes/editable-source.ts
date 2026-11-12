@@ -1,6 +1,9 @@
-import type { CloudCannonVisualEditorAPIV1File } from "@cloudcannon/visual-editor-api";
+import type {
+	CloudCannonVisualEditorAPIV1File,
+	CloudCannonVisualEditorAPIV1TextEditableRegion,
+} from "@cloudcannon/visual-editor-api";
 import { html as beautifyHtml } from "js-beautify";
-import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import { createErrorCard } from "../helpers/error-card.js";
 import EditableText from "./editable-text.js";
 
@@ -242,7 +245,7 @@ export default class EditableSource extends EditableText {
 		this.editor?.setContent(content);
 	}
 
-	async mountEditor(): Promise<any> {
+	async mountEditor(): Promise<CloudCannonVisualEditorAPIV1TextEditableRegion> {
 		if (this.editor) {
 			return this.editor;
 		}

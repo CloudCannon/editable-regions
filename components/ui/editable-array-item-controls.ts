@@ -1,5 +1,5 @@
-import type { ArrayDirection } from "../../nodes/editable-array";
-import EditableComponentControls from "./editable-component-controls";
+import type { ArrayDirection } from "../../nodes/editable-array.js";
+import EditableComponentControls from "./editable-component-controls.js";
 
 export default class EditableArrayItemControls extends EditableComponentControls {
 	arrayDirection: ArrayDirection = "column";

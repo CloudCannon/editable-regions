@@ -1,25 +1,17 @@
-/**
- * Template capture from the site's themes (themes/proot) and vendored module
- * imports (example.com/cc-fixture-vendor, hand-vendored in _vendor/):
- * components whose partials live there resolve and render in the editor.
- *
- * The snapshot merges those trees UNDER the project's own files — a project
- * partial shadows a theme partial with the same name, matching Hugo's lookup
- * priority. Dep trees are captured wholesale at their physical paths (the
- * renderer re-derives mounts from the dep config), so kind layouts ride along
- * too — they never execute, they just have to parse.
- */
+/** The snapshot merges theme/vendored-module trees under project files, so a project partial shadows a same-named theme partial. */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockCollection,
 	setMockCollectionsList,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-/** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
 	return {
 		path,
@@ -39,15 +31,11 @@ const one = mkFile("/content/blog/one.md", {
 	date: "2025-01-15",
 });
 
-// Content is mirrored from collections at boot; these templates-only tests
-// render probes through the home stub.
 setMockCollectionsList([makeMockCollection("content", [home, one])]);
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** The probe partials emit one line; strip tags, keep the text. */
 function text(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }
@@ -62,8 +50,6 @@ test("a component partial provided by a theme renders", async () => {
 });
 
 test("ENV_CLIENT is true in the editor's renderer", async () => {
-	// The fixture build renders this partial with the module config's false
-	// default; the browser's wasm renderer overrides the param to true.
 	const el = await render("env-probe");
 	expect(text(el)).toBe("env=[true]");
 });
@@ -74,8 +60,6 @@ test("nested partial includes resolve across the theme tree", async () => {
 });
 
 test("a project partial shadows a theme partial with the same name", async () => {
-	// Both the project and the theme define partials/dupe.html; Hugo's lookup
-	// priority is captured into the snapshot.
 	const el = await render("dupe");
 	expect(text(el)).toBe("from-project");
 	expect(text(el)).not.toContain("from-theme-proot");
@@ -103,21 +87,15 @@ test("a component partial from a vendored module renders", async () => {
 
 test("vendored module data and i18n mounts render, and unmounted theme data", async () => {
 	const el = await render("vendor-mounts-probe");
-	// The vendored module declares data/i18n mounts (vendordata/, vendori18n/);
-	// the theme contributes its implicit data/ tree without mounts.
 	expect(el?.querySelector(".vendor-data")?.textContent).toBe(
 		"from-vendor-data",
 	);
 	expect(el?.querySelector(".vendor-i18n")?.textContent).toBe(
 		"Vendored translation",
 	);
-	// A single-file module mount (vendorpartial.html ->
-	// layouts/partials/vendor-file-mount-probe.html) is captured and resolves.
 	expect(el?.querySelector(".vendor-file-mount")?.textContent?.trim()).toBe(
 		"from-vendor-file-mount",
 	);
-	// A locally replaced module (component-library shape) is captured at its
-	// project-relative path and its mounted partials resolve.
 	expect(el?.querySelector(".local-module-probe")?.textContent?.trim()).toBe(
 		"from-local-module",
 	);

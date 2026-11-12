@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerReactComponent } from "../../../integrations/react.mjs";
+import { registerReactComponent } from "../../../integrations/react.js";
 import { StaticComponent } from "../_fixtures/react/components";
 
 test("registerReactComponent adds a renderer under the given key on window.cc_components", () => {

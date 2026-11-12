@@ -3,10 +3,10 @@ import { beforeEach, expect, test, vi } from "vitest";
 import {
 	dehydrateDataEditableRegions,
 	hydrateDataEditableRegions,
-} from "../../helpers/hydrate-editable-regions";
+} from "../../helpers/hydrate-editable-regions.js";
 import Editable, { hasEditable } from "../../nodes/editable.js";
-import type { MockFile } from "../_mocks/cloudcannon";
-import { setMockCurrentFile } from "./_mocks/cloudcannon";
+import type { MockFile } from "./_mocks/cloudcannon.js";
+import { setMockCurrentFile } from "./_mocks/cloudcannon.js";
 
 beforeEach(() => {
 	const file: MockFile = {
@@ -58,7 +58,7 @@ test("hydrate replaces unknown editable types with an error card", () => {
 test("dehydrate leaves _dynamic elements to the component that owns them", async () => {
 	hydrateDataEditableRegions(document.body);
 
-	const root = get("dynamic-root") as HTMLElement;
+	const root = get("dynamic-root") as HTMLElement & { editable: Editable };
 	const owned = new Editable(root);
 	root.editable = owned;
 	owned.connect();

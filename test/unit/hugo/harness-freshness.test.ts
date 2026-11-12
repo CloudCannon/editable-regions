@@ -1,10 +1,4 @@
-/**
- * Unit tests for the artifact freshness checker the Hugo harnesses use: the
- * fixture bundles and renderer wasm are local, untracked builds, and a source
- * change without the matching rebuild makes suites pass or fail against stale
- * artifacts. Detection is pinned with synthetic artifacts and controlled
- * mtimes (no real fixture state involved).
- */
+/** Pins the freshness checker with synthetic artifacts and controlled mtimes. */
 
 import fs from "node:fs";
 import os from "node:os";
@@ -12,7 +6,7 @@ import path from "node:path";
 
 import { afterAll, expect, test } from "vitest";
 
-import { freshnessProblems } from "../_helpers/freshness";
+import { freshnessProblems } from "../_helpers/freshness.js";
 
 const dirs: string[] = [];
 
@@ -23,8 +17,6 @@ afterAll(() => {
 const past = new Date(Date.now() - 60_000);
 const now = new Date();
 
-/** Throwaway dir with a source in the past and an artifact at now — the
- * fresh baseline. */
 function scratch(): { dir: string; source: string; artifact: string } {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "freshness-"));
 	dirs.push(dir);
@@ -64,8 +56,7 @@ test("a source dir is walked recursively, skipping build outputs", () => {
 		freshnessProblems([{ label: "thing", artifact, sources: [dir] }]),
 	).toEqual([]);
 
-	// A real source touched after the artifact is staleness, even with the
-	// artifact's mtime dragged backwards for determinism.
+	// A real source touched after the artifact is staleness.
 	fs.mkdirSync(path.join(dir, "deep"), { recursive: true });
 	fs.writeFileSync(path.join(dir, "deep", "source.ts"), "");
 	fs.utimesSync(artifact, past, past);

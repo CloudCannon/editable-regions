@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerVueComponent } from "../../../integrations/vue.mjs";
+import { registerVueComponent } from "../../../integrations/vue.js";
 import { SlotParent, SlotShell } from "../_fixtures/vue/components";
 
 test("a component with a slot renders its shell gracefully when no child is provided", async () => {

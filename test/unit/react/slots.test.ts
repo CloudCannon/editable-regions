@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { registerReactComponent } from "../../../integrations/react.mjs";
+import { registerReactComponent } from "../../../integrations/react.js";
 import { SlotParent, SlotShell } from "../_fixtures/react/components";
 
 test("a component with children renders its shell gracefully when no child is provided", async () => {

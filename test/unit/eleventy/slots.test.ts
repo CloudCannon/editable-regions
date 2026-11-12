@@ -1,13 +1,12 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 
 beforeAll(componentsReady);
 
 test("includeWith spreads a props object into the included partial's scope", async () => {
-	// `slot-parent` calls {% includeWith "slot-shell", slotProps %}.
 	const el = await window.cc_components?.["slot-parent"]({
 		slotProps: { content: "slotted from parent" },
 	});
@@ -19,7 +18,6 @@ test("includeWith spreads a props object into the included partial's scope", asy
 });
 
 test("a component with includeWith renders its shell gracefully when no props are given", async () => {
-	// With no slotProps, the tag returns early — the shell isn't rendered.
 	const el = await window.cc_components?.["slot-parent"]({});
 
 	expect(el?.querySelector(".slot-shell")).toBeNull();
@@ -27,7 +25,6 @@ test("a component with includeWith renders its shell gracefully when no props ar
 });
 
 test("nested includeWith calls resolve correctly (parent → child → grandchild)", async () => {
-	// `slot-child` calls {% includeWith "slot-grandchild", childProps %}.
 	const el = await window.cc_components?.["slot-child"]({
 		childProps: { message: "hello from grandchild" },
 	});
@@ -38,7 +35,6 @@ test("nested includeWith calls resolve correctly (parent → child → grandchil
 });
 
 test("includeWith with a missing path throws an enhanced error", async () => {
-	// The proxy resolves `missing-include` as {% include "missing-include" %}.
 	await expect(window.cc_components?.["missing-include"]({})).rejects.toThrow(
 		/Failed to find included template/,
 	);
