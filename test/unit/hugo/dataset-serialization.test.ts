@@ -1,22 +1,19 @@
-/**
- * Bundle-path tests for dataset serialization on the mirror: every dataset is
- * written as JSON, and non-YAML/JSON source extensions (`.toml`, `.csv`, …)
- * are rewritten to `.json` so Hugo decodes them natively; the delete path
- * targets the same rewritten file.
- */
+/** Non-YAML/JSON datasets are mirrored as .json so Hugo decodes them natively. */
 
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import { renderer } from "../_helpers/wasm-renderer";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import { renderer } from "../_helpers/wasm-renderer.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockDataset,
 	setMockDatasetsList,
 	setMockFiles,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-/** Builds a mock API file whose data.get() resolves the dataset's data. */
 function mkFile(path: string, data: Record<string, any>): MockFile {
 	return {
 		path,
@@ -43,8 +40,7 @@ beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
 test(".yaml/.json datasets keep their extension; others are rewritten to .json", async () => {
-	// Trigger a render so the engine and its boot-time dataset mirror finish
-	// before the mirrored files are inspected.
+	// Render first so the boot-time dataset mirror finishes before inspecting files.
 	await window.cc_components?.["globals-data"]?.({});
 
 	const files = renderer().readHugoFiles(
@@ -56,7 +52,6 @@ test(".yaml/.json datasets keep their extension; others are rewritten to .json",
 		]),
 	);
 
-	// Kept extensions are written at their source path and are valid JSON.
 	expect(files["data/nav.yaml"]).toBeDefined();
 	expect(files["data/social.json"]).toBeDefined();
 	expect(JSON.parse(files["data/nav.yaml"])).toEqual({

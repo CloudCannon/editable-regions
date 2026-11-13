@@ -1,3 +1,4 @@
+import "../helpers/globals.js";
 import styles from "./index.css?inline";
 
 const stylesEl = document.createElement("style");

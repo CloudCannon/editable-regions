@@ -1,16 +1,11 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
-// Built bundle — run `npm run test:build-eleventy-plugin-config` first.
-// config-component-dirs.mjs sets componentDirs: ["src/_includes", "src/partials"],
-// so LiquidJS root is ["src/_includes", "src/partials"]. The proxy generates
-// {% include "name" %} which LiquidJS resolves by trying each root in order.
+// Built bundle (`npm run test:build-eleventy-plugin-config`); componentDirs become LiquidJS's ordered include roots.
 import "../_fixtures/eleventy-plugin-config/_site/component-dirs/register-components.js";
 
 beforeAll(componentsReady);
-
-// --- Component resolution with custom componentDirs ---
 
 test("a component only in the first custom dir resolves", async () => {
 	const el = await window.cc_components?.["liquid-file"]({});
@@ -27,16 +22,13 @@ test("a component only in the second custom dir resolves", async () => {
 });
 
 test("the first custom dir wins when a component exists in both dirs", async () => {
-	// shared-component.liquid exists in both dirs — the first dir wins.
 	const el = await window.cc_components?.["shared-component"]({});
 	expect(el?.querySelector(".shared-component")?.textContent).toBe(
 		"from-includes",
 	);
 });
 
-// --- Include extension resolution ---
-// The configured extension is appended only when the path has none, matching
-// LiquidJS's Node filesystem.
+// LiquidJS appends the configured extension only when the path has none.
 
 test("an .html include resolves rather than having .liquid appended", async () => {
 	const el = await window.cc_components?.["html-file.html"]({});
@@ -67,13 +59,11 @@ test("a .liquid component can include a .liquid partial by full name", async () 
 });
 
 test("an extensionless include of an .html file does not resolve", async () => {
-	// `html-file` gets `.liquid` appended, so only html-file.liquid would match.
-	// Non-`.liquid` partials must be included with their extension.
+	// `html-file` resolves as html-file.liquid, so .html partials need their extension.
 	await expect(window.cc_components?.["html-file"]({})).rejects.toThrow();
 });
 
 test("a dot in a directory name is not mistaken for an extension", async () => {
-	// `v1.2/dotted-dir-partial` has no extension, so `.liquid` is still appended.
 	const el = await window.cc_components?.["includes-dotted-dir"]({});
 	expect(el).toBeInstanceOf(HTMLElement);
 	expect(el?.querySelector(".includes-dotted-dir p")?.textContent).toBe(
@@ -82,8 +72,6 @@ test("a dot in a directory name is not mistaken for an extension", async () => {
 });
 
 test("a component outside the custom dirs does not resolve", async () => {
-	// index.liquid is in src/ (not in componentDirs), so it's absent from
-	// the in-memory filesystem. The proxy generates {% include "index" %}
-	// which throws ENOENT.
+	// `index.liquid` is in src/, outside componentDirs, so it's absent from the in-memory fs.
 	await expect(window.cc_components?.index({})).rejects.toThrow();
 });

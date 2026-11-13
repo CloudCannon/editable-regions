@@ -1,13 +1,9 @@
 import { expect, test } from "vitest";
 
-import { registerReactComponent } from "../../../integrations/react.mjs";
-import { EditableComponent } from "../../../nodes/index.ts";
-import { InteractiveCounter } from "../_fixtures/react/components";
+import { registerReactComponent } from "../../../integrations/react.js";
+import { EditableComponent } from "../../../nodes/index.js";
+import { InteractiveCounter } from "../_fixtures/react/components.js";
 
-/**
- * Mounts an EditableComponent on a host element, renders it, and returns
- * the editable so tests can drive re-renders via `update`.
- */
 async function mountComponent(
 	key: string,
 	value: Record<string, unknown> = {},
@@ -36,8 +32,7 @@ test("an interactive React component renders with its initial state", async () =
 
 test("clicking the button updates the component's reactive state", async () => {
 	registerReactComponent("interactive-counter", InteractiveCounter);
-	// Call the renderer directly — React uses event delegation at the root
-	// container, which updateTree breaks by moving DOM nodes out of it.
+	// Call the renderer directly: updateTree moves nodes out of React's delegation root.
 	const el = await window.cc_components?.["interactive-counter"]({});
 	if (!el) throw new Error("renderer returned null");
 
@@ -62,8 +57,7 @@ test("interactivity still works after a re-render triggered by update", async ()
 	registerReactComponent("interactive-counter", InteractiveCounter);
 	const editable = await mountComponent("interactive-counter");
 
-	// Interact once to prove the component is live — call the renderer
-	// directly because React's event delegation breaks under updateTree.
+	// Call the renderer directly: updateTree moves nodes out of React's delegation root.
 	const el = await window.cc_components?.["interactive-counter"]({});
 	if (!el) throw new Error("renderer returned null");
 
@@ -72,9 +66,7 @@ test("interactivity still works after a re-render triggered by update", async ()
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	expect(el.querySelector(".count")?.textContent).toBe("1");
 
-	// Re-render creates a fresh React root, so state resets to 0. The
-	// old root is not cleaned up — React may keep the orphaned instance
-	// reactive. See TODO.md for the Vue/Svelte equivalent.
+	// A re-render builds a fresh React root, so state resets to 0.
 	editable.value = {};
 	await editable.update();
 

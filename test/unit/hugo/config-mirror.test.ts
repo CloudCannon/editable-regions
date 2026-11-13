@@ -1,11 +1,4 @@
-/**
- * Renderer tests for config resolution: the renderer loads the site's captured
- * config files natively (allconfig.LoadConfig + editorFlags +
- * IgnoreModuleDoesNotExist), so contentDir/dataDir come from the site's own
- * config. Boots a root config that relocates both dirs, then pins content
- * stubs, dataset files, render targets, and the home-page fallback to those
- * dirs.
- */
+/** contentDir/dataDir come from the site's own config, loaded natively by the renderer. */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
@@ -15,13 +8,10 @@ import {
 	render,
 	renderer,
 	restoreRendererStdout,
-} from "../_helpers/wasm-renderer";
+} from "../_helpers/wasm-renderer.js";
 
-/** The snapshot the browser runtime would feed the renderer at startup. */
 const siteFiles = {
-	// No config/_default dir exists here, so root-only resolution applies.
 	"cc-env": "production",
-	// Captured verbatim: contentDir/dataDir moved off their defaults.
 	"hugo.json": JSON.stringify({
 		title: "Site Brand",
 		contentDir: "notes",
@@ -30,7 +20,6 @@ const siteFiles = {
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"layouts/partials/dataprobe.html": "<p>{{ site.Data.brand.brand }}</p>",
-	// Content stubs mirrored before init.
 	"notes/_index.md": "---\ntitle: Home\ndate: 2024-01-01\n---\n",
 	"notes/blog/one.md": "---\ntitle: Target One\nauthor: alice\n---\n",
 	"custom-data/brand.yaml": "brand: Custom Data Brand\n",
@@ -72,7 +61,6 @@ test("removeHugoFiles deletes content files plainly", async () => {
 		r.readHugoFiles(JSON.stringify(["notes/blog/one.md"]))["notes/blog/one.md"],
 	).toBeUndefined();
 
-	// A file outside any written path is a plain no-op.
 	r.removeHugoFiles(JSON.stringify(["content/_index.md"]));
 	expect(
 		r.readHugoFiles(JSON.stringify(["content/_index.md"]))["content/_index.md"],

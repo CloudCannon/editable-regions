@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -13,6 +13,7 @@
 			"integrations/**",
 			"components/**",
 			"nodes/**",
+			"scripts/**",
 			"styles/**",
 			"test/**",
 			"types/**",
@@ -24,7 +25,6 @@
 			"!**/*.astro",
 			"!**/*.svelte",
 			"!**/*.vue",
-			"!**/*.d.mts",
 			"!integrations/hugo/renderer",
 			"!integrations/hugo/browser/wasm_exec.js",
 			"!integrations/hugo/browser/entry.js",

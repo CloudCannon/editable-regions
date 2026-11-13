@@ -1,25 +1,20 @@
-/**
- * Mount gating. An editable node must not mount before its parent editable
- * node has mounted. Absolute data paths (`@file[...]`, `@data[...]`,
- * `@collections[...]`) subscribe to API objects directly and resolve their
- * first value without any parent push, so without the gate they would mount
- * and mutate the DOM mid-hydration in frameworks like Nuxt.
- */
-
 import { beforeEach, expect, test, vi } from "vitest";
 
-import { CloudCannon } from "../../../helpers/cloudcannon.mjs";
-import { Editable, EditableText } from "../../../nodes";
-import type { MockFile } from "../_mocks/cloudcannon";
+import { CloudCannon } from "../../../helpers/cloudcannon.js";
+import { Editable, EditableText } from "../../../nodes/index.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	resetMock,
 	setMockCurrentFile,
 	setMockFiles,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
 const ABOUT_PATH = "/src/pages/about.md";
 
-const makeListenedFile = (path: string, data: unknown): MockFile => {
+const makeListenedFile = (
+	path: string,
+	data: Record<string, any>,
+): MockFile => {
 	const listeners: Record<string, Set<(event: any) => void>> = {
 		change: new Set(),
 		delete: new Set(),

@@ -7,14 +7,3 @@ declare module "astro/runtime/server/index.js" {
 		slots: any,
 	): Promise<string>;
 }
-declare module "react-dom/server.browser" {
-	export function renderToStaticMarkup(element: any): string;
-}
-declare module "svelte" {
-	export function mount(
-		component: any,
-		args: { target: HTMLElement; props: unknown },
-	): void;
-
-	export function flushSync(): void;
-}

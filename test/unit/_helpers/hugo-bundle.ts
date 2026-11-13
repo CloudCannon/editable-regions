@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { vi } from "vitest";
 
-import { freshnessProblems } from "./freshness";
+import { freshnessProblems } from "./freshness.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultFixture = "hugo";
@@ -14,19 +14,13 @@ const WASM_ASSET = path.resolve(
 	"../../../integrations/hugo/hugo-module/assets/_cloudcannon/hugo_renderer.wasm.gz",
 );
 
-/** The fixture loadHugoBundle boots; select with useHugoFixture(). */
 let currentFixture = defaultFixture;
 
-/**
- * Selects which built `test/unit/_fixtures/<name>` bundle a suite boots; call
- * before `beforeAll(loadHugoBundle)`. The default ("hugo") uses the default
- * directory layout; "hugo-custom-dirs" relocates its template/file dirs.
- */
+/** Selects the fixture bundle a suite boots; call before `beforeAll(loadHugoBundle)`. */
 export function useHugoFixture(fixture: string): void {
 	currentFixture = fixture;
 }
 
-/** The npm script that rebuilds a fixture's bundle. */
 function bundleBuildScript(fixture: string): string {
 	// The default fixture's script predates per-fixture naming.
 	return fixture === "hugo"
@@ -34,7 +28,6 @@ function bundleBuildScript(fixture: string): string {
 		: `test:build-hugo-${fixture}`;
 }
 
-/** Resolves the built asset dir for the selected fixture. */
 function fixtureAssetDir(): string {
 	return path.resolve(
 		here,
@@ -53,25 +46,14 @@ function findAsset(name: string, pattern: RegExp): string {
 	return path.join(dir, file);
 }
 
-/** The Go renderer logs change events and build progress through console.log. */
 let stdoutSpy: ReturnType<typeof vi.spyOn> | undefined;
 
-/** Restores console.log after a suite that ran loadHugoBundle. */
 export function restoreRendererStdout(): void {
 	stdoutSpy?.mockRestore();
 	stdoutSpy = undefined;
 }
 
-/**
- * Loads the fixture's fingerprinted live-editing bundle and boots the real
- * Hugo renderer against it, exactly as the browser runtime would (`fetch` is
- * stubbed to serve the fingerprinted WASM from the fixture's build output).
- * The bundle is a local, untracked build artifact — a source change without
- * the matching rebuild means out-of-date artifacts, so the boot refuses
- * anything stale and names the rebuild. Call in `beforeAll` (with
- * `afterAll(restoreRendererStdout)`); select the fixture with useHugoFixture()
- * first for sites that don't use default directory layout.
- */
+/** Boots the fixture's bundle with fetch stubbed; refuses a stale or ambiguous bundle. */
 export async function loadHugoBundle(): Promise<void> {
 	assertFreshBundle(currentFixture);
 	installWasmFetchStub();
@@ -87,10 +69,6 @@ export async function loadHugoBundle(): Promise<void> {
 	});
 }
 
-/**
- * Throws when the selected fixture's bundle is missing, stale, or inconsistent
- * with its sources, naming the rebuild.
- */
 function assertFreshBundle(fixture: string): void {
 	const assetDir = fixtureAssetDir();
 	const rebuild = `\`npm run ${bundleBuildScript(fixture)}\` (or \`npm run test:build-fixtures\` for every fixture)`;
@@ -117,8 +95,6 @@ function assertFreshBundle(fixture: string): void {
 		{
 			label: "the renderer wasm asset",
 			artifact: WASM_ASSET,
-			// Exact files: the renderer dir also holds raw build output that
-			// build.sh regenerates before the gz.
 			sources: ["main.go", "go.mod", "go.sum"].map((f) =>
 				path.join(RENDERER_DIR, f),
 			),
@@ -151,7 +127,6 @@ function assertFreshBundle(fixture: string): void {
 	}
 }
 
-/** Serves the emitted, fingerprinted renderer WASM for the runtime's fetch. */
 function installWasmFetchStub(): void {
 	const bytes = fs.readFileSync(
 		findAsset("renderer WASM", /^hugo_renderer\.wasm\..+\.gz$/),

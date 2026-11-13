@@ -1,10 +1,4 @@
-/**
- * Build-failure handling: a failed build must surface the underlying message,
- * must not leave the builder permanently dirty (so later renders don't re-run
- * the failing build), and must recover once the offending source is fixed.
- *
- * State is sequential — each case builds on the previous — so ordering matters.
- */
+// State is sequential — ordering matters.
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
@@ -14,7 +8,7 @@ import {
 	render,
 	renderer,
 	restoreRendererStdout,
-} from "../_helpers/wasm-renderer";
+} from "../_helpers/wasm-renderer.js";
 
 const siteFiles = {
 	"cc-env": "production",
@@ -31,15 +25,13 @@ beforeAll(async () => {
 afterAll(restoreRendererStdout);
 
 test("the initial site builds and renders", async () => {
-	// The first render triggers the initial full build (initHugoEditorSite only
-	// loads config), so the builder has a site before the failure below.
+	// The first render triggers the initial full build; initHugoEditorSite only loads config.
 	const { html, error } = await render("card.html", { title: "before" });
 	expect(error).toBeUndefined();
 	expect(html).toContain("before");
 });
 
 test("a build error surfaces the underlying message", async () => {
-	// Invalid front matter on a content file fails the build.
 	renderer().writeHugoFiles(
 		JSON.stringify({ "content/broken.md": '---\ntitle: "unterminated\n---\n' }),
 	);
@@ -50,8 +42,6 @@ test("a build error surfaces the underlying message", async () => {
 });
 
 test("a later render with no new changes does not re-run the failed build", async () => {
-	// The failed build must not leave the builder dirty: with nothing new
-	// pending, this render skips the build and serves the last good site.
 	const { html, error } = await render("card.html", { title: "after" });
 	expect(error).toBeUndefined();
 	expect(html).toContain("after");

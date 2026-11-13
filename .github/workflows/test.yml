@@ -38,18 +38,12 @@ jobs:
         hugo-version:
           - "0.164.0"
         include:
-          # The module declares 0.120.0 as its minimum (hugo.toml
-          # module.hugoVersion.min). Build and test the fixtures against it so
-          # the floor stays accurate. Version support isn't OS-specific, so a
-          # single Linux job covers it.
+          # Keeps the declared module.hugoVersion.min floor honest; one OS suffices.
           - os: ubuntu-latest
             hugo-version: "0.120.0"
     runs-on: ${{ matrix.os }}
     env:
-      # The fixture npm scripts use POSIX shell syntax (`rm -rf`, inline
-      # `VAR=x`). Git Bash ships on every runner, so point npm at it rather
-      # than making the scripts cross-platform. Node's `path` still resolves as
-      # win32 on Windows, so Windows-specific path bugs are still exercised.
+      # Fixture scripts use POSIX shell syntax; Node's `path` still resolves as win32.
       npm_config_script_shell: bash
     steps:
       - uses: actions/checkout@v6
@@ -59,6 +53,9 @@ jobs:
           node-version-file: .nvmrc
       - name: Install
         run: npm ci
+
+      - name: Build
+        run: npm run build
 
       - name: Download the renderer WASM
         uses: actions/download-artifact@v4
@@ -72,9 +69,6 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # The Hugo unit tests boot the renderer WASM and the fixture sites are
-      # built with the real Hugo, so Hugo must be available before the suites
-      # run.
       - name: Set up Hugo
         uses: peaceiris/actions-hugo@v3
         with:
@@ -87,3 +81,7 @@ jobs:
       - name: Integration tests
         run: bash run-integration-tests.sh
         shell: bash
+
+      # run-integration-tests.sh installs the Eleventy fixture's deps first.
+      - name: Eleventy CJS entry
+        run: npm --prefix test/integrations/eleventy run test:cjs-entry

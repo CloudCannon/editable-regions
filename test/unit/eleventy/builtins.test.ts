@@ -10,10 +10,14 @@ import {
 	slugFilter,
 	slugifyFilter,
 	urlFilter,
-} from "../../../integrations/eleventy/browser/liquid-builtins.mjs";
-import { registerPageMap } from "../../../integrations/liquid/page-map.mjs";
-import { componentsReady } from "../_helpers/live-editing";
-import { type MockFile, resetMock, setMockFiles } from "../_mocks/cloudcannon";
+} from "../../../integrations/eleventy/browser/liquid-builtins.js";
+import { registerPageMap } from "../../../integrations/liquid/page-map.js";
+import { componentsReady } from "../_helpers/live-editing.js";
+import {
+	type MockFile,
+	resetMock,
+	setMockFiles,
+} from "../_mocks/cloudcannon.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 
@@ -23,8 +27,6 @@ beforeEach(() => {
 	resetMock();
 	registerPageMap({});
 });
-
-// --- slug / slugify ---
 
 test("slug filter (simov/slugify) is permissive — keeps +, @, ., substitutes &", () => {
 	expect(slugFilter("C++ programming for users@example.com")).toBe(
@@ -39,8 +41,6 @@ test("slugify filter (sindresorhus) is strict ASCII", () => {
 	);
 });
 
-// --- log ---
-
 test("log filter returns the value unchanged", () => {
 	const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 	expect(logFilter("test")).toBe("test");
@@ -54,8 +54,6 @@ test("log filter with a prefix includes it in the output", () => {
 	expect(spy).toHaveBeenCalledWith("[prefix]", "test");
 	spy.mockRestore();
 });
-
-// --- url ---
 
 test("url filter passes through absolute URLs", () => {
 	expect(urlFilter("https://example.com/path/")).toBe(
@@ -79,8 +77,6 @@ test("url filter returns empty string for falsy input", () => {
 	expect(urlFilter("")).toBe("");
 	expect(urlFilter(null as any)).toBe("");
 });
-
-// --- date filters ---
 
 test("dateToRfc3339 formats a Date as ISO 8601", () => {
 	expect(dateToRfc3339(new Date("2026-04-21T00:00:00Z"))).toBe(
@@ -108,8 +104,6 @@ test("htmlDateString returns YYYY-MM-DD form", () => {
 	expect(htmlDateString(new Date("2026-04-21T15:30:00Z"))).toBe("2026-04-21");
 });
 
-// --- getNewestCollectionItemDate ---
-
 test("getNewestCollectionItemDate finds the newest date in a collection", () => {
 	const collection = [
 		{ date: new Date("2026-01-15") },
@@ -127,8 +121,6 @@ test("getNewestCollectionItemDate falls back for an empty collection", () => {
 	);
 	expect(getNewestCollectionItemDate([])).toEqual(new Date(0));
 });
-
-// --- inputPathToUrl ---
 
 test("inputPathToUrl resolves a path from the page map", () => {
 	registerPageMap({
@@ -148,8 +140,6 @@ test("inputPathToUrl returns empty string for non-string input", () => {
 	expect(inputPathToUrlFilter(123 as any)).toBe("");
 });
 
-// --- htmlBaseUrl / serverlessUrl (pass-through stubs) ---
-
 test("htmlBaseUrl is a pass-through stub that returns the input unchanged", () => {
 	const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
 	expect(eleventyFilters.htmlBaseUrl("https://example.com")).toBe(
@@ -163,8 +153,6 @@ test("serverlessUrl is a pass-through stub that returns the input unchanged", ()
 	expect(eleventyFilters.serverlessUrl("/some/path")).toBe("/some/path");
 	spy.mockRestore();
 });
-
-// --- RenderPlugin shims (renderTemplate, renderContent, renderFile) ---
 
 test("renderTemplate tag renders Liquid content with data", async () => {
 	const el = await window.cc_components?.["render-plugin-demo"]({
@@ -183,7 +171,6 @@ test("renderContent filter renders Liquid content", async () => {
 		renderContentBody: "rendered <strong>{{ title }}</strong>",
 	});
 
-	// renderContent renders the body as Liquid against the render context.
 	expect(el?.textContent).toContain("rendered");
 });
 

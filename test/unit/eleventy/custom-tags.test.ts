@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 
@@ -19,7 +19,6 @@ test("a custom tag override (diskTag) replaces the non-portable server tag", asy
 		echoValue: "test",
 	});
 
-	// Server-side, diskTag reads from disk. Browser override renders a placeholder.
 	expect(el?.querySelector("[data-disk-tag]")?.textContent).toBe(
 		"disk-tag-override",
 	);

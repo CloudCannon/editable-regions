@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
@@ -11,8 +13,7 @@ test("the built bundle installs the component proxy on window.cc_components", ()
 });
 
 test("no components are pinned until the proxy resolves them on demand", () => {
-	// Hugo's bundle is proxy-only: component keys resolve against the partial
-	// snapshot at render time, so own keys stay empty until a renderer is pinned.
+	// Proxy-only: own keys stay empty until a renderer is pinned.
 	expect(Object.keys(window.cc_components ?? {})).toHaveLength(0);
 });
 
@@ -49,8 +50,6 @@ test("the emitted snapshot carries templates, config, and the wasm url", () => {
 	expect(files?.["layouts/partials/static.html"]).toContain("hello from hugo");
 	expect(files?.["layouts/partials/nested/deep.html"]).toBeDefined();
 
-	// The site's config is snapshotted as its real file (config.toml), which
-	// the renderer loads through Hugo's own config resolution.
 	expect(files?.["config.toml"]).toContain("Fixture Brand");
 
 	const meta = window.cc_hugo as Record<string, any> | undefined;

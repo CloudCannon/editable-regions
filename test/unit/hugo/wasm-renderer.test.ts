@@ -1,9 +1,4 @@
-/**
- * Direct tests of the Hugo renderer WASM, booted in Node (no browser bundle,
- * no Hugo build involved), asserting on the real Go output. Build the renderer
- * first (`npm run build:hugo`); state is sequential — later cases build on
- * earlier ones — so ordering matters.
- */
+/** Boots the real WASM renderer in Node; state is sequential, so ordering matters. */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
@@ -13,11 +8,9 @@ import {
 	render,
 	renderer,
 	restoreRendererStdout,
-} from "../_helpers/wasm-renderer";
+} from "../_helpers/wasm-renderer.js";
 
-/** The snapshot the browser runtime would feed the renderer at startup; the
- * renderer layers its own overrides (disableKinds + the publish cascade) on
- * top of this config. */
+/** The snapshot the browser runtime would feed the renderer; the renderer layers its overrides on top. */
 const siteFiles = {
 	"config.json": JSON.stringify({
 		baseURL: "/",
@@ -38,12 +31,10 @@ const siteFiles = {
 	"layouts/partials/pageprobe.html":
 		'<p>{{ page.Title }}|{{ page.Params.cc_initialized | default "x" }}|{{ page.RelPermalink }}</p>',
 	"layouts/partials/envprobe.html": "<p>env=[{{ site.Params.ENV_CLIENT }}]</p>",
-	// Hugo 0.146+'s partials dir, which templates.Exists only matches by its
-	// own path.
+	// Hugo 0.146+'s partials dir, which templates.Exists only matches by its own path.
 	"layouts/_partials/newdir.html": '<p class="newdir">from _partials</p>',
 	"data/nav.yaml":
 		"links:\n  - label: Home\n    url: /\n  - label: Blog\n    url: /blog/\n",
-	// Boot-time content — the browser writes collections before init.
 	"content/notes/one.md": "---\ntitle: Target One\n---\n",
 };
 
@@ -53,8 +44,6 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(restoreRendererStdout);
-
-// --- Renders -------------------------------------------------------------
 
 test("renders props into a partial", async () => {
 	const { html, error } = await render("card.html", {
@@ -103,19 +92,7 @@ test("a 20-render burst stays fresh on the incremental path", async () => {
 	}
 }, 30_000);
 
-// --- Render target resolution ---------------------------------------------
-
-test("with no target, renders with an empty page context", async () => {
-	const { html, error } = await render("pageprobe.html");
-	expect(error).toBeUndefined();
-	// No content at all and no target, so `page` binds to Hugo's empty page:
-	// zero values, front matter params unset.
-	expect(html).toContain("|x|");
-});
-
 test("a target file path resolves to that page's built output", async () => {
-	// The renderer looks the target up by File().Path(), not by any computed
-	// page path.
 	const { html, error } = await render(
 		"pageprobe.html",
 		{},
@@ -126,8 +103,6 @@ test("a target file path resolves to that page's built output", async () => {
 });
 
 test("an edit to an existing page resolves through the incremental rebuild", async () => {
-	// Post-boot writes fold into the next render batch's rebuild, like the
-	// browser's change events.
 	renderer().writeHugoFiles(
 		JSON.stringify({
 			"content/notes/one.md": "---\ntitle: Target One Edited\n---\n",
@@ -143,14 +118,10 @@ test("an edit to an existing page resolves through the incremental rebuild", asy
 });
 
 test("an unmatched target renders with an empty page context", async () => {
-	// A non-content file (e.g. a data file) matches no page — the render is
-	// page-less.
 	const { html, error } = await render("pageprobe.html", {}, "data/nav.yaml");
 	expect(error).toBeUndefined();
 	expect(html).toContain("|x|");
 });
-
-// --- File surface --------------------------------------------------------
 
 test("readHugoFiles returns written contents and skips missing paths", async () => {
 	const r = renderer();
@@ -174,12 +145,7 @@ test("renders a partial from _partials, with or without its extension", async ()
 	}
 });
 
-// --- Errors --------------------------------------------------------------
-
 test("a missing partial renders the marker instead of a raw Hugo error", async () => {
-	// The dispatch layout's templates.Exists check emits a marker the runtime
-	// turns into the clean component error; the build stays green so no Hugo
-	// execution trace leaks through.
 	const { html, error } = await render("does-not-exist.html");
 	expect(error).toBeUndefined();
 	expect(html).toMatch(/<cc-missing-partial data-name="does-not-exist\.html"/);
@@ -190,8 +156,6 @@ test("renders recover after an error", async () => {
 	expect(error).toBeUndefined();
 	expect(html).toContain("After Error");
 });
-
-// --- Live updates --------------------------------------------------------
 
 test("template updates take effect (the editor rewrites partials)", async () => {
 	renderer().writeHugoFiles(

@@ -3,7 +3,7 @@ import type {
 	CloudCannonVisualEditorAPIV1Dataset,
 	CloudCannonVisualEditorAPIV1File,
 } from "@cloudcannon/visual-editor-api";
-import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.mjs";
+import { apiLoadedPromise, CloudCannon } from "../helpers/cloudcannon.js";
 
 export const hasEditable = <T extends object>(
 	el: T,

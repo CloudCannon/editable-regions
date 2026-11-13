@@ -1,5 +1,5 @@
-import { HugoWasm } from "./hugo-wasm.ts";
-import type { WorkerRequest } from "./worker-protocol.ts";
+import { HugoWasm } from "./hugo-wasm.js";
+import type { WorkerRequest } from "./worker-protocol.js";
 
 let engine: HugoWasm | null = null;
 

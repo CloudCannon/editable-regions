@@ -1,11 +1,16 @@
-import { CloudCannon } from "../helpers/cloudcannon.mjs";
+import type { Input } from "@cloudcannon/configuration-types";
+import { CloudCannon } from "../helpers/cloudcannon.js";
 import { createErrorCard } from "../helpers/error-card.js";
 import Editable from "./editable.js";
 
 export default class EditableImage extends Editable {
 	value: { src?: string; alt?: string; title?: string } | null | undefined =
 		undefined;
-	inputConfig: { src?: any; alt?: any; title?: any } = {};
+	inputConfig: {
+		src?: Input;
+		alt?: Input;
+		title?: Input;
+	} = {};
 	imageEl?: HTMLImageElement;
 	panelId?: string;
 
@@ -17,7 +22,7 @@ export default class EditableImage extends Editable {
 		this.element.classList.add("errored");
 		const error = createErrorCard(heading, message, hint);
 		if (this.imageEl) {
-			this.imageEl?.replaceWith(error);
+			this.imageEl.replaceWith(error);
 		} else {
 			this.element.replaceChildren(error);
 		}
@@ -181,9 +186,7 @@ export default class EditableImage extends Editable {
 		this.configuredTitle =
 			!!this.element.dataset.propTitle || !!this.element.dataset.prop;
 
-		// Loading the input config costs a round trip per configured prop, so the
-		// listener is attached up front and the click waits for it. Attaching after
-		// the load resolves instead leaves a window where clicks are dropped.
+		// Attach the click before the config load so early clicks are not dropped.
 		const inputConfigLoaded = this.loadInputConfig();
 
 		this.imageEl?.addEventListener("click", async (e) => {

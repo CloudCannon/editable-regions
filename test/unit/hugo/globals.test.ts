@@ -1,22 +1,16 @@
-/**
- * What the globals components can reach at render time: the `site` global
- * object (a real Hugo `Site`), the `hugo.*` namespace, and query helpers over
- * site data. Runs the full consumer chain — fixture built by real Hugo,
- * shipped in the live-editing bundle, written into the WASM renderer by the
- * browser runtime.
- */
-
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockDataset,
 	setMockDatasetsList,
 	setMockFiles,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-/** Builds a mock API file whose data.get() resolves the dataset's data. */
 function mkFile(path: string, data: Record<string, any>): MockFile {
 	return {
 		path,
@@ -26,8 +20,7 @@ function mkFile(path: string, data: Record<string, any>): MockFile {
 	};
 }
 
-// The fixture's data/ files, mirrored at boot as datasets (the data source;
-// data files are no longer part of the template snapshot).
+// Data files are mirrored as datasets; they aren't part of the template snapshot.
 const navFile = mkFile("/data/nav.yaml", {
 	links: [
 		{ label: "Home", url: "/" },
@@ -44,16 +37,12 @@ setMockDatasetsList([
 	makeMockDataset("social", socialFile),
 ]);
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** The probe partials emit one field per line; strip tags, keep the lines. */
 function lines(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }
-
-// --- site.* -----------------------------------------------------------------
 
 test("components can read site.Title", async () => {
 	const el = await window.cc_components?.["globals-title"]({});
@@ -77,8 +66,7 @@ test("site.Menus holds named menus with name, url, and weight", async () => {
 test("site.Language exposes lang and locale through the emitted snapshot", async () => {
 	const el = await window.cc_components?.["globals-language"]({});
 
-	// `en-AU` flows: fixture languageCode -> snapshot `locale` -> WASM config
-	// locale -> site.Language.Locale. `lang` stays at the Hugo default "en".
+	// en-AU flows fixture languageCode -> snapshot locale -> site.Language.Locale; `lang` stays "en".
 	expect(lines(el)).toBe("lang=en\nlocale=en-AU\ncode=en-AU");
 });
 
@@ -87,8 +75,6 @@ test("site.BaseURL and relURL resolve relative URLs", async () => {
 
 	expect(lines(el)).toBe("/\n/styles.css");
 });
-
-// --- data --------------------------------------------------------------------
 
 test("the dataset files (a yaml + a json) are accessible as site data", async () => {
 	const el = await window.cc_components?.["globals-data"]({});
@@ -104,13 +90,9 @@ test("site data can be queried with where, index, and default", async () => {
 	expect(lines(el)).toBe("Home\nHome\nfallback");
 });
 
-// --- pages -------------------------------------------------------------------
-
 test("page collections are safe and empty-ish in the editor site", async () => {
 	const el = await window.cc_components?.["globals-collections"]({});
 
-	// With no content at all, the home page is Hugo's virtual one: it exists,
-	// and its title falls back to the site title.
 	expect(lines(el)).toBe(
 		"regularPages=0\npages=1\nsections=0\nhomeTitle=Hugo Unit Fixture\nhomeRegularPages=0",
 	);
@@ -121,8 +103,6 @@ test("site.GetPage resolves the home page and misses elsewhere", async () => {
 
 	expect(lines(el)).toBe("home=Hugo Unit Fixture\nmissing");
 });
-
-// --- hugo.* namespace --------------------------------------------------------
 
 test("hugo.* reports the version and the editor runtime flags", async () => {
 	const el = await window.cc_components?.["globals-hugo"]({});
@@ -145,8 +125,6 @@ test("hugo.Sites lists the editor site", async () => {
 
 	expect(lines(el)).toBe("1\nHugo Unit Fixture");
 });
-
-// --- composition --------------------------------------------------------------
 
 test("site stays in scope inside a nested partial the component calls", async () => {
 	const el = await window.cc_components?.["globals-parent"]({});

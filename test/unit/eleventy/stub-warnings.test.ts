@@ -1,18 +1,11 @@
-/**
- * Every Eleventy config calls `addPlugin(editableRegions)`, and this plugin's own
- * module is always stubbed in the browser bundle — so the replay-time stub warning
- * fired on every site, for a skip that is expected and not actionable. Other
- * specifiers still warn, because there the advice is worth acting on.
- *
- * `setStubsStrict` is one-way, so the strict case goes last.
- */
+// `setStubsStrict` is one-way, so the strict case goes last.
 
 import { afterEach, expect, test, vi } from "vitest";
 
 import {
 	onStubInvoked,
 	setStubsStrict,
-} from "../../../integrations/eleventy/browser/stub-mode.mjs";
+} from "../../../integrations/eleventy/browser/stub-mode.js";
 
 afterEach(() => {
 	vi.restoreAllMocks();

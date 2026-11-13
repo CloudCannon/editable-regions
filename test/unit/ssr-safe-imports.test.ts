@@ -1,17 +1,12 @@
 // @vitest-environment node
-/**
- * The framework integration entries (vue, svelte, react) are evaluated in
- * Node during SSR — Next.js, Nuxt and SvelteKit all import them into their
- * server bundles. `helpers/cloudcannon.mjs` must therefore evaluate without
- * `window` or `document`.
- */
+// SSR server bundles (Next.js, Nuxt, SvelteKit) evaluate these entries in Node, so `helpers/cloudcannon.ts` must not touch `window` or `document`.
 
 import { expect, test, vi } from "vitest";
 
 test("the CloudCannon helper module evaluates without window or document", async () => {
 	vi.resetModules();
 
-	const module = await import("../../helpers/cloudcannon.mjs");
+	const module = await import("../../helpers/cloudcannon.js");
 
 	expect(module.apiLoadedPromise).toBeInstanceOf(Promise);
 	expect(typeof module.addEditableComponentRenderer).toBe("function");
@@ -22,9 +17,9 @@ test("the CloudCannon helper module evaluates without window or document", async
 test("importing the vue and svelte integration entries evaluates in Node", async () => {
 	vi.resetModules();
 
-	const vue = await import("../../integrations/vue.mjs");
-	const svelte = await import("../../integrations/svelte/index.mjs");
-	const react = await import("../../integrations/react.mjs");
+	const vue = await import("../../integrations/vue.js");
+	const svelte = await import("../../integrations/svelte/index.js");
+	const react = await import("../../integrations/react.js");
 
 	expect(typeof vue.registerVueComponent).toBe("function");
 	expect(vue.EditableRegions).toBeTypeOf("object");

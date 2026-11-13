@@ -2,16 +2,16 @@ import { mount, unmount } from "svelte";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import EditableRegions from "../../../integrations/svelte/EditableRegions.svelte";
-import { EditableRegionsShell } from "../_fixtures/svelte/components";
+import { EditableRegionsShell } from "../_fixtures/svelte/components.js";
 
 class MockEditable {
-	static instances = [];
+	static instances: MockEditable[] = [];
 
-	element;
+	element: Element;
 	connectCount = 0;
 	disconnectCount = 0;
 
-	constructor(element) {
+	constructor(element: Element) {
 		this.element = element;
 		MockEditable.instances.push(this);
 	}
@@ -25,7 +25,7 @@ class MockEditable {
 	}
 }
 
-const instances = [];
+const instances: ReturnType<typeof mount>[] = [];
 
 beforeEach(() => {
 	MockEditable.instances = [];
@@ -37,13 +37,13 @@ beforeEach(() => {
 
 afterEach(() => {
 	while (instances.length > 0) {
-		unmount(instances.pop());
+		const instance = instances.pop();
+		if (instance) unmount(instance);
 	}
 	vi.mocked(console.warn).mockRestore();
 });
 
-/** Mounts a component into a fresh target and tracks it for unmount. */
-const render = (component, props = {}) => {
+const render = (component: Parameters<typeof mount>[0], props = {}) => {
 	const target = document.createElement("div");
 	document.body.appendChild(target);
 	const instance = mount(component, { target, props });
@@ -120,7 +120,8 @@ test("ignores the load event after unmount", async () => {
 	render(EditableRegions, {});
 	await vi.waitFor(() => expect(renderedRegion(document.body)).not.toBeNull());
 
-	unmount(instances.pop());
+	const instance = instances.pop();
+	if (instance) unmount(instance);
 	instances.length = 0;
 
 	(window as any).editableRegions = { Editable: MockEditable };
@@ -137,7 +138,8 @@ test("disconnects on unmount", async () => {
 		expect(MockEditable.instances[0]?.connectCount).toBe(1),
 	);
 
-	unmount(instances.pop());
+	const instance = instances.pop();
+	if (instance) unmount(instance);
 	instances.length = 0;
 	expect(MockEditable.instances[0].disconnectCount).toBe(1);
 });

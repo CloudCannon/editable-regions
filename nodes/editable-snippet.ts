@@ -1,4 +1,4 @@
-import { getEditableSnippetRenderers } from "../helpers/cloudcannon.mjs";
+import { getEditableSnippetRenderers } from "../helpers/cloudcannon.js";
 import Editable from "./editable.js";
 import EditableComponent from "./editable-component.js";
 
