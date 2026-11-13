@@ -1,4 +1,4 @@
-import type { TagToken } from "liquidjs";
+import type { Operators, TagToken } from "liquidjs";
 import { evalToken, Tokenizer, toPromise } from "liquidjs";
 import { group, groupEnd, log } from "./logger.js";
 import type { LiquidTagImpl } from "./tag-types.js";
@@ -9,10 +9,7 @@ export function createShortcodeTag(
 ): LiquidTagImpl {
 	const tag: LiquidTagImpl = {
 		parse(tagToken) {
-			this.argTokens = parseArgs(
-				tagToken.args,
-				(this.liquid.options as any).operatorsTrie,
-			);
+			this.argTokens = parseArgs(tagToken.args, this.liquid.options.operators);
 		},
 
 		async render(context) {
@@ -34,10 +31,7 @@ export function createPairedShortcodeTag(
 
 	const tag: LiquidTagImpl = {
 		parse(tagToken, remainTokens) {
-			this.argTokens = parseArgs(
-				tagToken.args,
-				(this.liquid.options as any).operatorsTrie,
-			);
+			this.argTokens = parseArgs(tagToken.args, this.liquid.options.operators);
 			this.templates = [];
 
 			while (remainTokens.length) {
@@ -71,12 +65,12 @@ export function createPairedShortcodeTag(
 	return tag;
 }
 
-export function parseArgs(argsString: string, operatorsTrie: any): any[] {
+export function parseArgs(argsString: string, operators: Operators): any[] {
 	if (!argsString?.trim()) {
 		return [];
 	}
 
-	const tokenizer = new Tokenizer(argsString, operatorsTrie);
+	const tokenizer = new Tokenizer(argsString, operators);
 	const tokens = [];
 
 	while (true) {

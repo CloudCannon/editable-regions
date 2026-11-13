@@ -11,7 +11,7 @@ export function createIncludeWithTag(_liquidEngine: Liquid): LiquidTagImpl {
 		parse(tagToken) {
 			const tokenizer = new Tokenizer(
 				tagToken.args,
-				(this.liquid.options as any).operatorsTrie,
+				this.liquid.options.operators,
 			);
 
 			this.pathToken = tokenizer.readValue();

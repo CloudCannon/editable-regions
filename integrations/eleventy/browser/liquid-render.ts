@@ -11,10 +11,7 @@ export function createRenderTemplateTag(_liquidEngine: Liquid): LiquidTagImpl {
 	return {
 		parse(tagToken, remainTokens) {
 			this.name = tagToken.name;
-			this.argTokens = parseArgs(
-				tagToken.args,
-				(this.liquid.options as any).operatorsTrie,
-			);
+			this.argTokens = parseArgs(tagToken.args, this.liquid.options.operators);
 			this.bodyTokens = [];
 
 			const endTagName = `end${this.name}`;
