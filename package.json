@@ -131,7 +131,7 @@
     "vue-tsc": "3.3.14"
   },
   "dependencies": {
-    "@cloudcannon/configuration-types": "0.0.66",
+    "@cloudcannon/configuration-types": "0.0.67",
     "esbuild": "0.28.2"
   }
 }
