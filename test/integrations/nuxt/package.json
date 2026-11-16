@@ -14,7 +14,7 @@
 		"@cloudcannon/editable-regions": "file:../../..",
 		"js-yaml": "4.3.2",
 		"markdown-it": "14.3.1",
-		"nuxt": "4.5.2",
+		"nuxt": "4.6.4",
 		"vue": "3.5.40",
 		"vue-router": "4.6.4"
 	},
