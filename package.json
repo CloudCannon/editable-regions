@@ -105,19 +105,19 @@
     "./internal/styles": "./styles/index.js"
   },
   "devDependencies": {
-    "@astrojs/react": "7.1.5",
-    "@astrojs/svelte": "9.1.2",
-    "@astrojs/vue": "7.1.2",
-    "@biomejs/biome": "2.6.6",
-    "@cloudcannon/visual-editor-api": "0.0.21",
+    "@astrojs/react": "7.1.8",
+    "@astrojs/svelte": "9.1.5",
+    "@astrojs/vue": "7.1.5",
+    "@biomejs/biome": "2.6.7",
+    "@cloudcannon/visual-editor-api": "0.0.22",
     "@sindresorhus/slugify": "4.0.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/js-beautify": "1.14.3",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-vue": "6.0.10",
-    "astro": "7.4.8",
+    "@vitejs/plugin-vue": "6.0.11",
+    "astro": "7.4.11",
     "happy-dom": "21.0.4",
     "js-beautify": "2.0.3",
     "liquidjs": "10.30.1",
@@ -131,7 +131,7 @@
     "vue-tsc": "3.3.14"
   },
   "dependencies": {
-    "@cloudcannon/configuration-types": "0.0.67",
+    "@cloudcannon/configuration-types": "0.0.68",
     "esbuild": "0.28.2"
   }
 }
