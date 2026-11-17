@@ -1,9 +1,5 @@
-/**
- * Installs the CloudCannon Visual Editor API mock on `window` so that
- * `helpers/cloudcannon.mjs` takes its synchronous `window.CloudCannonAPI`
- * path at module load. Test files inject data via `./_mocks/cloudcannon`.
- */
-import { createMockApi } from "./_mocks/cloudcannon";
+/** Installs the API mock on `window` before `helpers/cloudcannon.ts` reads it at module load. */
+import { createMockApi } from "./_mocks/cloudcannon.js";
 
 if (typeof window !== "undefined") {
 	(window as any).CloudCannonAPI = {

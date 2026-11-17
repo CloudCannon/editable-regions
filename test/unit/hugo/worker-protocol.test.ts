@@ -1,16 +1,11 @@
-/**
- * Worker protocol tests: the worker entry's message router against a mocked
- * HugoWasm, and the main-thread HugoRenderer against a fake Worker. The real
- * engine boots elsewhere (no Worker implementation in happy-dom), so these
- * pin the message contract and transport selection only.
- */
+/** No Worker in happy-dom, so the engine is mocked; these pin the message contract and transport selection. */
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type {
 	WorkerRequest,
 	WorkerResponse,
-} from "../../../integrations/hugo/browser/worker-protocol.ts";
+} from "../../../integrations/hugo/browser/worker-protocol.js";
 
 const mocks = vi.hoisted(() => ({
 	boot: vi.fn(),
@@ -21,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 	instances: [] as unknown[],
 }));
 
-vi.mock("../../../integrations/hugo/browser/hugo-wasm.ts", () => ({
+vi.mock("../../../integrations/hugo/browser/hugo-wasm.js", () => ({
 	HugoWasm: class {
 		constructor() {
 			mocks.instances.push(this);
@@ -34,8 +29,8 @@ vi.mock("../../../integrations/hugo/browser/hugo-wasm.ts", () => ({
 	},
 }));
 
-import { HugoRenderer } from "../../../integrations/hugo/browser/hugo-renderer.ts";
-import { handleWorkerMessage } from "../../../integrations/hugo/browser/worker.ts";
+import { HugoRenderer } from "../../../integrations/hugo/browser/hugo-renderer.js";
+import { handleWorkerMessage } from "../../../integrations/hugo/browser/worker.js";
 
 let posted: WorkerResponse[] = [];
 

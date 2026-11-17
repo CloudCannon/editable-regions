@@ -1,23 +1,19 @@
-/**
- * Content loading and collections: the editor site's content tree comes from
- * the CloudCannon API at runtime (front matter only, blank bodies) and is
- * queried with the full Hugo collection surface. The page being edited is
- * captured once at boot (navigating reboots the editor), and its stub is
- * opted into publishing so it renders through the cascade.
- */
+/** Content arrives as empty-bodied front matter; the edited page is captured once at boot. */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockCollection,
 	setMockCollectionsList,
 	setMockCurrentFile,
 	setMockFiles,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-/** Builds a mock API file from its front matter; only data.get() is used. */
 function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
 	return {
 		path,
@@ -27,7 +23,6 @@ function mkFile(path: string, frontMatter: Record<string, any>): MockFile {
 	};
 }
 
-/** The fixture's front matter, exactly as its content files define it. */
 const home = mkFile("/content/_index.md", {
 	title: "Home",
 	// Explicit date so home doesn't inherit Hugo's default "latest content date".
@@ -66,24 +61,16 @@ const about = mkFile("/content/about.md", {
 
 const bootFiles = [home, blogIndex, one, two, about];
 setMockFiles(bootFiles);
-// One collection mirrors every boot content file as a stub (verbatim source
-// paths under the editor's default content dir); the runtime doesn't read
-// CloudCannon.files().
+// One collection mirrors every boot file as a stub; the runtime ignores CloudCannon.files().
 setMockCollectionsList([makeMockCollection("content", bootFiles)]);
-// The page being edited for this whole boot, captured by the runtime once
-// before the engine starts (home-page fallback: home-page.test.ts).
 setMockCurrentFile(one);
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** The probe partials emit one field per line; strip tags, keep the lines. */
 function lines(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }
-
-// --- Current page context ------------------------------------------------
 
 test("a component sees the boot-time current page's title, params, and identity as `page`", async () => {
 	const el = await window.cc_components?.["page-context"]({
@@ -92,15 +79,15 @@ test("a component sees the boot-time current page's title, params, and identity 
 
 	expect(lines(el)).toBe(
 		[
-			"One", // page.Title from the loaded front matter
-			"alice", // page.Params.author
-			"blog", // page.Section
-			"/blog/one/", // page.RelPermalink
-			"page", // page.Kind
-			"2025-01-15", // page.Date from front matter
-			"length=0", // bodies stay blank in the editor
-			"", // page.Params.theme (not set on this page)
-			"Prop One", // props still arrive as the component's context
+			"One",
+			"alice",
+			"blog",
+			"/blog/one/",
+			"page",
+			"2025-01-15",
+			"length=0",
+			"",
+			"Prop One",
 		].join("\n"),
 	);
 });
@@ -110,12 +97,12 @@ test("the editor site's page tree reflects the loaded front matter", async () =>
 
 	expect(lines(el)).toBe(
 		[
-			"3", // one, two, about (regular pages)
-			"One|blog|alice|2025-01-15", // ByDate ascending
+			"3",
+			"One|blog|alice|2025-01-15",
 			"Two|blog|bob|2025-02-20",
 			"About||carol|2025-03-05",
-			"One|alice", // site.GetPage over a loaded stub
-			"Card From Front Matter", // site.Home.Params from the real home stub
+			"One|alice",
+			"Card From Front Matter",
 		].join("\n"),
 	);
 });
@@ -125,23 +112,19 @@ test("the full collections surface queries the loaded tree", async () => {
 
 	expect(lines(el)).toBe(
 		[
-			"1", // site.Pages of kind home
-			"1", // ...kind section (blog — the headless dispatch page stays out)
-			"3", // ...kind page (one, two, about)
-			"1|Blog;", // site.Sections
-			"2", // where site.RegularPages "Section" "blog"
-			"1", // where site.RegularPages "Params.author" "alice"
-			"Blog|Posts from the fixture.|2", // site.GetPage "/blog/" → section with params
-			"2|1", // site.Home.Pages | site.Home.RegularPages — under the render-link
-			// cascade, home's list surfaces only its direct children (the blog
-			// section + about); descendants under the link section stay out.
-			"The first post.|0", // .Summary honors front matter summary; blank body stays blank
-			"About;One;Two;", // site.RegularPages.ByTitle
+			"1",
+			"1",
+			"3",
+			"1|Blog;",
+			"2",
+			"1",
+			"Blog|Posts from the fixture.|2",
+			"2|1",
+			"The first post.|0",
+			"About;One;Two;",
 		].join("\n"),
 	);
 });
-
-// --- Steady state --------------------------------------------------------
 
 test("re-renders stay fresh through repeated renders of the same page", async () => {
 	const first = await window.cc_components?.["page-context"]({
@@ -157,8 +140,6 @@ test("re-renders stay fresh through repeated renders of the same page", async ()
 });
 
 test("the session target is fixed at boot: later current-file changes don't switch pages", async () => {
-	// Navigating reboots the editor (fresh page load), so the runtime never
-	// re-reads the current page after boot.
 	setMockCurrentFile(two);
 	const el = await window.cc_components?.["page-context"]({
 		title: "Still One",

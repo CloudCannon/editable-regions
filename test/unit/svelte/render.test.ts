@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
 import {
 	CounterComponent,
 	StaticComponent,
-} from "../_fixtures/svelte/components";
+} from "../_fixtures/svelte/components.js";
 
 test("the registered renderer returns an HTMLElement (a <div> root)", async () => {
 	registerSvelteComponent("svelte-static", StaticComponent);

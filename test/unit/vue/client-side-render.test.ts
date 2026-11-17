@@ -1,14 +1,10 @@
 import { expect, test } from "vitest";
 import { nextTick } from "vue";
 
-import { registerVueComponent } from "../../../integrations/vue.mjs";
-import { EditableComponent } from "../../../nodes/index.ts";
-import { InteractiveCounter } from "../_fixtures/vue/interactive-counter";
+import { registerVueComponent } from "../../../integrations/vue.js";
+import { EditableComponent } from "../../../nodes/index.js";
+import { InteractiveCounter } from "../_fixtures/vue/interactive-counter.js";
 
-/**
- * Mounts an EditableComponent on a host element, renders it, and returns
- * the editable so tests can drive re-renders via `update`.
- */
 async function mountComponent(
 	key: string,
 	value: Record<string, unknown> = {},
@@ -53,16 +49,13 @@ test("interactivity still works after a re-render triggered by update", async ()
 	registerVueComponent("interactive-counter", InteractiveCounter);
 	const editable = await mountComponent("interactive-counter");
 
-	// Interact once to prove the component is live
 	const button1 =
 		editable.element.querySelector<HTMLButtonElement>(".increment");
 	button1?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 	await nextTick();
 	expect(editable.element.querySelector(".count")?.textContent).toBe("1");
 
-	// Re-render creates a fresh Vue app, so state resets to 0. But the
-	// original instance survives and stays reactive — a click increments
-	// its surviving state (1→2). See TODO.md for details.
+	// A re-render builds a fresh Vue app (state resets to 0) but the old instance stays reactive (1→2).
 	editable.value = {};
 	await editable.update();
 
@@ -86,7 +79,7 @@ test("the re-rendered DOM matches the snapshot", async () => {
 	editable.value = {};
 	await editable.update();
 
-	// Snapshot inner HTML (excludes the controls element with a random anchor name).
+	// Snapshot inner HTML: the controls element has a random anchor name.
 	const inner = editable.element.querySelector(".interactive-counter");
 	expect(inner?.outerHTML).toMatchSnapshot();
 });

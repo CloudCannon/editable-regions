@@ -1,33 +1,19 @@
-/**
- * EditableImage click handling. Loading an image's input config costs a
- * `get-input-config` round trip per configured prop (src, alt and title), and
- * the region is in the DOM, mounted and rendered for that whole window. A
- * click that lands inside it must still open the data panel, and must open it
- * with the loaded config rather than an empty one.
- */
-
 import { beforeEach, expect, test, vi } from "vitest";
 
-import "../../../components/editable-image-component";
-import type { MockFile } from "../_mocks/cloudcannon";
+import "../../../components/editable-image-component.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	getMockCustomDataPanels,
 	resetMock,
 	setMockCurrentFile,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
 interface InputConfigGate {
-	/** Resolves every pending and subsequent `getInputConfig()` call. */
 	open: () => void;
-	/** How many `get-input-config` calls the region has made. */
 	callCount: () => number;
 }
 
-/**
- * Builds the current file, holding every `get-input-config` answer behind a
- * gate so a test can click while the config is still in flight. The calls are
- * sequential, so opening the gate once releases all of them.
- */
+// Holds every `get-input-config` answer behind a gate so a test can click while the config is in flight; the calls are sequential, so opening once releases all.
 function mockCurrentFile(data: Record<string, any>): InputConfigGate {
 	let opened = false;
 	let callCount = 0;
@@ -65,7 +51,6 @@ function mockCurrentFile(data: Record<string, any>): InputConfigGate {
 	};
 }
 
-/** Mounts `<editable-image data-prop="image">` and waits for its first render. */
 async function mountImageRegion(): Promise<HTMLImageElement> {
 	const region = document.createElement("editable-image");
 	region.dataset.prop = "image";

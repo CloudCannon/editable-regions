@@ -1,17 +1,10 @@
-/**
- * Renderer tests for `templates_overrides`: a key path -> source path map whose
- * source contents are copied over the template snapshot at the key path, so an
- * overridden component renders through Hugo's normal partial lookup — no
- * bespoke override handling in the renderer.
- */
-
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import {
 	loadHugoBundle,
 	restoreRendererStdout,
 	useHugoFixture,
-} from "../_helpers/hugo-bundle";
+} from "../_helpers/hugo-bundle.js";
 
 // Built fixture bundle — run `npm run test:build-hugo-templates-overrides` first.
 useHugoFixture("hugo-templates-overrides");
@@ -19,7 +12,6 @@ useHugoFixture("hugo-templates-overrides");
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** The probe partials emit a single `<p>`; read its text. */
 function text(el: HTMLElement | null | undefined): string {
 	return (el?.querySelector("p")?.textContent ?? "").trim();
 }

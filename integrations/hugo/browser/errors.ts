@@ -1,19 +1,12 @@
-/**
- * Maps raw Hugo renderer errors to actionable messages. The message ends up
- * on the core's component error card, so it should tell the user what to fix.
- */
-
 const TEMPLATE_FRAME_RE =
 	/^template: (.+?): executing ".*?" at .*?: error calling (.+?): /;
 const FAILED_SEPARATOR = ": execute of template failed: ";
 const TEMPLATE_FRAME_START = "template: ";
 
 export interface ParsedHugoError {
-	/** Template refs (file:line:column), outermost call first. */
+	/** file:line:column refs, outermost call first. */
 	frames: string[];
-	/** The template function whose call failed in the innermost frame. */
 	call?: string;
-	/** The underlying error, with the template-call chain stripped. */
 	message: string;
 	/** Wrapper text ahead of the first template frame (e.g. a build-error prefix). */
 	prefix?: string;
@@ -21,9 +14,7 @@ export interface ParsedHugoError {
 
 export function parseHugoTemplateError(raw: string): ParsedHugoError {
 	const trimmed = raw.trim();
-	// Build errors arrive wrapped ("editor site build failed: ...") ahead of the
-	// template chain, so start parsing at the first frame and keep the wrapper
-	// as context.
+	// Build errors arrive wrapped, so parse from the first frame and keep the wrapper.
 	const start = trimmed.indexOf(TEMPLATE_FRAME_START);
 	const prefix = start > 0 ? trimmed.slice(0, start) : "";
 	let rest = start > 0 ? trimmed.slice(start) : trimmed;
@@ -51,7 +42,6 @@ export function parseHugoTemplateError(raw: string): ParsedHugoError {
 		}
 	}
 
-	// No template chain (a content/config error, say) — keep the whole message.
 	if (frames.length === 0) {
 		return { frames, message: trimmed };
 	}
@@ -59,7 +49,6 @@ export function parseHugoTemplateError(raw: string): ParsedHugoError {
 	return { frames, call, message: rest, prefix: prefix || undefined };
 }
 
-/** An error enhanced with an optional editor-context hint. */
 export type HugoError = Error & { hint?: string };
 
 export function enhanceHugoError(
@@ -112,8 +101,7 @@ export function enhanceHugoError(
 	return error;
 }
 
-/** Error for a partial missing from the editor's template bundle; raised when
- * the dispatch layout's `templates.Exists` check fails. */
+/** Raised when the dispatch layout's `templates.Exists` check finds no partial. */
 export function missingComponentError(componentKey: string): Error {
 	return new Error(
 		`No Hugo partial found for component "${componentKey}". This partial ` +

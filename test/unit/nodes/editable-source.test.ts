@@ -1,19 +1,10 @@
-/**
- * EditableSource validation and input config. Source regions read their
- * options from HTML attributes: `data-path`/`data-key` are required, and the
- * editor's input config comes from either inline `data-input-config` JSON or a
- * `data-input` slug resolved through the API. The validation methods are
- * exercised directly (they don't need the region connected).
- */
-
 import { beforeEach, expect, test } from "vitest";
 
-import { CloudCannon } from "../../../helpers/cloudcannon.mjs";
+import { CloudCannon } from "../../../helpers/cloudcannon.js";
 import EditableSource from "../../../nodes/editable-source.js";
-import type { MockFile } from "../_mocks/cloudcannon";
-import { resetMock } from "../_mocks/cloudcannon";
+import type { MockFile } from "../_mocks/cloudcannon.js";
+import { resetMock } from "../_mocks/cloudcannon.js";
 
-/** A detached-but-attached source region element with the given dataset. */
 function sourceElement(dataset: Record<string, string>): HTMLElement {
 	const el = document.createElement("div");
 	for (const [key, value] of Object.entries(dataset)) {
@@ -27,7 +18,6 @@ function errorCard(el: HTMLElement): Element | null {
 	return el.querySelector("editable-region-error-card");
 }
 
-/** A mock file that records `getInputConfig` slugs and answers with `config`. */
 function mockFile(config: unknown): MockFile & {
 	getInputConfigCalls: string[];
 } {
@@ -64,8 +54,6 @@ beforeEach(() => {
 	};
 });
 
-// --- validateConfiguration: required attributes ---------------------------
-
 test("requires a data-path attribute", () => {
 	const el = sourceElement({ key: "intro" });
 	const source = new EditableSource(el);
@@ -84,8 +72,6 @@ test("requires a data-key attribute", () => {
 	expect(source.validateConfiguration()).toBe(false);
 	expect(errorCard(el)?.getAttribute("message")).toContain("'data-key'");
 });
-
-// --- validateConfiguration: data-input-config -----------------------------
 
 test("accepts a region with no input config", () => {
 	const el = sourceElement({ path: "/src/pages/index.astro", key: "intro" });
@@ -146,8 +132,6 @@ test("reports invalid JSON and surfaces the parse error as a hint", () => {
 	expect(card?.getAttribute("hint")).toBeTruthy();
 });
 
-// --- validateValue --------------------------------------------------------
-
 test("validateValue accepts null", () => {
 	const el = sourceElement({ path: "/src/pages/index.astro", key: "intro" });
 	const source = new EditableSource(el);
@@ -191,8 +175,6 @@ test("validateValue returns a valid source string", () => {
 	expect(source.validateValue(value)).toBe(value);
 	expect(errorCard(el)).toBeNull();
 });
-
-// --- mountEditor: input config resolution ---------------------------------
 
 test("mountEditor resolves the input config from data-input", async () => {
 	const el = sourceElement({

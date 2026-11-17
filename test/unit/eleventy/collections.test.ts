@@ -3,18 +3,18 @@ import {
 	buildCollectionsData,
 	buildPageData,
 	resetCollectionsCache,
-} from "../../../integrations/liquid/globals.mjs";
-import { registerPageMap } from "../../../integrations/liquid/page-map.mjs";
-import { componentsReady } from "../_helpers/live-editing";
+} from "../../../integrations/liquid/globals.js";
+import { registerPageMap } from "../../../integrations/liquid/page-map.js";
+import { componentsReady } from "../_helpers/live-editing.js";
 import {
 	type MockCollection,
 	type MockFile,
 	resetMock,
 	setMockCollectionsList,
 	setMockCurrentFile,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
-// Import the built bundle to wire the shared Liquid engine + builtins.
+// Import side effect: wires the shared Liquid engine + builtins.
 import "../_fixtures/eleventy/_site/register-components.js";
 
 beforeAll(componentsReady);
@@ -42,7 +42,6 @@ function makeMockCollection(key: string, files: MockFile[]): MockCollection {
 }
 
 beforeAll(() => {
-	// Ensure clean collections state after the bundle import resolves apiLoadedPromise.
 	resetCollectionsCache();
 });
 
@@ -50,10 +49,6 @@ beforeEach(() => {
 	resetMock();
 	resetCollectionsCache();
 });
-
-// Each key is a lazy getter returning a `Promise` of its items, so these
-// await it. Templates never do — LiquidJS awaits during expression
-// evaluation, which the `collections-demo` renders below cover.
 
 test("buildCollectionsData returns collection items with the correct shape", async () => {
 	const posts = [
@@ -103,7 +98,6 @@ test("buildCollectionsData falls back to folder-style default URL when no permal
 
 	const collections = await buildCollectionsData();
 
-	// Default URL derived from the input path — `src/` is part of the path.
 	const [first] = await collections.posts;
 	expect(first.url).toBe("/src/posts/first/");
 });
@@ -156,7 +150,6 @@ test("resetCollectionsCache clears the cached collections", async () => {
 	await buildCollectionsData();
 	resetCollectionsCache();
 
-	// After reset, a new call should rebuild.
 	setMockCollectionsList([
 		makeMockCollection("posts", [
 			makeMockFile("src/posts/first.md", { title: "Updated" }),
@@ -168,13 +161,6 @@ test("resetCollectionsCache clears the cached collections", async () => {
 	expect(await collections.posts).toHaveLength(2);
 });
 
-// --- Laziness ---
-//
-// The bug this guards: every file in every collection used to be fetched on
-// the first render, one HTTP GET each, exhausting the browser's connection
-// pool and failing the overflow with `ERR_INSUFFICIENT_RESOURCES`.
-
-/** A collection whose `items()` and per-file `data.get()` calls are counted. */
 function makeCountedCollection(key: string, count: number) {
 	const stats = { items: 0, gets: 0, inFlight: 0, peakInFlight: 0 };
 
@@ -233,8 +219,7 @@ test("reading one collection does not fetch the others", async () => {
 });
 
 test("collection keys are enumerable without fetching", async () => {
-	// A Proxy would satisfy the lazy requirement but break this — and break
-	// LiquidJS, which probes `next`/`toLiquid` on every object it resolves.
+	// A Proxy would break key enumeration and confuse LiquidJS's `next`/`toLiquid` probing.
 	const posts = makeCountedCollection("posts", 3);
 	const pages = makeCountedCollection("pages", 3);
 	setMockCollectionsList([posts.collection, pages.collection]);
@@ -264,8 +249,6 @@ test("an unknown collection name has no getter and fetches nothing", async () =>
 
 	const collections = await buildCollectionsData();
 
-	// No key, so plain `undefined` — Liquid renders that as empty / size 0,
-	// which `collections-demo` asserts.
 	expect(collections.nope).toBeUndefined();
 	expect(posts.stats.gets).toBe(0);
 });
@@ -279,26 +262,12 @@ test("file fetches are capped so they can't exhaust the connection pool", async 
 
 	expect(items).toHaveLength(200);
 	expect(posts.stats.peakInFlight).toBeLessThanOrEqual(24);
-	// Bounded, but still concurrent — a regression to serial would be slow.
 	expect(posts.stats.peakInFlight).toBeGreaterThan(1);
-	// Order survives the worker pool.
 	expect(items[0].data.title).toBe("posts 0");
 	expect(items[199].data.title).toBe("posts 199");
 });
 
-// --- Through real Liquid ---
-//
-// The contract that actually matters, and the one the white-box tests above
-// can't see: templates have no `await`, so the lazy getters must be invisible
-// in a template.
-
-/**
- * Renders `collections-demo` against a two-post `posts` collection.
- *
- * This drives the *bundled* runtime, not the modules imported above — mock
- * data reaches it via `window.CloudCannonAPI`, but `registerPageMap` would
- * not, hence the literal front-matter `permalink`.
- */
+// Bundled runtime can't see `registerPageMap`, hence the literal permalink.
 async function renderCollectionsDemo() {
 	setMockCollectionsList([
 		makeMockCollection("posts", [
@@ -349,10 +318,6 @@ test("an unknown collection renders as empty rather than erroring", async () => 
 	expect(el?.querySelector("[data-missing-size]")?.textContent).toBe("0");
 });
 
-// Serialising the *whole* object is the one documented gap — `JSON.stringify`
-// can't await the getters. See the README limitations table. Not asserted
-// here: resurrecting it would mean going eager again, which the laziness
-// tests above catch by name.
 test("a single collection serialises with the json filter", async () => {
 	const el = await renderCollectionsDemo();
 

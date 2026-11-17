@@ -1,23 +1,23 @@
-<script>
+<script lang="ts">
 	import { onDestroy, onMount } from "svelte";
+	import type { EditableRegionsGlobal } from "../../helpers/globals.js";
 
-	// Element type to render. Defaults to "div".
-	/** @type {string | undefined} */
-	export let tag = "div";
+	export let tag: string = "div";
 
-	/** @type {any} */
-	let editable = null;
-	/** @type {HTMLElement | undefined} */
-	let element;
-	/** @type {(() => void) | null} */
-	let pendingLoadHandler = null;
+	type EditableInstance = {
+		connect: () => void;
+		disconnect: () => void;
+	};
 
-	// data-prop and data-literal attributes are controlled by this component
-	// itself; user-supplied ones are ignored.
+	let editable: EditableInstance | null = null;
+	let element: HTMLElement | undefined;
+	let pendingLoadHandler: (() => void) | null = null;
+
+	// `data-prop` and `data-literal` are controlled here; user-supplied ones are dropped.
 	$: restProps = filterProps($$restProps);
 
-	function filterProps(props) {
-		const filtered = {};
+	function filterProps(props: Record<string, any>): Record<string, any> {
+		const filtered: Record<string, any> = {};
 		for (const [name, value] of Object.entries(props)) {
 			if (/^data-(prop|literal)/i.test(name)) {
 				continue;
@@ -29,11 +29,8 @@
 	}
 
 	onMount(() => {
-		/**
-		 * @param {any} regions
-		 */
-		const connectEditable = (regions) => {
-			if (!regions || editable) {
+		const connectEditable = (regions: EditableRegionsGlobal | undefined) => {
+			if (!regions || editable || !element) {
 				return;
 			}
 
@@ -45,22 +42,17 @@
 			connectEditable(window.editableRegions);
 		} else {
 			pendingLoadHandler = () => {
-			    connectEditable(window.editableRegions);
-		    };
-			document.addEventListener(
-				"editable-regions:load",
-				pendingLoadHandler,
-				{ once: true },
-			);
+				connectEditable(window.editableRegions);
+			};
+			document.addEventListener("editable-regions:load", pendingLoadHandler, {
+				once: true,
+			});
 		}
 	});
 
 	onDestroy(() => {
 		if (pendingLoadHandler) {
-			document.removeEventListener(
-				"editable-regions:load",
-				pendingLoadHandler,
-			);
+			document.removeEventListener("editable-regions:load", pendingLoadHandler);
 			pendingLoadHandler = null;
 		}
 

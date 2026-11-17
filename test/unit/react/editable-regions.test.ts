@@ -1,18 +1,18 @@
 import { createElement } from "react";
 import { flushSync } from "react-dom";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { EditableRegions } from "../../../integrations/react.mjs";
+import { EditableRegions } from "../../../integrations/react.js";
 
 class MockEditable {
-	static instances = [];
+	static instances: MockEditable[] = [];
 
-	element;
+	element: Element;
 	connectCount = 0;
 	disconnectCount = 0;
 
-	constructor(element) {
+	constructor(element: Element) {
 		this.element = element;
 		MockEditable.instances.push(this);
 	}
@@ -37,9 +37,9 @@ afterEach(() => {
 	vi.mocked(console.warn).mockRestore();
 });
 
-const roots = [];
+const roots: Root[] = [];
 
-const renderRegions = (props, children) => {
+const renderRegions = (props: Record<string, any>, children?: boolean) => {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
 	const root = createRoot(container);

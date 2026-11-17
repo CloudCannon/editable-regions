@@ -1,11 +1,4 @@
-/**
- * Shared harness for the direct tests of the Hugo renderer WASM: boots the
- * real Go WASM in Node (no browser bundle, no Hugo build involved) and exposes
- * the renderer's JS surface. Requires `npm run build:hugo` and a rebuild after
- * any renderer source change — the boot freshness-checks the artifact and
- * throws rather than silently booting a stale Hugo. State is sequential, so
- * ordering matters within a file.
- */
+/** Boots the real Go WASM renderer; state is sequential and a stale artifact is refused. */
 
 import fs from "node:fs";
 import path from "node:path";
@@ -13,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { vi } from "vitest";
 
-import { freshnessProblems } from "./freshness";
+import { freshnessProblems } from "./freshness.js";
 
 // Side-effect only: defines `globalThis.Go` and the Node fs shim it needs.
 import "../../../integrations/hugo/browser/wasm_exec.js";
@@ -26,7 +19,6 @@ const GZ_WASM = path.join(
 	"../hugo-module/assets/_cloudcannon/hugo_renderer.wasm.gz",
 );
 
-/** The JS surface the Go renderer exposes on globalThis once running. */
 export interface RendererGlobals {
 	writeHugoFiles(json: string): { error?: string } | null;
 	removeHugoFiles(json: string): { error?: string } | null;
@@ -42,21 +34,14 @@ export function renderer(): RendererGlobals {
 	return globalThis as unknown as RendererGlobals;
 }
 
-// The renderer logs every change event and build to stdout via the wasm_exec
-// fs shim; failures are reported through the return values, not the console.
 let stdoutSpy: ReturnType<typeof vi.spyOn> | undefined;
 
-/** Restores console.log after a suite that ran bootRenderer. */
 export function restoreRendererStdout(): void {
 	stdoutSpy?.mockRestore();
 	stdoutSpy = undefined;
 }
 
-/**
- * Instantiates the WASM renderer and waits for its globals to register; call
- * in `beforeAll` (with `afterAll(restoreRendererStdout)`). Refuses to boot a
- * stale artifact (renderer sources newer than the wasm) and names the rebuild.
- */
+/** Refuses a stale artifact; pair `beforeAll` with `afterAll(restoreRendererStdout)`. */
 export async function bootRenderer(): Promise<void> {
 	stdoutSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -66,7 +51,6 @@ export async function bootRenderer(): Promise<void> {
 			label: "the renderer wasm",
 			artifact,
 			sources: [RENDERER_DIR],
-			// The raw build output inside the walked dir is an artifact.
 			ignore: ["hugo_renderer.wasm"],
 		},
 	]);
@@ -92,17 +76,11 @@ export async function bootRenderer(): Promise<void> {
 	);
 	go.run(instance);
 
-	// The Go side registers its globals synchronously at startup.
 	while (typeof renderer().renderHugoPartials !== "function") {
 		await new Promise((resolve) => setTimeout(resolve, 10));
 	}
 }
 
-/**
- * Writes a site snapshot (config files, partials, data files, content stubs)
- * into the renderer's in-memory filesystem and boots the editor site against
- * it.
- */
 export function initEditorSite(files: Record<string, string>): void {
 	renderer().writeHugoFiles(JSON.stringify(files));
 	const initError = renderer().initHugoEditorSite();
@@ -111,8 +89,6 @@ export function initEditorSite(files: Record<string, string>): void {
 	}
 }
 
-/** Renders a batch of partials with props against one render target (a
- * verbatim file path), mirroring the browser runtime's batched call. */
 export function renderBatch(
 	requests: Array<{
 		id: string;
@@ -135,7 +111,6 @@ export function renderBatch(
 	});
 }
 
-/** Renders one partial through the batched surface (array of one). */
 export function render(
 	partial: string,
 	props: unknown = {},

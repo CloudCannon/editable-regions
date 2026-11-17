@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 

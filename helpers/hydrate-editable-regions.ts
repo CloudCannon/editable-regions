@@ -1,3 +1,4 @@
+import { hasEditable } from "../nodes/editable.js";
 import {
 	Editable,
 	EditableArray,
@@ -6,14 +7,14 @@ import {
 	EditableImage,
 	EditableSource,
 	EditableText,
-} from "../nodes";
-import { hasEditable } from "../nodes/editable.js";
-import { isEditableWebcomponent } from "./checks";
+} from "../nodes/index.js";
+import { isEditableWebcomponent } from "./checks.js";
+import type { EditableRegionConstructor } from "./cloudcannon.js";
 import { createErrorCard } from "./error-card.js";
 
 const DYNAMIC_EDITABLE_TYPE = "_dynamic";
 
-const baseEditableMap: Record<string, typeof Editable | undefined> = {
+const baseEditableMap: Record<string, EditableRegionConstructor | undefined> = {
 	array: EditableArray,
 	"array-item": EditableArrayItem,
 	component: EditableComponent,
@@ -46,9 +47,9 @@ export const dehydrateDataEditableRegions = (root: Element) => {
 };
 
 export const hydrateDataEditableRegions = (root: Element) => {
-	const editableMap: Record<string, typeof Editable | undefined> = {
+	const editableMap: Record<string, EditableRegionConstructor | undefined> = {
 		...baseEditableMap,
-		...((window as any).editableRegionMap ?? {}),
+		...(window.editableRegionMap ?? {}),
 	};
 	if (
 		root instanceof HTMLElement &&
@@ -110,9 +111,7 @@ export const hydrateDataEditableRegions = (root: Element) => {
 	});
 };
 
-const extendedWindow = /** @type {any} */ (window);
-
-Object.assign(extendedWindow, {
+Object.assign(window, {
 	editableRegions: {
 		Editable,
 		EditableArray,

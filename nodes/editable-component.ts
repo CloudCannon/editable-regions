@@ -12,7 +12,7 @@ import type EditableComponentControls from "../components/ui/editable-component-
 import {
 	getEditableComponentRenderers,
 	realizeAPIValue,
-} from "../helpers/cloudcannon.mjs";
+} from "../helpers/cloudcannon.js";
 
 export default class EditableComponent extends Editable {
 	protected controlsElement?: EditableComponentControls;
@@ -134,8 +134,9 @@ export default class EditableComponent extends Editable {
 
 		const value = await realizeAPIValue(this.value);
 		if (value && typeof value === "object" && !Array.isArray(value)) {
-			for (const key of Object.keys(value)) {
-				(value as any)[key] = await realizeAPIValue((value as any)[key]);
+			const realized = value as Record<string, unknown>;
+			for (const key of Object.keys(realized)) {
+				realized[key] = await realizeAPIValue(realized[key]);
 			}
 		}
 
@@ -392,7 +393,7 @@ export default class EditableComponent extends Editable {
 				this.controlsElement = document.createElement(
 					"editable-component-controls",
 				);
-				this.controlsElement.addEventListener("edit", (_e: any) => {
+				this.controlsElement.addEventListener("edit", () => {
 					this.dispatchEdit(editPath);
 				});
 				this.element.append(this.controlsElement);

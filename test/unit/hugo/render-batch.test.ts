@@ -1,10 +1,3 @@
-/**
- * Batched renders: one renderHugoPartials call renders every queued request —
- * all sharing the session's target page — in a single view render, keying
- * each output in a <div data-cc-render="{id}"> wrapper so the browser can
- * demultiplex the combined string back into per-call elements.
- */
-
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import {
@@ -12,9 +5,8 @@ import {
 	initEditorSite,
 	renderBatch,
 	restoreRendererStdout,
-} from "../_helpers/wasm-renderer";
+} from "../_helpers/wasm-renderer.js";
 
-/** The snapshot the browser runtime would feed the renderer at startup. */
 const siteFiles = {
 	"cc-env": "production",
 	"hugo.json": JSON.stringify({ title: "Batch Fixture" }),
@@ -33,7 +25,6 @@ beforeAll(async () => {
 
 afterAll(restoreRendererStdout);
 
-/** Slices one keyed div's inner HTML out of the combined output. */
 function keyedDiv(html: string, id: string): string {
 	const open = `<div data-cc-render="${id}">`;
 	const start = html.indexOf(open);
@@ -66,7 +57,6 @@ test("one batched call renders every request keyed by id, in order", async () =>
 	expect(error).toBeUndefined();
 	expect(keyedDiv(html, "cc-render-0")).toContain("First");
 	expect(keyedDiv(html, "cc-render-1")).toContain('<p class="s">static</p>');
-	// Same partial twice with different props dispatches per request.
 	expect(keyedDiv(html, "cc-render-2")).toContain("Second");
 	expect(html.indexOf("First")).toBeLessThan(html.indexOf("static"));
 	expect(html.indexOf("static")).toBeLessThan(html.indexOf("Second"));
@@ -87,8 +77,7 @@ test("a partial that errors at render time fails only its own keyed div", async 
 		"content/blog/one.md",
 	);
 
-	// The try-wrapped render fails the batch neither as a build error nor as
-	// a renderer error; the failure is contained to the failing request.
+	// A failing request is contained: no build or renderer error.
 	expect(error).toBeUndefined();
 	const failed = keyedDiv(html, "cc-render-0");
 	expect(failed).toContain('<cc-failed-partial data-name="probe-error.html"');
@@ -133,8 +122,7 @@ test("a batch whose target matches no page renders page-less together", async ()
 		"content/nothing.md",
 	);
 
-	// No page backs the target, so `page` binds to Hugo's empty page — every
-	// request still renders, with empty page context.
+	// No page backs the target, so `page` binds to Hugo's empty page.
 	expect(error).toBeUndefined();
 	expect(keyedDiv(html, "cc-render-0")).toBe('<p class="p"></p>');
 	expect(keyedDiv(html, "cc-render-1")).toBe('<p class="p"></p>');

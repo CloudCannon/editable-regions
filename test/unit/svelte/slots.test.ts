@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
 
-import { registerSvelteComponent } from "../../../integrations/svelte/index.mjs";
-import { SlotParent, SlotShell } from "../_fixtures/svelte/components";
+import { registerSvelteComponent } from "../../../integrations/svelte/index.js";
+import { SlotParent, SlotShell } from "../_fixtures/svelte/components.js";
 
 test("a component with a children snippet renders its shell gracefully when no child is provided", async () => {
 	registerSvelteComponent("svelte-slot-shell", SlotShell);
 	const el = await window.cc_components?.["svelte-slot-shell"]({});
 
 	expect(el?.querySelector(".slot-shell")).toBeTruthy();
-	// Svelte renders a comment anchor for an empty snippet — no element children.
+	// Svelte renders an empty-snippet comment anchor, so there are no element children.
 	expect(el?.querySelector(".slot-shell")?.children.length).toBe(0);
 	expect(el?.outerHTML).toMatchSnapshot();
 });

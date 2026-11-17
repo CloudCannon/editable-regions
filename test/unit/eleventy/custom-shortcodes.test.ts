@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from "vitest";
 
-import { componentsReady } from "../_helpers/live-editing";
+import { componentsReady } from "../_helpers/live-editing.js";
 
 import "../_fixtures/eleventy/_site/register-components.js";
 
@@ -16,7 +16,6 @@ test("an auto-mirrored shortcode (addShortcode) renders correctly", async () => 
 test("an auto-mirrored shortcode that closes over module scope renders correctly", async () => {
 	const el = await window.cc_components?.["shortcodes-demo"]({});
 
-	// buildTime closes over `buildInfo` — the closure survives bundling.
 	expect(el?.querySelector("[data-build-time]")?.textContent).toMatch(
 		/^fixture@/,
 	);
@@ -33,7 +32,6 @@ test("an auto-mirrored async shortcode (addAsyncShortcode) renders correctly", a
 test("a shortcode override (diskSize) replaces the non-portable server shortcode", async () => {
 	const el = await window.cc_components?.["shortcodes-demo"]({});
 
-	// Server-side, diskSize calls fs.statSync. Browser override returns "—".
 	expect(el?.querySelector("[data-disk-size]")?.textContent).toBe("—");
 });
 
@@ -83,7 +81,5 @@ test("a paired shortcode override (diskWrap) replaces the non-portable server sh
 test("layer precedence: Liquid-specific shortcode wins over universal on name collision", async () => {
 	const el = await window.cc_components?.["shortcodes-demo"]({});
 
-	// `sizer` is registered via both addShortcode (universal) and
-	// addLiquidShortcode (liquid). The Liquid layer wins.
 	expect(el?.querySelector("[data-sizer]")?.textContent).toBe("liquid-sizer");
 });

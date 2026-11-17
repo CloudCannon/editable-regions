@@ -1,17 +1,47 @@
-import {
-	apiLoadedPromise,
-	CloudCannon,
-} from "../../../helpers/cloudcannon.mjs";
-import { HugoRenderer } from "./hugo-renderer.ts";
-import { log, setVerbose, warn } from "./logger.ts";
+import "../../../helpers/globals.js";
+import { apiLoadedPromise, CloudCannon } from "../../../helpers/cloudcannon.js";
+import { HugoRenderer } from "./hugo-renderer.js";
+import { log, setVerbose, warn } from "./logger.js";
 
-/** A `(props) => HTMLElement` renderer installed on `window.cc_components`. */
+declare global {
+	interface HugoRuntimeMeta {
+		generator?: string;
+		wasmUrl?: string;
+		workerUrl?: string;
+		verbose?: boolean;
+		env?: string;
+	}
+
+	interface HugoEditorResult {
+		error?: string;
+	}
+
+	interface HugoRenderResult {
+		html?: string;
+		error?: string;
+	}
+
+	interface Window {
+		cc_hugo?: HugoRuntimeMeta;
+		cc_hugo_files?: Record<string, string>;
+	}
+
+	/** Set by the WASM renderer once it boots; undefined before that. */
+	function writeHugoFiles(json: string): HugoEditorResult | null;
+	function removeHugoFiles(json: string): HugoEditorResult | null;
+	function readHugoFiles(json: string): Record<string, string>;
+	function initHugoEditorSite(): HugoEditorResult | null;
+	function renderHugoPartials(
+		json: string,
+		callback: (result: HugoRenderResult) => void,
+	): void;
+}
+
 type HugoComponentRenderer = (
 	props?: Record<string, any>,
 ) => Promise<HTMLElement>;
 
-/** The file being edited, captured once at boot; `""` when the open page has
- * no associated file (the renderer then falls back to the home page). */
+/** The open page's file path; `""` falls back to the home page. */
 let currentFilePath = "";
 
 let renderer: HugoRenderer | null = null;
@@ -28,11 +58,7 @@ function getRenderer(): HugoRenderer {
 	return renderer;
 }
 
-/**
- * Entry point, called by the prebuilt runtime bundle. Installs the component
- * proxy immediately and warms the WASM engine once the editor API appears —
- * so loading the script on a production page never fetches the WASM.
- */
+/** Warms WASM only after the editor API appears, so production pages never fetch it. */
 export function initHugoLiveEditing(): void {
 	const files = window.cc_hugo_files ?? {};
 
@@ -125,21 +151,14 @@ async function loadAPIData(engine: HugoRenderer): Promise<void> {
 	}
 }
 
-/**
- * Maps a dataset's source path to its mirrored data-dir path. `.yaml`/`.yml`/`.json`
- * keep their extension (Hugo natively decodes all three); anything else is
- * rewritten to `.json` so a decoder Hugo understands handles it.
- */
+/** Keeps yaml/yml/json extensions (Hugo decodes them natively); mirrors the rest as `.json`. */
 function datasetPath(apiPath: string): string {
 	if (/\.(ya?ml|json)$/i.test(apiPath)) return apiPath;
 	return `${apiPath.replace(/\.[^./]*$/, "")}.json`;
 }
 
-/** Builds the `(props) => HTMLElement` renderer the shared core calls. */
 function createComponentRenderer(key: string): HugoComponentRenderer {
 	return async (props: Record<string, any> = {}) => {
-		// Render only once the engine is ready; the flush then sends the
-		// boot-captured currentFilePath as the batch's shared target.
 		const engine = getRenderer();
 		await engine.ready();
 		return engine.renderPartial(key, props);

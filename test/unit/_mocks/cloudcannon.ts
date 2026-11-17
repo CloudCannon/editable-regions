@@ -1,28 +1,10 @@
 import type { CloudCannonVisualEditorAPIV1 } from "@cloudcannon/visual-editor-api";
 
-/**
- * Mock CloudCannon API for unit tests. `setup.ts` installs this on
- * `window.CloudCannonAPI`. Test files inject data via the configuration
- * helpers (`setMockFiles`, `setMockCollectionsList`, `setMockDatasetsList`,
- * `setMockCurrentFile`, `resetMock`) in a `beforeAll`/`beforeEach` block.
- * State is module-level and isolated per test file (vitest gives each file
- * its own module registry).
- *
- * Collections and datasets created with `makeMockCollection`/`makeMockDataset`
- * own their change/delete listener sets and expose `emit` so tests dispatch
- * a file's event exactly as the real API does (per collection/dataset).
- */
-
 export interface MockFile {
-	/** Source path relative to the site root, e.g. `/src/content/blog/first-post.md`. */
 	path: string;
-	/** Returns parsed front matter / data file contents. */
 	data: { get: () => Promise<Record<string, any>> };
-	/** Returns the full file contents (front matter + body). */
 	get: () => Promise<string>;
-	/** Returns file contents via the CC API shape (`file.content.get()`). */
 	content: { get: () => Promise<string> };
-	/** Answers `get-input-config` API calls for a slug in this file. */
 	getInputConfig?: (options: { slug?: string }) => Promise<any>;
 }
 
@@ -35,38 +17,28 @@ const state = {
 	customDataPanels: [] as any[],
 };
 
-/** Site-wide change/delete listeners, keyed by event name. */
 const siteListeners: Record<string, Set<(event: any) => void>> = {
 	change: new Set(),
 	delete: new Set(),
 };
 
-/** A mock collection that yields items and fires change/delete events. */
 export interface MockCollection {
 	collectionKey: string;
 	items: () => Promise<MockFile[]>;
 	addEventListener: (event: string, handler: (event: any) => void) => void;
 	removeEventListener: (event: string, handler: (event: any) => void) => void;
-	/** Test helper: dispatches a change/delete event to this collection's listeners. */
 	emit?: (event: "change" | "delete", sourcePath: string) => void;
 }
 
-/** A mock dataset that yields a file or files and fires change/delete events. */
 export interface MockDataset {
 	datasetKey: string;
 	items: () => Promise<MockFile | MockFile[]>;
 	addEventListener: (event: string, handler: (event: any) => void) => void;
 	removeEventListener: (event: string, handler: (event: any) => void) => void;
-	/** Test helper: dispatches a change/delete event to this dataset's listeners. */
 	emit?: (event: "change" | "delete", sourcePath: string) => void;
 }
 
-/**
- * Builds a collection object owning its own change/delete listener sets,
- * with an `emit` helper tests use to dispatch events exactly as the real
- * API does per collection (a file's change fires only on its own
- * collection).
- */
+/** Owns its own listeners, so emitting fires only on this collection. */
 export const makeMockCollection = (
 	key: string,
 	files: MockFile[],
@@ -92,7 +64,6 @@ export const makeMockCollection = (
 	};
 };
 
-/** Builds a dataset object with its own listener sets, mirroring makeMockCollection. */
 export const makeMockDataset = (
 	key: string,
 	fileOrFiles: MockFile | MockFile[],
@@ -118,17 +89,15 @@ export const makeMockDataset = (
 	};
 };
 
-/** Replaces the mock file list returned by `CloudCannon.files()`. */
 export const setMockFiles = (files: MockFile[]): void => {
 	state.files = files;
 };
 
-/** Marks which collection keys are "configured" in CloudCannon. Non-configured keys return empty from `collection(key).items()`, triggering the `files()` fallback in the astro:content shim. */
+/** Non-configured keys return empty items(), triggering the `files()` fallback. */
 export const setMockCollections = (keys: string[]): void => {
 	state.configuredCollections = new Set(keys);
 };
 
-/** Resets all mock state to empty. */
 export const resetMock = (): void => {
 	state.files = [];
 	state.configuredCollections.clear();
@@ -140,15 +109,9 @@ export const resetMock = (): void => {
 	siteListeners.delete.clear();
 };
 
-/** The options every `CloudCannon.createCustomDataPanel()` call was given, in order. */
 export const getMockCustomDataPanels = (): any[] => state.customDataPanels;
 
-/**
- * Emits a site-wide `change` event with the given source path, as the real
- * API does when any file is created or updated. Handlers run synchronously;
- * an async handler's work completes on the next microtask, so tests should
- * assert the effect with `vi.waitFor`.
- */
+/** Async handler work lands a microtask later — assert with `vi.waitFor`. */
 export const emitMockApiChange = (
 	sourcePath: string,
 	options: { isNew?: boolean } = {},
@@ -158,26 +121,22 @@ export const emitMockApiChange = (
 	}
 };
 
-/** Emits a site-wide `delete` event with the given source path. */
 export const emitMockApiDelete = (sourcePath: string): void => {
 	for (const handler of siteListeners.delete) {
 		handler({ detail: { sourcePath, isNew: false } });
 	}
 };
 
-/** Sets the file returned by `CloudCannon.currentFile()`. */
 export const setMockCurrentFile = (file: MockFile | null): void => {
 	state.currentFile = file;
 };
 
-/** Sets the collections returned by `CloudCannon.collections()`. */
 export const setMockCollectionsList = (
 	collections: MockCollection[] | null,
 ): void => {
 	state.collectionsList = collections;
 };
 
-/** Sets the datasets returned by `CloudCannon.datasets()`. */
 export const setMockDatasetsList = (datasets: MockDataset[] | null): void => {
 	state.datasetsList = datasets;
 };
@@ -224,10 +183,7 @@ export const createMockApi = (): CloudCannonVisualEditorAPIV1 =>
 		removeEventListener: (event: string, handler: any) => {
 			siteListeners[event]?.delete(handler);
 		},
-		// Used by EditableComponent.realizeAPIValue.
 		engage: () => Promise.resolve(),
-		// Used by EditableImage: `update()` resolves each src through the host, and
-		// clicking an image asks the host to open a data panel for its props.
 		getPreviewUrl: (src: string) => Promise.resolve(src),
 		createCustomDataPanel: (options: any) => {
 			state.customDataPanels.push(options);

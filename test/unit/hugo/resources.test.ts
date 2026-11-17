@@ -1,8 +1,4 @@
-/**
- * resources namespace tests through the real WASM renderer: local lookups
- * resolve against memfs asset mounts, and GetRemote settles through the async
- * render path with fetch stubbed in the host process (no real network).
- */
+/** GetRemote settles through the async render path with fetch stubbed in the host process. */
 
 import { afterAll, afterEach, beforeAll, expect, test, vi } from "vitest";
 
@@ -12,7 +8,7 @@ import {
 	render,
 	renderBatch,
 	restoreRendererStdout,
-} from "../_helpers/wasm-renderer";
+} from "../_helpers/wasm-renderer.js";
 
 const siteFiles = {
 	"config.json": JSON.stringify({
@@ -57,7 +53,6 @@ beforeAll(async () => {
 
 afterAll(restoreRendererStdout);
 
-/** Row content out of a probe render's html, keyed by the data-k div. */
 function row(html: string | undefined, key: string): string {
 	const match = html?.match(new RegExp(`data-k="${key}">([\\s\\S]*?)</div>`));
 	return (match?.[1] ?? "").trim();

@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+npm run build || exit 1
+
 cd test/integrations/
 ls | while read dir; do
     echo $dir

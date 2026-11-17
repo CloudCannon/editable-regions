@@ -1,18 +1,16 @@
-/**
- * Hugo 0.146 renamed the template dirs (partials/ → _partials/, shortcodes/ →
- * _shortcodes/, _default/_markup/ → _markup/) and still reads both. The
- * fixture puts one template of each kind in each style: both are snapshotted,
- * and both resolve in the editor's renderer.
- */
+/** Hugo 0.146 renamed the template dirs but still reads both; the fixture has one of each kind. */
 
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { loadHugoBundle, restoreRendererStdout } from "../_helpers/hugo-bundle";
-import type { MockFile } from "../_mocks/cloudcannon";
+import {
+	loadHugoBundle,
+	restoreRendererStdout,
+} from "../_helpers/hugo-bundle.js";
+import type { MockFile } from "../_mocks/cloudcannon.js";
 import {
 	makeMockCollection,
 	setMockCollectionsList,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
 const home: MockFile = {
 	path: "/content/_index.md",
@@ -23,16 +21,13 @@ const home: MockFile = {
 
 setMockCollectionsList([makeMockCollection("content", [home])]);
 
-// Built fixture bundle — run `npm run test:build-hugo-fixture` first.
 beforeAll(loadHugoBundle);
 afterAll(restoreRendererStdout);
 
-/** The snapshot's template files, as shipped on cc_hugo_files. */
 function snapshotFiles(): Record<string, string> {
 	return (window as any).cc_hugo_files ?? {};
 }
 
-/** Strip tags, keep the text. */
 function text(el: HTMLElement | null | undefined): string {
 	return (el?.innerHTML ?? "").replace(/<[^>]+>/g, "").trim();
 }

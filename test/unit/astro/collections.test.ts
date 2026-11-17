@@ -4,7 +4,7 @@ import {
 	type MockFile,
 	setMockCollections,
 	setMockFiles,
-} from "../_mocks/cloudcannon";
+} from "../_mocks/cloudcannon.js";
 
 // Built bundle — run `npm run test:build-astro-fixture` first.
 import "../_fixtures/astro/dist/_astro/live-editing.js";
@@ -91,7 +91,6 @@ test("an unknown collection yields zero entries without crashing", async () => {
 });
 
 test("a non-configured collection falls back to matching files by folder path", async () => {
-	// Non-configured collections fall back to matching files by folder path.
 	const el = await window.cc_components?.["astro-collection"]({
 		collectionName: "news",
 	});
