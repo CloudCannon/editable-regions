@@ -105,8 +105,8 @@ All options live under `params.editable_regions` in your Hugo configuration.
 | `config_paths` | `[]string` |  | Config files to bundle for the renderer. By default, Hugo's standard config files are discovered automatically. |
 | `config_dirs` | `[]string` |  | Config directories to bundle. Discovered files are merged with `config_paths`. |
 | `i18n_dirs` | `[]string` |  | Directories to walk for i18n files. Defaults to `["i18n"]`. |
-| `additional_paths` | `[]string` |  | Extra files to bundle verbatim, for data the renderer needs that isn't auto-detected. |
-| `additional_dirs` | `map[string][]string` |  | Extra directories to bundle, mapping a directory to a list of file extensions to include (walked recursively). |
+| `additional_paths` | `[]string` |  | Extra text files to bundle verbatim, for data the renderer needs that isn't auto-detected. Binary files aren't supported. |
+| `additional_dirs` | `map[string][]string` |  | Extra directories of text files to bundle, mapping a directory to a list of file extensions to include (walked recursively). Binary files aren't supported. |
 | `templates_overrides` | `map[string]string` |  | Map of template key path → source path. The contents at the source path replace what discovery captured at the key path. |
 | `wasm_url` | `string` |  | Direct URL to the renderer WASM asset. Skips release resolution entirely. |
 | `wasm_base_url` | `string` |  | Base URL for release downloads. Defaults to the GitHub releases of `CloudCannon/editable-regions`. |
@@ -126,6 +126,8 @@ The editor rebuilds your templates from the files bundled at build time. Templat
 ```
 
 Directories are walked recursively for files with the listed extensions.
+
+These files are embedded into the editor bundle as text, so only text files can be bundled. Don't use `additional_paths` or `additional_dirs` to make binary assets available in the editor; render an [`ENV_CLIENT` fallback](#visual-editor-fallbacks-with-env_client) instead.
 
 ## Overriding templates with editor-friendly versions
 
