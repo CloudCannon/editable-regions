@@ -1,7 +1,32 @@
 ---
 import Image from "./image.astro";
+
+const {
+	formats,
+	fallbackFormat,
+	widths,
+	densities,
+	pictureAttributes: pictureAttributesProp = {},
+	...imageProps
+} = Astro.props;
+
+const pictureAttributes = { ...pictureAttributesProp };
+
+const scopedStyleClass = imageProps.class?.match(/\bastro-\w{8}\b/)?.[0];
+
+if (scopedStyleClass) {
+	pictureAttributes.class = pictureAttributes.class
+		? `${pictureAttributes.class} ${scopedStyleClass}`
+		: scopedStyleClass;
+}
+
+for (const key in imageProps) {
+	if (key.startsWith("data-astro-cid")) {
+		pictureAttributes[key] = imageProps[key];
+	}
+}
 ---
 
-<picture>
-  <Image {...Astro.props} />
+<picture {...pictureAttributes}>
+  <Image {...imageProps} />
 </picture>

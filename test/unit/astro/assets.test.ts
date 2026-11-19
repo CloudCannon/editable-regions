@@ -87,6 +87,77 @@ test("Picture wraps an <img> in a <picture> element", async () => {
 	expect(img?.getAttribute("alt")).toBe("Test picture");
 });
 
+test("Picture applies pictureAttributes to the <picture> element", async () => {
+	const el = await window.cc_components?.["astro-assets-picture"]({
+		src: "/pic.png",
+		alt: "Test picture",
+		pictureAttributes: {
+			class: "pic-wrap",
+			"data-editable": "image",
+			id: "hero",
+		},
+	});
+
+	const picture = el?.querySelector(".assets-picture picture");
+	expect(picture?.getAttribute("class")).toBe("pic-wrap");
+	expect(picture?.getAttribute("data-editable")).toBe("image");
+	expect(picture?.getAttribute("id")).toBe("hero");
+});
+
+test("Picture keeps Picture-only props off the <img>", async () => {
+	const el = await window.cc_components?.["astro-assets-picture"]({
+		src: "/pic.png",
+		alt: "Test picture",
+		formats: ["avif", "webp"],
+		fallbackFormat: "jpeg",
+		widths: [100, 200],
+		pictureAttributes: { class: "pic-wrap" },
+	});
+
+	const img = el?.querySelector(".assets-picture img");
+	for (const attribute of [
+		"formats",
+		"fallbackformat",
+		"widths",
+		"densities",
+		"pictureattributes",
+	]) {
+		expect(img?.hasAttribute(attribute)).toBe(false);
+	}
+	expect(img?.getAttribute("class")).toBe("picture-img");
+	expect(img?.getAttribute("data-extra")).toBe("extra");
+	expect(img?.getAttribute("sizes")).toBe("100vw");
+});
+
+test("Picture forwards the scoped style class to the <picture> element", async () => {
+	const el = await window.cc_components?.["astro-assets-picture"]({
+		src: "/pic.png",
+		alt: "Test picture",
+		class: "picture-img astro-abcdefgh",
+		pictureAttributes: { class: "pic-wrap" },
+	});
+
+	const picture = el?.querySelector(".assets-picture picture");
+	expect(picture?.getAttribute("class")).toBe("pic-wrap astro-abcdefgh");
+
+	const img = picture?.querySelector("img");
+	expect(img?.getAttribute("class")).toBe("picture-img astro-abcdefgh");
+});
+
+test("Picture forwards scoped style attributes to the <picture> element", async () => {
+	const el = await window.cc_components?.["astro-assets-picture"]({
+		src: "/pic.png",
+		alt: "Test picture",
+		"data-astro-cid-abc12345": "true",
+	});
+
+	const picture = el?.querySelector(".assets-picture picture");
+	expect(picture?.getAttribute("data-astro-cid-abc12345")).toBe("true");
+
+	const img = picture?.querySelector("img");
+	expect(img?.getAttribute("data-astro-cid-abc12345")).toBe("true");
+});
+
 test("the rendered Picture matches the snapshot", async () => {
 	const el = await window.cc_components?.["astro-assets-picture"]({
 		src: "/snap.png",

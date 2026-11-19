@@ -6,11 +6,45 @@ interface Props {
   alt?: string;
   width?: number;
   height?: number;
+  class?: string;
+  pictureAttributes?: Record<string, any>;
+  formats?: string[];
+  fallbackFormat?: string;
+  widths?: number[];
+  densities?: (number | `${number}x`)[];
 }
 
-const { src = "/test-image.png", alt = "Test picture", width = 100, height = 100 } = Astro.props;
+const {
+  src,
+  alt = "Test picture",
+  width = 100,
+  height = 100,
+  class: className = "picture-img",
+  pictureAttributes,
+  formats,
+  fallbackFormat,
+  widths,
+  densities,
+  ...rest
+} = Astro.props;
+
+const props = {
+  src: src ?? "/test-image.png",
+  alt,
+  width,
+  height,
+  class: className,
+  "data-extra": "extra",
+  sizes: "100vw",
+  ...rest,
+  pictureAttributes,
+  formats,
+  fallbackFormat,
+  widths,
+  densities,
+};
 ---
 
 <div class="assets-picture">
-  <Picture src={src} alt={alt} width={width} height={height} />
+  <Picture {...props} />
 </div>
