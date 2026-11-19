@@ -131,7 +131,10 @@ function renderSvelte4ToStaticMarkup(
 ): RenderResult {
 	// Svelte 4 server components take slots directly as string-producing
 	// functions and render their own markup.
-	if (typeof Component.render === "function") {
+	if (
+		typeof Component.render === "function" &&
+		typeof Component.$$render === "function"
+	) {
 		const $$slots: Record<string, () => string> = {};
 		for (const [key, value] of Object.entries(slots)) {
 			$$slots[key] = () => value;
@@ -174,8 +177,11 @@ addFrameworkRenderer({
 				}
 			}
 
-			// Svelte 4 server components expose a static render function.
-			return typeof Component?.render === "function";
+			// Svelte 4 server components expose static render functions.
+			return (
+				typeof Component?.render === "function" &&
+				typeof Component?.$$render === "function"
+			);
 		},
 		renderToStaticMarkup: async (
 			Component,
