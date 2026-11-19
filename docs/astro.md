@@ -101,12 +101,20 @@ const posts = await getCollection("blog");
 
 | Export | Behaviour in the editor |
 | --- | --- |
-| `getCollection(collectionKey, filter?)` | Returns entries from the live collection. Entries carry `collection`, `id`, `data`, `slug`, and `body`. |
+| `getCollection(collectionKey, filter?)` | Returns entries from the live collection. Entry fields match your Astro version, including `collection`, `id`, `data`, `body`, and — for Astro 5 and later — `filePath`. |
 | `getEntry({ collection, slug?, id? })` or `getEntry(collection, key)` | Resolves a single entry from the live collection. |
 | `getEntries(entries)` | Resolves multiple entries; each item takes the same argument shapes as `getEntry`. |
 | `getEntryBySlug(collection, slug)` | Equivalent to `getEntry({ collection, slug })`. |
 | `render(entry)` | Renders the entry's raw markdown body. Remark transformations and headings are not available in the editor. |
 | `defineCollection()`, `reference()` | Config-only APIs, not supported inside editable components — avoid importing your content config in a component file. |
+
+Entry IDs match the collection format of the installed Astro version, including its `legacy` collection modes:
+
+- Astro 5, 6, and 7 content collections use slug-based IDs without the file extension (`nested/index.md` becomes `nested`).
+- Astro 5 legacy collections and the Astro 6/7 `legacy.collectionsBackwardsCompat` option use path-based IDs, which keep the file extension.
+- Astro 4 legacy collections are not supported by the integration.
+
+Entries also carry a `slug` for backwards compatibility.
 
 ## Images with `astro:assets`
 
