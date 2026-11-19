@@ -1,0 +1,8 @@
+---
+import SlottedInner from "./slotted-inner.svelte";
+---
+
+<SlottedInner title="Slotted load island" client:load>
+	<p class="slotted">Default load slot</p>
+	<p slot="footer" class="slotted-footer">Footer load slot</p>
+</SlottedInner>
