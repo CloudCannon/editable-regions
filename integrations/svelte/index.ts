@@ -16,7 +16,7 @@ type Mount = (
 ) => void;
 
 let mount: Mount | undefined;
-let flushSync!: () => void;
+let flushSync: (() => void) | undefined;
 try {
 	({ mount, flushSync } = await import("svelte"));
 } catch {
@@ -43,7 +43,8 @@ export const registerSvelteComponent = (
 			new LegacyComponent({ target: rootEl, props });
 		}
 
-		flushSync();
+		// Svelte 4 has no flushSync, and its legacy constructor renders synchronously.
+		flushSync?.();
 
 		return rootEl;
 	};
