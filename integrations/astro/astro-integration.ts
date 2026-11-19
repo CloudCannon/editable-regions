@@ -2,6 +2,7 @@ import "../../helpers/globals.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AstroIntegration } from "astro";
+import { getAstroCollectionsMode } from "./modules/collections-mode.js";
 
 type TransformHook = (this: any, source: any, id: any, options: any) => any;
 
@@ -28,7 +29,8 @@ export default (): AstroIntegration => {
 	return {
 		name: "editable-regions",
 		hooks: {
-			"astro:config:setup": ({ updateConfig }) => {
+			"astro:config:setup": ({ config, updateConfig }) => {
+				const collectionsMode = getAstroCollectionsMode(config.legacy);
 				updateConfig({
 					vite: {
 						plugins: [
@@ -56,6 +58,8 @@ export default (): AstroIntegration => {
 									config.environments.client ??= {};
 									config.environments.client.define ??= {};
 									config.environments.client.define.ENV_CLIENT = true;
+									config.environments.client.define.__EDITABLE_REGIONS_ASTRO_COLLECTIONS_MODE__ =
+										JSON.stringify(collectionsMode);
 								},
 								configResolved(config) {
 									const flatPlugins = config.plugins?.flat(10);

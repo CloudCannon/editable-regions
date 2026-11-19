@@ -23,22 +23,34 @@ function makeMockFile(
 }
 
 const mockFiles: MockFile[] = [
-	makeMockFile("/src/content/blog/first-post.md", {
-		title: "First Test Post",
-		description: "This is the first test post",
-		pubDate: "2024-01-15",
-	}),
-	makeMockFile("/src/content/blog/second-post.md", {
-		title: "Second Test Post",
-		description: "This is the second test post",
-		pubDate: "2024-01-20",
-		draft: false,
-	}),
-	makeMockFile("/src/content/news/latest-update.md", {
-		title: "Latest Update",
-		description: "A news item in a non-configured folder",
-		pubDate: "2024-02-01",
-	}),
+	makeMockFile(
+		"/src/content/blog/first-post.md",
+		{
+			title: "First Test Post",
+			description: "This is the first test post",
+			pubDate: "2024-01-15",
+		},
+		"First post body.\n",
+	),
+	makeMockFile(
+		"/src/content/blog/second-post.md",
+		{
+			title: "Second Test Post",
+			description: "This is the second test post",
+			pubDate: "2024-01-20",
+			draft: false,
+		},
+		"Second post body.\n",
+	),
+	makeMockFile(
+		"/src/content/news/latest-update.md",
+		{
+			title: "Latest Update",
+			description: "A news item in a non-configured folder",
+			pubDate: "2024-02-01",
+		},
+		"News body.\n",
+	),
 ];
 
 beforeAll(() => {
@@ -65,7 +77,14 @@ test("collection entries expose their frontmatter data and slug", async () => {
 	expect(first?.querySelector(".entry-title")?.textContent).toBe(
 		"First Test Post",
 	);
+	expect(first?.querySelector(".entry-id")?.textContent).toBe("first-post");
 	expect(first?.querySelector(".entry-slug")?.textContent).toBe("first-post");
+	expect(first?.querySelector(".entry-file-path")?.textContent).toBe(
+		"src/content/blog/first-post.md",
+	);
+	expect(first?.querySelector(".entry-body")?.textContent).toBe(
+		"First post body.",
+	);
 });
 
 test("the collection name prop selects which collection to load", async () => {
@@ -104,8 +123,12 @@ test("a non-configured collection falls back to matching files by folder path", 
 	expect(entry?.querySelector(".entry-title")?.textContent).toBe(
 		"Latest Update",
 	);
+	expect(entry?.querySelector(".entry-id")?.textContent).toBe("latest-update");
 	expect(entry?.querySelector(".entry-slug")?.textContent).toBe(
 		"latest-update",
+	);
+	expect(entry?.querySelector(".entry-file-path")?.textContent).toBe(
+		"src/content/news/latest-update.md",
 	);
 });
 

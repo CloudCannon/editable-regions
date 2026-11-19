@@ -16,7 +16,10 @@ const entries = await getCollection(collectionName);
     {entries.map((entry) => (
       <li class="collection-entry">
         <span class="entry-title">{entry.data.title}</span>
+        <span class="entry-id">{entry.id}</span>
         <span class="entry-slug">{entry.slug}</span>
+        <span class="entry-file-path">{entry.filePath ?? ""}</span>
+        <span class="entry-body">{entry.body ?? ""}</span>
       </li>
     ))}
   </ul>
