@@ -22,6 +22,7 @@ Editable Regions let you mark up any HTML output with attributes (or web compone
 - [How editable regions work](#how-editable-regions-work)
   - [Defining editable regions](#defining-editable-regions)
   - [Passing values to editable regions](#passing-values-to-editable-regions)
+  - [Ignoring existing markup](#ignoring-existing-markup)
 - [Value regions](#value-regions)
   - [Text](#text)
   - [Image](#image)
@@ -265,12 +266,14 @@ regions inside it connect only after the app has finished hydrating:
 ```jsx
 // app/layout.js
 import { EditableRegions } from "@cloudcannon/editable-regions/react";
+import CloudCannon from "./components/CloudCannon.js";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
         <EditableRegions tag="main">{children}</EditableRegions>
+        <CloudCannon />
       </body>
     </html>
   );
@@ -290,26 +293,36 @@ export default function Page() {
 }
 ```
 
-Register your components from a client component, gated on `window.inEditorMode` so the code
-stays out of production bundles:
+Load a registration module from a client component, gated on `window.inEditorMode` so the
+registration code and every component it imports stay out of production bundles:
 
 ```jsx
 // app/components/CloudCannon.js
 "use client";
 
 import { useEffect } from "react";
-import { registerReactComponent } from "@cloudcannon/editable-regions/react";
-import CTA from "./CTA.jsx";
 
 export default function CloudCannon() {
   useEffect(() => {
-    if (window.inEditorMode) {
-      registerReactComponent("cta", CTA);
+    if (!window.inEditorMode) {
+      return;
     }
+
+    import("../cloudcannon/register-components.js").catch((error) => {
+      console.warn("Failed to load CloudCannon component registration:", error);
+    });
   }, []);
 
   return null;
 }
+```
+
+```jsx
+// app/cloudcannon/register-components.js
+import { registerReactComponent } from "@cloudcannon/editable-regions/react";
+import CTA from "../components/CTA.jsx";
+
+registerReactComponent("cta", CTA);
 ```
 
 For a fully static site, export the pages as plain HTML — the build writes the static site to
@@ -333,24 +346,35 @@ layout. Editable regions inside it connect only after the app has finished hydra
 <!-- src/routes/+layout.svelte -->
 <script>
   import { onMount } from "svelte";
-  import {
-    EditableRegions,
-    registerSvelteComponent,
-  } from "@cloudcannon/editable-regions/svelte";
-  import CTA from "$lib/components/CTA.svelte";
+  import { EditableRegions } from "@cloudcannon/editable-regions/svelte";
 
   let { children } = $props();
 
   onMount(() => {
-    if (window.inEditorMode) {
-      registerSvelteComponent("cta", CTA);
+    if (!window.inEditorMode) {
+      return;
     }
+
+    import("$lib/cloudcannon/register-components.js").catch((error) => {
+      console.warn("Failed to load CloudCannon component registration:", error);
+    });
   });
 </script>
 
 <EditableRegions tag="main">
   {@render children()}
 </EditableRegions>
+```
+
+The registration module is only imported inside the Visual Editor, so it and the components it
+imports stay out of production bundles:
+
+```js
+// src/lib/cloudcannon/register-components.js
+import { registerSvelteComponent } from "@cloudcannon/editable-regions/svelte";
+import CTA from "$lib/components/CTA.svelte";
+
+registerSvelteComponent("cta", CTA);
 ```
 
 Then mark up your templates:
@@ -425,19 +449,28 @@ Then mark up your templates:
 </template>
 ```
 
-Register your components from a client plugin, gated on `window.inEditorMode` so the code stays
-out of production bundles:
+Load a registration module from a client plugin, gated on `window.inEditorMode` so the
+registration code and every component it imports stay out of production bundles:
 
 ```ts
 // app/plugins/cloudcannon.client.ts
+export default defineNuxtPlugin(() => {
+  if (!window.inEditorMode) {
+    return;
+  }
+
+  import("../cloudcannon/register-components").catch((error) => {
+    console.warn("Failed to load CloudCannon component registration:", error);
+  });
+});
+```
+
+```ts
+// app/cloudcannon/register-components.ts
 import { registerVueComponent } from "@cloudcannon/editable-regions/vue";
 import CTA from "../components/CTA.vue";
 
-export default defineNuxtPlugin(() => {
-  if (window.inEditorMode) {
-    registerVueComponent("cta", CTA);
-  }
-});
+registerVueComponent("cta", CTA);
 ```
 
 For a fully static site, configure Nitro to prerender the site by crawling from the index page,
@@ -503,6 +536,28 @@ Regions can also receive multiple named values with `data-prop-*` attributes. Th
 ```
 
 Here the image region receives two values: `src` selected from `heroImage`, and `alt` selected from `heroImageAlt`. The names and types of values each region expects are listed in its Options section below.
+
+### Ignoring existing markup
+
+`data-cloudcannon-ignore` tells the editor to skip an element it would otherwise treat as an editable region. It is there for markup that already uses `data-editable` for something else and would otherwise be hydrated:
+
+```html
+<div data-editable="my-tab-widget" data-cloudcannon-ignore>
+  …
+</div>
+```
+
+Without the attribute, the editor would try to hydrate this element and show an "invalid editable type" error card. The attribute applies to the element it's on only, not its subtree — editable descendants of an ignored element still hydrate normally.
+
+It also stops a `<template>` that is a direct child of an [array region](#arrays-and-array-items) from being used as the template for new items:
+
+```html
+<ul data-editable="array" data-prop="features">
+  <template data-cloudcannon-ignore>
+    …
+  </template>
+</ul>
+```
 
 ## Value regions
 
@@ -618,7 +673,7 @@ A component region binds a piece of markup to a **registered** component that th
 
 | Option | Type | Required | Description |
 | --- | --- | --- | --- |
-| `data-component` | String | Yes | The key the component was registered under (in Hugo, the partial path with extension, e.g. `card.html`). |
+| `data-component` | String | Yes | The key the component was registered under. |
 | `data-prop` | Selector<Object> | No | The data passed to the component as props. |
 
 Inside the component's own file, add more editable regions for its text, images, and nested arrays. When a user edits the component's data in the Visual Editor, the registered renderer re-renders the component and the result is updated in place.
@@ -828,28 +883,32 @@ Notes:
 
 ## Literal props
 
-For values that don't live in any file at all, `data-literal-prop-*` attributes pass literal values to a region. The attribute suffix is the name the value is passed under (see [passing values to editable regions](#passing-values-to-editable-regions)):
+For values that don't live in any file at all, `data-literal-*` attributes pass literal values to a region. The attribute suffix is the name the value is passed under (see [passing values to editable regions](#passing-values-to-editable-regions)):
 
 ```html
 <editable-component
   data-component="author-card"
-  data-literal-prop-name="C. Kent"
-  data-literal-prop-role="Support engineer"
+  data-prop="author"
+  data-literal-name="C. Kent"
+  data-literal-role="Support engineer"
 />
 ```
 
-Here the `author-card` component receives `{ name: "C. Kent", role: "Support engineer" }`.
+Here the `author-card` component receives the value selected by `data-prop="author"` with `{ name: "C. Kent", role: "Support engineer" }` merged into it. For example, if `author` is `{ email: "ckent@dailyplanet.example" }`, the component receives `{ email: "ckent@dailyplanet.example", name: "C. Kent", role: "Support engineer" }`.
+
+Literal props don't replace the region's value; they are added to it. Give the region a `data-prop` (or nest it under an editable ancestor that supplies a value) as the base to merge into.
 
 Values that parse as JSON are passed as structured values:
 
 ```html
 <editable-component
   data-component="author-card"
-  data-literal-prop-social='{"twitter": "@cloudcannon"}'
+  data-prop="author"
+  data-literal-social='{"twitter": "@cloudcannon"}'
 />
 ```
 
-Here the component receives `{ social: { twitter: "@cloudcannon" } }`. Values that don't parse as JSON are passed as plain strings.
+Here the component receives the `author` value with `social` set to `{ twitter: "@cloudcannon" }`. Values that don't parse as JSON are passed as plain strings.
 
 ## Source regions
 
