@@ -8,10 +8,10 @@
 		"build": "astro build"
 	},
 	"dependencies": {
-		"@astrojs/svelte": "5.7.3",
+		"@astrojs/svelte": "9.1.2",
 		"@cloudcannon/editable-regions": "file:../../../..",
-		"astro": "4.16.19",
-		"svelte": "4.2.20"
+		"astro": "7.4.13",
+		"svelte": "5.58.0"
 	},
 	"devDependencies": {
 		"typescript": "^5.9.3"
