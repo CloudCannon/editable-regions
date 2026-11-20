@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/base.astro";
+import Idle from "../components/idle.astro";
+import Load from "../components/load.astro";
+import Media from "../components/media.astro";
+import SlottedLoad from "../components/slotted-load.astro";
+import Slotted from "../components/slotted.astro";
+import Static from "../components/static.astro";
+import Visible from "../components/visible.astro";
+---
+
+<Base title="Astro 4 + Svelte 4 fixture">
+	<main>
+		<editable-component data-component="svelte4-static" data-prop="x">
+			<Static />
+		</editable-component>
+		<editable-component data-component="svelte4-slotted" data-prop="x">
+			<Slotted />
+		</editable-component>
+		<editable-component data-component="svelte4-load" data-prop="x">
+			<Load />
+		</editable-component>
+		<editable-component data-component="svelte4-idle" data-prop="x">
+			<Idle />
+		</editable-component>
+		<editable-component data-component="svelte4-visible" data-prop="x">
+			<Visible />
+		</editable-component>
+		<editable-component data-component="svelte4-media" data-prop="x">
+			<Media />
+		</editable-component>
+		<editable-component data-component="svelte4-slotted-load" data-prop="x">
+			<SlottedLoad />
+		</editable-component>
+	</main>
+</Base>

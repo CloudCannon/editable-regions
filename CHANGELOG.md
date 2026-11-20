@@ -5,6 +5,8 @@
 - Fixed an issue where Astro collection entries loaded in the visual editor kept the file extension on `id` and did not match the IDs Astro produces for content collections. Entry IDs now match Astro 5, 6, and 7 content collections, as well as their legacy collection modes.
 - Fixed a `getEntry` lookup by ID when an entry also has a slug
 - Fixed an issue where Astro `Picture` components in the visual editor dropped `pictureAttributes` and rendered Picture-only props, such as `formats` and `widths`, as `<img>` attributes
+- Fixed an issue where Svelte 4 components failed to render in the visual editor because `flushSync` is not available
+- Added support for forwarding slot content to Svelte 4 components in Astro components
 
 ## 0.0.22
 

@@ -4,4 +4,6 @@
  * checkout (CI runs it before the fixture builds) has no file to resolve.
  */
 declare module "*_fixtures/astro/dist/_astro/live-editing.js";
+declare module "*_fixtures/astro-svelte4/dist/_astro/live-editing.js";
+declare module "*_fixtures/svelte4/dist/live-editing.js";
 declare module "*register-components.js";
