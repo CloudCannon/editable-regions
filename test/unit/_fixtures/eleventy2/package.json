@@ -1,0 +1,14 @@
+{
+	"name": "eleventy2-unit-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Eleventy 2 fixture exercising the plugin's directory normalization.",
+	"scripts": {
+		"build": "eleventy"
+	},
+	"dependencies": {
+		"@11ty/eleventy": "2.0.1",
+		"@cloudcannon/editable-regions": "file:../../../.."
+	}
+}

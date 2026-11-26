@@ -1,23 +1,17 @@
-<script lang="ts">
+<script>
 	import { onDestroy, onMount } from "svelte";
-	import type { EditableRegionsGlobal } from "../../helpers/globals.js";
 
-	export let tag: string = "div";
+	export let tag = "div";
 
-	type EditableInstance = {
-		connect: () => void;
-		disconnect: () => void;
-	};
-
-	let editable: EditableInstance | null = null;
-	let element: HTMLElement | undefined;
-	let pendingLoadHandler: (() => void) | null = null;
+	let editable = null;
+	let element;
+	let pendingLoadHandler = null;
 
 	// `data-prop` and `data-literal` are controlled here; user-supplied ones are dropped.
 	$: restProps = filterProps($$restProps);
 
-	function filterProps(props: Record<string, any>): Record<string, any> {
-		const filtered: Record<string, any> = {};
+	function filterProps(props) {
+		const filtered = {};
 		for (const [name, value] of Object.entries(props)) {
 			if (/^data-(prop|literal)/i.test(name)) {
 				continue;
@@ -29,7 +23,7 @@
 	}
 
 	onMount(() => {
-		const connectEditable = (regions: EditableRegionsGlobal | undefined) => {
+		const connectEditable = (regions) => {
 			if (!regions || editable || !element) {
 				return;
 			}

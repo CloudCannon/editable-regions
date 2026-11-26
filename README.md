@@ -200,7 +200,7 @@ The module automatically registers your Hugo partials as components.
 
 ### React
 
-For a standalone React SPA, register your components from your client entry point:
+Requires React 18 or newer. For a standalone React SPA, register your components from your client entry point:
 
 ```js
 // src/index.js
@@ -240,7 +240,7 @@ Then mark up your templates:
 
 ### Vue
 
-For a standalone Vue SPA, register your components from your client entry point:
+Requires Vue 2.7 or newer. For a standalone Vue SPA, register your components from your client entry point:
 
 ```js
 // src/index.js
@@ -338,6 +338,8 @@ export default nextConfig;
 ```
 
 ### SvelteKit
+
+Requires Svelte 3.47 or newer, the integration ships as plain JavaScript, so no TypeScript preprocessor is needed.
 
 In a SvelteKit app, wrap the routed page in the `EditableRegions` root component in the root
 layout. Editable regions inside it connect only after the app has finished hydrating:

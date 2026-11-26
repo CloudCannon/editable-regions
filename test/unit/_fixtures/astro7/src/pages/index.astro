@@ -1,0 +1,18 @@
+---
+const title = "Astro 7 fixture";
+---
+
+<html lang="en">
+	<head>
+		<title>{title}</title>
+	</head>
+	<body>
+		<editable-component data-component="astro7-greeting" data-prop="x">
+		</editable-component>
+		<script>
+			if (window.inEditorMode) {
+				import("../scripts/live-editing.js").catch(console.warn);
+			}
+		</script>
+	</body>
+</html>

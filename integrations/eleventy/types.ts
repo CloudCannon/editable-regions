@@ -58,13 +58,17 @@ export type EleventyEventName =
 	| "eleventy.before"
 	| "eleventy.after"
 	| "eleventy.beforeWatch"
-	| "eleventy.beforeConfig";
+	| "eleventy.beforeConfig"
+	| "eleventy.directories";
 
 export interface EleventyConfig {
 	addLiquidTag: (name: string, factory: LiquidTagFactory) => void;
-	on: (
+	on(
+		event: "eleventy.directories",
+		handler: (directories: EleventyDirectories) => void,
+	): void;
+	on(
 		event: EleventyEventName,
 		handler: (payload: EleventyEventPayload) => Promise<void> | void,
-	) => void;
-	dir: EleventyDirectories;
+	): void;
 }

@@ -1,0 +1,13 @@
+{
+	"name": "eleventy1-unit-fixture",
+	"private": true,
+	"version": "0.0.1",
+	"description": "Eleventy 1.x fixture exercising the pre-2.0 directory and build-result paths.",
+	"scripts": {
+		"build": "eleventy"
+	},
+	"dependencies": {
+		"@11ty/eleventy": "1.0.0",
+		"@cloudcannon/editable-regions": "file:../../../.."
+	}
+}

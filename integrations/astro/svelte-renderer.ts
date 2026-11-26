@@ -1,39 +1,32 @@
 import "../../helpers/globals.js";
 import type { Snippet } from "svelte";
+import * as svelte from "svelte";
 import { addFrameworkRenderer, queueForClientSideRender } from "./index.js";
 
 type Svelte5Runtime = {
-	mount: typeof import("svelte")["mount"];
-	flushSync: typeof import("svelte")["flushSync"];
-	createRawSnippet: typeof import("svelte")["createRawSnippet"];
+	mount: (
+		component: any,
+		options: { target: HTMLElement; props: Record<string, any> },
+	) => unknown;
+	flushSync: () => void;
+	createRawSnippet: (fn: () => { render: () => string }) => Snippet;
 };
 
 type RenderResult = { html: string };
 type Slots = Record<string, string>;
 
-async function loadSvelte5Runtime(): Promise<Svelte5Runtime | undefined> {
-	try {
-		const svelte = await import("svelte");
-		if (
-			typeof svelte.mount !== "function" ||
-			typeof svelte.flushSync !== "function" ||
-			typeof svelte.createRawSnippet !== "function"
-		) {
-			return undefined;
-		}
-
-		return {
-			mount: svelte.mount,
-			flushSync: svelte.flushSync,
-			createRawSnippet: svelte.createRawSnippet,
-		};
-	} catch {
-		// Svelte 4 — no mount export
-		return undefined;
-	}
-}
-
-const svelte5 = await loadSvelte5Runtime();
+// Svelte 3/4 don't export the Svelte 5 runtime APIs.
+const svelteRuntime = svelte as unknown as Partial<Svelte5Runtime>;
+const svelte5: Svelte5Runtime | undefined =
+	typeof svelteRuntime.mount === "function" &&
+	typeof svelteRuntime.flushSync === "function" &&
+	typeof svelteRuntime.createRawSnippet === "function"
+		? {
+				mount: svelteRuntime.mount,
+				flushSync: svelteRuntime.flushSync,
+				createRawSnippet: svelteRuntime.createRawSnippet,
+			}
+		: undefined;
 
 /**
  * Svelte 4 has no public API for constructing a slot from an HTML string.

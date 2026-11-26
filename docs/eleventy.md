@@ -1,6 +1,6 @@
 # Eleventy integration
 
-The Eleventy integration is an Eleventy plugin. On every build it walks your templates for components, bundles a client-side Liquid engine with your filters, shortcodes, tags, and include templates, and emits a registration script into your output directory. When a page loads in CloudCannon, that script registers your includes as editable components.
+The Eleventy integration is an Eleventy plugin. On every build it walks your templates for components, bundles a client-side Liquid engine with your filters, shortcodes, tags, and include templates, and emits a registration script into your output directory. When a page loads in CloudCannon, that script registers your includes as editable components. Requires Eleventy 1 or newer.
 
 ## Table of contents
 

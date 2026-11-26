@@ -1,0 +1,14 @@
+{
+	"name": "astro7-unit-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Astro 7 fixture for the client-side Astro transform regression.",
+	"scripts": {
+		"build": "astro build"
+	},
+	"dependencies": {
+		"@cloudcannon/editable-regions": "file:../../../..",
+		"astro": "7.4.13"
+	}
+}
