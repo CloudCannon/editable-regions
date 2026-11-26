@@ -41,10 +41,23 @@ export default function editableRegionsPlugin(
 
 	eleventyConfig.addLiquidTag("includeWith", createIncludeWithTag);
 
+	// Emitted on every supported Eleventy version with normalized,
+	// project-relative directories. Eleventy 3 repeats the same object on
+	// `eleventy.after`; 1.x and 2.x do not.
+	let eventDirectories: EleventyDirectories | undefined;
+	eleventyConfig.on("eleventy.directories", (directories) => {
+		eventDirectories = directories;
+	});
+
 	eleventyConfig.on(
 		"eleventy.after",
-		async ({ directories, dir, results }: EleventyEventPayload) => {
-			const dirs = directories ?? dir ?? eleventyConfig.dir;
+		async ({ directories, results }: EleventyEventPayload) => {
+			const dirs = eventDirectories ?? directories;
+			if (!dirs) {
+				throw new Error(
+					"[editable-regions] Could not determine Eleventy's directories. Eleventy did not emit the `eleventy.directories` event.",
+				);
+			}
 
 			const rawExtensions = liquidOptions.extensions ?? [".liquid", ".html"];
 			const normalizedExtensions = rawExtensions.map((ext) =>
