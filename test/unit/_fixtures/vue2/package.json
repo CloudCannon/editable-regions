@@ -1,0 +1,20 @@
+{
+	"name": "vue2-unit-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Vue 2.7 fixture for the universal Vue integration.",
+	"scripts": {
+		"build": "tsc --noEmit && vite build",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@cloudcannon/editable-regions": "file:../../../..",
+		"vue": "2.7.16"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-vue2": "2.3.4",
+		"typescript": "^5.9.3",
+		"vite": "5.4.21"
+	}
+}

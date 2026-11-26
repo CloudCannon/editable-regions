@@ -1,8 +1,9 @@
 import "../helpers/globals.js";
 import type { Component, DefineComponent, HTMLAttributes } from "vue";
+import * as Vue from "vue";
 import {
-	createApp,
 	defineComponent,
+	getCurrentInstance,
 	h,
 	onMounted,
 	onUnmounted,
@@ -52,11 +53,49 @@ declare global {
 	}
 }
 
+export type EditableRegionsProps = Omit<HTMLAttributes, "data-prop"> & {
+	tag?: string;
+};
+
+type Vue2Constructor = new (options: {
+	render: () => unknown;
+}) => { $mount: (el?: Element) => unknown; $el: HTMLElement };
+
+// Vue 3 exposes createApp; Vue 2.7 does not. Import the namespace rather than
+// `createApp` so the same entry resolves against Vue 2.7's ESM build.
+const vueRuntime = Vue as unknown as {
+	createApp?: (options: { render: () => unknown }) => {
+		mount: (el: Element) => unknown;
+	};
+	default?: Vue2Constructor;
+};
+const createApp = vueRuntime.createApp;
+const Vue2 = vueRuntime.default;
+const isVue2 = typeof createApp !== "function";
+
 export const registerVueComponent = (key: string, component: unknown): void => {
 	const wrappedComponent = (props: any): HTMLElement => {
 		const rootEl = document.createElement("div");
-		const app = createApp({ render: () => h(component as Component, props) });
-		app.mount(rootEl);
+
+		if (createApp) {
+			const app = createApp({ render: () => h(component as Component, props) });
+			app.mount(rootEl);
+			return rootEl;
+		}
+
+		if (!Vue2) {
+			throw new Error(
+				"@cloudcannon/editable-regions/vue could not find a Vue 2 constructor. Is vue installed?",
+			);
+		}
+
+		// Vue 2 mounts by replacing the target element, so mount detached and
+		// move the rendered root into the same container shape Vue 3 returns.
+		const vm = new Vue2({
+			render: () => h(component as Component, { props }),
+		});
+		vm.$mount();
+		rootEl.appendChild(vm.$el);
 
 		return rootEl;
 	};
@@ -65,9 +104,7 @@ export const registerVueComponent = (key: string, component: unknown): void => {
 };
 
 // Waits for framework hydration before connecting, so regions aren't mutated mid-hydration.
-export const EditableRegions: DefineComponent<
-	Omit<HTMLAttributes, "data-prop"> & { tag?: string }
-> = defineComponent({
+const EditableRegionsComponent = defineComponent({
 	name: "EditableRegions",
 	props: {
 		tag: {
@@ -127,6 +164,27 @@ export const EditableRegions: DefineComponent<
 				forwarded[name] = value;
 			}
 
+			if (isVue2) {
+				// Vue 2 keeps attrs and listeners in separate render-data keys.
+				// class/style and `.native` listeners are inherited by the root
+				// automatically, so only forward attrs and custom listeners.
+				const instance = (getCurrentInstance() as any)?.proxy;
+
+				return h(
+					props.tag ?? "div",
+					{
+						on: instance?.$listeners ?? {},
+						attrs: {
+							...forwarded,
+							"data-editable": "_dynamic",
+							"data-prop": "",
+						},
+						ref: element,
+					},
+					slots.default?.(),
+				);
+			}
+
 			return h(
 				props.tag ?? "div",
 				{
@@ -140,3 +198,6 @@ export const EditableRegions: DefineComponent<
 		};
 	},
 });
+
+export const EditableRegions =
+	EditableRegionsComponent as unknown as DefineComponent<EditableRegionsProps>;
