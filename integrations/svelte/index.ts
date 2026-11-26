@@ -1,32 +1,35 @@
 import "../../helpers/globals.js";
-import type { Component } from "svelte";
+import * as svelte from "svelte";
 import { addEditableComponentRenderer } from "../../helpers/cloudcannon.js";
 import EditableRegionsComponent from "./EditableRegions.svelte";
 
 /** Extra props are forwarded to `tag`. */
 export type EditableRegionsProps = { tag?: string } & Record<string, any>;
 
-// Typed explicitly so the emitted declaration is concrete rather than `any`.
-export const EditableRegions: Component<EditableRegionsProps> =
-	EditableRegionsComponent;
+export const EditableRegions =
+	EditableRegionsComponent as unknown as svelte.SvelteComponentTyped<EditableRegionsProps>;
 
 type Mount = (
 	component: any,
 	args: { target: HTMLElement; props: Record<string, any> },
 ) => void;
 
-let mount: Mount | undefined;
-let flushSync: (() => void) | undefined;
-try {
-	({ mount, flushSync } = await import("svelte"));
-} catch {
-	// Svelte 4 — no mount export
-}
-
 export const registerSvelteComponent = (
 	key: string,
 	component: unknown,
 ): void => {
+	// Svelte 5 exposes mount/flushSync; Svelte 3/4 do not.
+	const svelteRuntime = svelte as unknown as {
+		mount?: Mount;
+		flushSync?: () => void;
+	};
+	const mount =
+		typeof svelteRuntime.mount === "function" ? svelteRuntime.mount : undefined;
+	const flushSync =
+		typeof svelteRuntime.flushSync === "function"
+			? svelteRuntime.flushSync
+			: undefined;
+
 	const wrappedComponent = (props: Record<string, any>) => {
 		const rootEl = document.createElement("div");
 
