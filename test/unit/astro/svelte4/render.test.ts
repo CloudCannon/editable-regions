@@ -69,3 +69,8 @@ test("a real Svelte 4 client component hydrates with slots", async () => {
 	);
 	expect(el?.querySelector("astro-island")).toBeFalsy();
 });
+
+test("defines ENV_CLIENT and the Astro 4 collections mode", () => {
+	expect((window as any).__envClient).toBe(true);
+	expect((window as any).__collectionsMode).toBe("legacy");
+});

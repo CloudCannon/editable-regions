@@ -53,3 +53,13 @@ registerAstroComponent("astro-react-slotted", ReactSlotted);
 registerAstroComponent("astro-svelte-static", SvelteStatic);
 registerAstroComponent("astro-svelte-counter", SvelteCounter);
 registerAstroComponent("astro-svelte-slotted", SvelteSlotted);
+
+declare const ENV_CLIENT: boolean;
+declare const __EDITABLE_REGIONS_ASTRO_COLLECTIONS_MODE__: string;
+
+(globalThis as any).__envClient =
+	typeof ENV_CLIENT === "undefined" ? "undefined" : ENV_CLIENT;
+(globalThis as any).__collectionsMode =
+	typeof __EDITABLE_REGIONS_ASTRO_COLLECTIONS_MODE__ === "undefined"
+		? "undefined"
+		: __EDITABLE_REGIONS_ASTRO_COLLECTIONS_MODE__;

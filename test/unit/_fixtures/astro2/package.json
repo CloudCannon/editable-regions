@@ -1,0 +1,14 @@
+{
+	"name": "astro2-unit-fixture",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Astro 2.0 fixture for the legacy Astro integration path.",
+	"scripts": {
+		"build": "astro build"
+	},
+	"dependencies": {
+		"@cloudcannon/editable-regions": "file:../../../..",
+		"astro": "2.0.0"
+	}
+}

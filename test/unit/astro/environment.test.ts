@@ -50,3 +50,8 @@ test("secret env var names and values are not leaked in the live-editing bundle"
 	// Guard against the value leaking if a real secret is set at build time.
 	expect(bundleSource).not.toContain("testSecret");
 });
+
+test("defines ENV_CLIENT and the content-layer collections mode", () => {
+	expect((window as any).__envClient).toBe(true);
+	expect((window as any).__collectionsMode).toBe("content-layer");
+});

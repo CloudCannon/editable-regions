@@ -26,3 +26,4 @@ test/unit/_fixtures/hugo-templates-overrides/public
 test/unit/_fixtures/hugo-templates-overrides/resources
 .hugo_build.lock
 test/unit/_fixtures/astro-svelte4/src/env.d.ts
+test/unit/_fixtures/astro2/src/env.d.ts

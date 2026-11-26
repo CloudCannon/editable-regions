@@ -1,6 +1,6 @@
 # Astro integration
 
-The Astro integration lets you live edit Astro components, including components that nest React, Svelte, or Vue components.
+The Astro integration lets you live edit Astro components, including components that nest React, Svelte, or Vue components. Requires Astro 2 or newer.
 
 ## Table of contents
 
@@ -111,8 +111,7 @@ const posts = await getCollection("blog");
 Entry IDs match the collection format of the installed Astro version, including its `legacy` collection modes:
 
 - Astro 5, 6, and 7 content collections use slug-based IDs without the file extension (`nested/index.md` becomes `nested`).
-- Astro 5 legacy collections and the Astro 6/7 `legacy.collectionsBackwardsCompat` option use path-based IDs, which keep the file extension.
-- Astro 4 legacy collections are not supported by the integration.
+- Astro 2–4 collections, Astro 5 legacy collections, and the Astro 6/7 `legacy.collectionsBackwardsCompat` option use path-based IDs, which keep the file extension.
 
 Entries also carry a `slug` for backwards compatibility.
 

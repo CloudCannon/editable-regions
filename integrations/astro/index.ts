@@ -1,11 +1,37 @@
 import "../../helpers/globals.js";
-import {
-	renderSlotToString,
-	renderToString,
-} from "astro/runtime/server/index.js";
+import * as astroServer from "astro/runtime/server/index.js";
+import { renderToString } from "astro/runtime/server/index.js";
 import { addEditableComponentRenderer } from "../../helpers/cloudcannon.js";
 
 type ClientSideRenderFunction = (node: Element) => void;
+
+type AstroServerRuntime = {
+	renderSlotToString?: (result: any, slotted: any, fallback?: any) => any;
+	renderSlot?: (result: any, slotted: any, fallback?: any) => any;
+};
+
+const astroRuntime = astroServer as unknown as AstroServerRuntime;
+
+/**
+ * Astro 2.3 added `renderSlotToString`. Earlier Astro 2 releases only expose
+ * `renderSlot`, which returns an HTMLString/String-like value.
+ */
+async function renderSlot(
+	result: any,
+	slotted: any,
+	fallback?: any,
+): Promise<any> {
+	const renderSlotToString = astroRuntime.renderSlotToString;
+	if (typeof renderSlotToString === "function") {
+		return renderSlotToString(result, slotted, fallback);
+	}
+
+	const renderSlotFallback = astroRuntime.renderSlot;
+	if (typeof renderSlotFallback !== "function") return "";
+
+	const output = await renderSlotFallback(result, slotted, fallback);
+	return output ?? "";
+}
 
 type FrameworkRenderer = {
 	name: string;
@@ -141,7 +167,7 @@ export const registerAstroComponent = (
 						return Boolean(componentSlots[name]);
 					},
 					render: (name: string) => {
-						return renderSlotToString(SSRResult, componentSlots[name]);
+						return renderSlot(SSRResult, componentSlots[name]);
 					},
 				};
 				return {
