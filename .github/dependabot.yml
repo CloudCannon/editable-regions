@@ -17,5 +17,7 @@ updates:
         applies-to: version-updates
         update-types:
           - "major"
+    exclude-paths:
+      - "test/**"
     ignore:
       - dependency-name: "typescript"
