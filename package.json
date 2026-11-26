@@ -32,15 +32,21 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:update-snapshots": "vitest run -u",
-    "test:build-fixtures": "npm run build && npm run test:build-astro-fixture && npm run test:build-svelte4-fixture && npm run test:build-astro-svelte4-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
+    "test:build-fixtures": "npm run build && npm run test:build-astro-fixture && npm run test:build-astro7-fixture && npm run test:build-astro2-fixture && npm run test:build-svelte4-fixture && npm run test:build-svelte3-fixture && npm run test:build-astro-svelte4-fixture && npm run test:build-vue2-fixture && npm run test:build-eleventy-fixture && npm run test:build-eleventy1-fixture && npm run test:build-eleventy2-fixture && npm run test:build-eleventy-plugin-config && npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
     "test:build-hugo-custom-dirs": "npm --prefix test/unit/_fixtures/hugo-custom-dirs run build",
     "test:build-hugo-config-options": "npm --prefix test/unit/_fixtures/hugo-config-options run build",
     "test:build-hugo-templates-overrides": "npm --prefix test/unit/_fixtures/hugo-templates-overrides run build",
     "test:build-hugo-fixtures": "npm run test:build-hugo-fixture && npm run test:build-hugo-custom-dirs && npm run test:build-hugo-config-options && npm run test:build-hugo-templates-overrides",
     "test:build-astro-fixture": "npm --prefix test/unit/_fixtures/astro install --silent && npm --prefix test/unit/_fixtures/astro run build",
+    "test:build-astro7-fixture": "npm --prefix test/unit/_fixtures/astro7 install --silent && npm --prefix test/unit/_fixtures/astro7 run build",
+    "test:build-astro2-fixture": "npm --prefix test/unit/_fixtures/astro2 install --silent && npm --prefix test/unit/_fixtures/astro2 run build",
     "test:build-astro-svelte4-fixture": "npm --prefix test/unit/_fixtures/astro-svelte4 install --silent && npm --prefix test/unit/_fixtures/astro-svelte4 run build",
     "test:build-svelte4-fixture": "npm --prefix test/unit/_fixtures/svelte4 install --silent && npm --prefix test/unit/_fixtures/svelte4 run build",
+    "test:build-svelte3-fixture": "npm --prefix test/unit/_fixtures/svelte3 install --silent && npm --prefix test/unit/_fixtures/svelte3 run build",
+    "test:build-vue2-fixture": "npm --prefix test/unit/_fixtures/vue2 install --silent && npm --prefix test/unit/_fixtures/vue2 run build",
     "test:build-eleventy-fixture": "npm --prefix test/unit/_fixtures/eleventy install --silent && npm --prefix test/unit/_fixtures/eleventy run build",
+    "test:build-eleventy1-fixture": "npm --prefix test/unit/_fixtures/eleventy1 install --silent && npm --prefix test/unit/_fixtures/eleventy1 run build",
+    "test:build-eleventy2-fixture": "npm --prefix test/unit/_fixtures/eleventy2 install --silent && npm --prefix test/unit/_fixtures/eleventy2 run build",
     "test:build-eleventy-plugin-config": "npm --prefix test/unit/_fixtures/eleventy-plugin-config install --silent && npm --prefix test/unit/_fixtures/eleventy-plugin-config run build",
     "test:build-hugo-fixture": "npm --prefix test/unit/_fixtures/hugo run build",
     "test:integration": "npm run build:hugo && bash run-integration-tests.sh"
@@ -142,19 +148,23 @@
     "esbuild": "0.28.2"
   },
   "peerDependencies": {
+    "@11ty/eleventy": ">=1.0.0 <4.0.0",
     "@astrojs/react": "*",
     "@sindresorhus/slugify": "*",
-    "astro": "*",
+    "astro": ">=2.0.0 <8.0.0",
     "github-slugger": "*",
     "js-beautify": "*",
     "liquidjs": "*",
-    "react": "*",
-    "react-dom": "*",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
     "slugify": "*",
-    "svelte": "*",
-    "vue": "*"
+    "svelte": ">=3.47.0",
+    "vue": "^2.7.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
+    "@11ty/eleventy": {
+      "optional": true
+    },
     "@astrojs/react": {
       "optional": true
     },
